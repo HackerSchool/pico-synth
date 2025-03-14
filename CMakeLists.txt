@@ -19,7 +19,6 @@ add_subdirectory(lib/pico_audio_i2s_32b/src/pico_audio_32b)
 set(bin_name ${PROJECT_NAME})
 add_executable(${bin_name}
     src/main.cpp
-    # quadrature_encoder.c  # Add the encoder source file
 )
 
 # Enable USB and UART for debugging
