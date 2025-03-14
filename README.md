@@ -5,7 +5,7 @@ Pico based I2S Synthesizer
 ## 📥 1. Clone the Repository & Initialize Submodules
 
 ```sh
-git clone --recursive https://github.com/your-username/pico-synth.git
+git clone --recursive https://github.com/HackerSchool/pico-synth.git
 cd pico-synth
 ```
 
