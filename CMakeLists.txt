@@ -21,6 +21,11 @@ add_executable(${bin_name}
     src/main.cpp
 )
 
+target_sources(${bin_name} PRIVATE 
+    src/i2s_init.cpp
+    src/Wavetable.cpp
+)
+
 # Enable USB and UART for debugging
 pico_enable_stdio_usb(${bin_name} 1)
 pico_enable_stdio_uart(${bin_name} 1)
