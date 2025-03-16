@@ -4,7 +4,7 @@
 
 class Oscillator {
   public:
-    Oscillator(WaveType wave_type, float freq) {
+    Oscillator(WaveType wave_type, float freq): freq(freq) {
         // Choose the type of wavetable
         switch (wave_type) {
             case Sine:
@@ -24,13 +24,10 @@ class Oscillator {
                 break;
         }
 
-        // Set the frequency
-        this->freq = freq;
         step = WAVE_TABLE_LEN * (freq / 44100.0f);  
     }
 
-    std::array<int16_t, 1156> out() {
-        std::array<int16_t, 1156> output;
+    void out() {
         for (int i = 0; i < 1156; i++) {
             output[i] = wavetable_->at(static_cast<int>(pos));
             pos += step;
@@ -38,11 +35,15 @@ class Oscillator {
                 pos -= WAVE_TABLE_LEN;
             }
         }
+    }
+
+    std::array<int16_t, 1156>& get_output() {
         return output;
     }
 
   private:
     const std::array<int16_t, WAVE_TABLE_LEN> *wavetable_;
+    std::array<int16_t, 1156> output = {};
     float freq;
     float step; 
     float pos = 0.0f; 

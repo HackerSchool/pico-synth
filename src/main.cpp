@@ -13,6 +13,7 @@
 #include "quadrature_encoder.pio.h"
 
 #include "Oscillator.cpp"
+#include "Envelope.cpp"
 #include "Wavetable.hpp"
 #include "i2s_init.hpp"
 
@@ -41,31 +42,46 @@ int main() {
     gpio_set_dir(PIN_DCDC_PSM_CTRL, GPIO_OUT);
     gpio_put(PIN_DCDC_PSM_CTRL, 1);
 
-    Oscillator osc1 = Oscillator(Sine, 440);
+    Oscillator osc1 = Oscillator(Square, 440);
+    ADSREnvelope env1 = ADSREnvelope(2., 0.5, 0.4, 1., osc1.get_output(), 0.);
     // Initialize I2S audio output
     ap = i2s_audio_init(44100);
 
     while (true) {
+
+        
+        int c = getchar_timeout_us(0);
+        if (c >= 0) {
+            if (c == '-' && vol) vol--;
+            if ((c == '=' || c == '+') && vol < 256) vol++;
+            if (c == 's') env1.set_trigger(5.0);
+            if (c == 'p') env1.set_trigger(0.0);
+            if (c == 'q') break;
+            printf("Yo\n\r");
+        }
         if (write_flag) {
             if (buff) {
-
-                out1 = osc1.out();
+                osc1.out();
+                env1.out();
+                out1 = env1.get_output();
                 write_flag = 0;
-            } else {
-
-                out2 = osc1.out();
+            } 
+            else {
+                osc1.out();
+                env1.out();
+                out2 = env1.get_output();
                 write_flag = 0;
             }
         }
 
-        else {
-            // without this print the thing does not work,
-            // main loop runs too fast atm, no time for interrupt
-            // is what Im assuming
-            // thats a good thing at least
-            printf("Not writing anything\n");
-            // __wfe(); // Wait for event (low power waiting)
-        }
+        // else {
+        //     // without this print the thing does not work,
+        //     // main loop runs too fast atm, no time for interrupt
+        //     // is what Im assuming
+        //     // thats a good thing at least
+        //     printf("Not writing anything\n");
+        //     // __wfe(); // Wait for event (low power waiting)
+        // }
     }
 
     return 0;
