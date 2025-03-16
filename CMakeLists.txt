@@ -24,6 +24,7 @@ add_executable(${bin_name}
 target_sources(${bin_name} PRIVATE 
     src/i2s_init.cpp
     src/Wavetable.cpp
+    src/Oscillator.cpp
 )
 
 # Enable USB and UART for debugging
