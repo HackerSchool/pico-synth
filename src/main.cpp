@@ -1,3 +1,5 @@
+#include <array>
+#include <cstdint>
 #include <math.h>
 #include <stdio.h>
 
@@ -10,36 +12,19 @@
 
 #include "quadrature_encoder.pio.h"
 
-#include "i2s_init.hpp"
-#include "Wavetable.hpp"
 #include "Oscillator.cpp"
+#include "Wavetable.hpp"
+#include "i2s_init.hpp"
 
-// #define SINE_WAVE_TABLE_LEN 2048
-//
-// uint32_t step0 = 0x200000;
-// uint32_t step1 = 0x200000;
-// uint32_t pos0 = 0;
-// uint32_t pos1 = 0;
-// const uint32_t pos_max = 0x10000 * SINE_WAVE_TABLE_LEN;
 uint vol = 100;
-Oscillator osc1 = Oscillator(Sawtooth, 440);
 
+// Double output buffer
+std::array<int16_t, 1156> out1 = {};
+std::array<int16_t, 1156> out2 = {};
+bool write_flag = 0;
+bool buff = 0;
 
 int main() {
-    // int new_value, delta, old_value = 0;
-    // int last_value = -1, last_delta = -1;
-    // int tempo = 100; // Base tempo (100% speed)
-    //
-    // // Quadrature encoder setup
-    // const uint PIN_AB = 10;
-    // stdio_init_all();
-    // printf("Hello from quadrature encoder\n");
-    //
-    // PIO pio = pio0;
-    // const uint sm = 0;
-    // pio_add_program(pio, &quadrature_encoder_program);
-    // quadrature_encoder_program_init(pio, sm, PIN_AB, 0);
-
     // Set up system clock for better audio
     pll_init(pll_usb, 1, 1536 * MHZ, 4, 4);
     clock_configure(clk_usb, 0, CLOCKS_CLK_USB_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
@@ -56,28 +41,31 @@ int main() {
     gpio_set_dir(PIN_DCDC_PSM_CTRL, GPIO_OUT);
     gpio_put(PIN_DCDC_PSM_CTRL, 1);
 
+    Oscillator osc1 = Oscillator(Sine, 440);
     // Initialize I2S audio output
     ap = i2s_audio_init(44100);
 
-
     while (true) {
-        // Read encoder for tempo adjustment
-        // new_value = quadrature_encoder_get_count(pio, sm);
-        // delta = new_value - old_value;
-        // old_value = new_value;
-        //
-        // if (new_value != last_value || delta != last_delta) {
-        //     printf("position %8d, delta %6d\n", new_value, delta);
-        //     last_value = new_value;
-        //     last_delta = delta;
-        //
-        //     // Adjust tempo (speed up/down playback)
-        //     if (delta < 0 && tempo > 50) {
-        //         tempo -= 5; // Decrease tempo (slower)
-        //     } else if (delta > 0 && tempo < 200) {
-        //         tempo += 5; // Increase tempo (faster)
-        //     }
-        // }
+        if (write_flag) {
+            if (buff) {
+
+                out1 = osc1.out();
+                write_flag = 0;
+            } else {
+
+                out2 = osc1.out();
+                write_flag = 0;
+            }
+        }
+
+        else {
+            // without this print the thing does not work,
+            // main loop runs too fast atm, no time for interrupt
+            // is what Im assuming
+            // thats a good thing at least
+            printf("Not writing anything\n");
+            // __wfe(); // Wait for event (low power waiting)
+        }
     }
 
     return 0;
@@ -89,21 +77,16 @@ void decode() {
         return;
     }
     int32_t *samples = (int32_t *)buffer->buffer->bytes;
-
-    std::array<int16_t, 1156> osc_out = osc1.out();
+    std::array<int16_t, 1156>& out = (buff) ? out2 : out1;
     for (uint i = 0; i < buffer->max_sample_count; i++) {
-        int32_t value0 = (vol * osc_out[i]) << 8u;
-        int32_t value1 = (vol * osc_out[i]) << 8u;
+        int32_t value0 = (vol * out[i]) << 8u;
+        int32_t value1 = (vol * out[i]) << 8u;
         // use 32bit full scale
         samples[i * 2 + 0] = value0 + (value0 >> 16u); // L
         samples[i * 2 + 1] = value1 + (value1 >> 16u); // R
-        // pos0 += step0;
-        // pos1 += step1;
-        // if (pos0 >= pos_max)
-        //     pos0 -= pos_max;
-        // if (pos1 >= pos_max)
-        //     pos1 -= pos_max;
     }
+    buff = !buff;
+    write_flag = 1;
     buffer->sample_count = buffer->max_sample_count;
     give_audio_buffer(ap, buffer);
     return;
