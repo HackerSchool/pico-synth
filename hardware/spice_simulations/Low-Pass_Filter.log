@@ -1,21 +1,17 @@
 LTspice 24.0.12 for Windows
-Circuit: * C:\Users\mlame\Documents\MEEC\Hackerschool\PicoSynth\Low-Pass Filter.asc
-Start Time: Thu Jan 16 19:03:32 2025
+Circuit: * C:\Users\mlame\Documents\MEEC\Hackerschool\PicoSynth\pico-synth\hardware\spice_simulations\Low-Pass_Filter.asc
+Start Time: Sun Mar 16 20:54:04 2025
 solver = Alternate
 Maximum thread count: 16
 tnom = 27
 temp = 27
 method = modified trap
-WARNING: Node OUTPUT is floating.
-
-WARNING: Less than two connections to node output.  This node is used by r11.
-WARNING: Less than two connections to node nc_01.  This node is used by r:u2:0.
 Instance "m:u4:12": Length shorter than recommended for a level 1 MOSFET.
 Instance "m:u4:14": Length shorter than recommended for a level 1 MOSFET.
 Instance "m:u5:12": Length shorter than recommended for a level 1 MOSFET.
 Instance "m:u5:14": Length shorter than recommended for a level 1 MOSFET.
-Instance "m:u1:12": Length shorter than recommended for a level 1 MOSFET.
-Instance "m:u1:14": Length shorter than recommended for a level 1 MOSFET.
+Instance "m:u3:12": Length shorter than recommended for a level 1 MOSFET.
+Instance "m:u3:14": Length shorter than recommended for a level 1 MOSFET.
 Direct Newton iteration failed to find .op point.  (Use ".option noopiter" to skip.)
 Starting Gmin stepping
 Increasing initial diagonal Gmin to 100
@@ -29,22 +25,7 @@ Gmin stepping failed
 Starting source stepping with srcstepmethod=0
 Source Step = 3.0303%
 vernier = 0.25
-Source Step = 2.93561%
-Source Step = 3.40909%
-Source Step = 3.88258%
-Source Step = 4.35606%
-Source Step = 4.82955%
-vernier = 0.0234375
-Source Step = 5.3267%
-Source Step = 6.03693%
-Source Step = 6.74716%
-Source Step = 7.45739%
-Source Step = 8.16761%
-Source Step = 8.87784%
-vernier = 0.0351562
-Source Step = 9.94318%
-Source Step = 10.8221%
-vernier = 0.00219727
+Source Step = 0.0177557%
 Starting source stepping with srcstepmethod=1
 Source Step = 3.0303%
 vernier = 0.25
@@ -102,24 +83,21 @@ Source Step = 8.6666%
 vernier = 0.00156426
 Source stepping failed
 
-Pseudo Transient failed in finding the operating point at 2.75968 ms.
+Pseudo Transient failed in finding the operating point at 11.2465 µs.
 Trouble finding operating point....skipping operating point for Transient analysis.
-Changing Tseed to 9.76562e-08
-Changing Tseed to 9.76562e-10
-Changing Tseed to 9.76562e-07
-Changing Tseed to 9.76562e-11
-Changing Tseed to 9.76562e-06
-Changing Tseed to 9.76562e-12
-Changing Tseed to 9.76562e-05
-Changing Tseed to 9.76562e-13
-Changing Tseed to 0.000976562
-Changing Tseed to 9.76562e-14
-Changing Tseed to 0.00976562
-Changing Tseed to 9.76562e-15
-to 1.95312e-14
-Heightened Def Con from 0.004379 to 0.004379
-Heightened Def Con from 0.00438064 to 0.00438064
-Heightened Def Con from 0.00438754 to 0.00438754
-Heightened Def Con from 0.00438758 to 0.00438758
-Total elapsed time: 36.264 seconds.
+Changing Tseed to 1e-07
+Changing Tseed to 1e-09
+Changing Tseed to 1e-06
+Changing Tseed to 1e-10
+Changing Tseed to 1e-05
+Changing Tseed to 1e-11
+Changing Tseed to 0.0001
+Changing Tseed to 1e-12
+Changing Tseed to 0.001
+Changing Tseed to 1e-13
+Changing Tseed to 0.01
+Changing Tseed to 1e-14
+to 2e-14
+Heightened Def Con from 2.86724e-06 to 2.86924e-06
+Total elapsed time: 2.073 seconds.
 
