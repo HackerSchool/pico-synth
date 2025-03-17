@@ -5,10 +5,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 include($ENV{PICO_EXTRAS_PATH}/external/pico_extras_import.cmake)
 
+
+# Disable Werror if it's being set somewhere else
+if(CMAKE_CXX_FLAGS MATCHES "-Werror")
+    string(REPLACE "-Werror" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+endif()
+
 set(project_name "pico-synth")
 project(${project_name})
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
+
+set(FAMILY rp2040)
+set(BOARD pico_sdk)
 
 pico_sdk_init()
 
@@ -21,11 +30,32 @@ add_executable(${bin_name}
     src/main.cpp
 )
 
+# Some anoying erros I need to not show up
+target_compile_options(pico-synth PRIVATE 
+    -Wno-error=redundant-decls
+    -Wno-error=conversion
+    -Wno-error=sign-conversion
+    -Wno-error=double-promotion
+    -Wno-error=reorder
+    -Wno-error=cast-align
+    -Wno-error=missing-field-initializers
+    -Wno-error=unused-but-set-variable
+    -Wno-error=return-type
+    -Wno-error=maybe-uninitialized
+)
+
 target_sources(${bin_name} PRIVATE 
     src/i2s_init.cpp
     src/Wavetable.cpp
     src/Oscillator.cpp
     src/Envelope.cpp
+    src/usb_descriptors.c
+    src/tusb_config.h
+)
+
+# Add include directories for TinyUSB
+target_include_directories(pico-synth PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # Enable USB and UART for debugging
@@ -40,7 +70,12 @@ target_link_libraries(${bin_name} PRIVATE
     hardware_pio       # Required for quadrature encoder PIO
     hardware_irq       # Required for handling encoder interrupts
     pico_multicore     # If using Core 1 for processing
+    tinyusb_device
+    tinyusb_board
 )
+
+
+family_configure_device_example(${bin_name} noos)
 
 # Generate PIO Header for Quadrature Encoder
 pico_generate_pio_header(${bin_name} ${CMAKE_CURRENT_LIST_DIR}/pio/quadrature_encoder.pio)

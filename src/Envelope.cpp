@@ -1,27 +1,28 @@
 #include "Envelope.hpp"
 #include <array>
 #include <cstdint>
+#include <pico/types.h>
 
 class ADSREnvelope {
   public:
     ADSREnvelope(float a, float d, float s, float r,
                  std::array<int16_t, 1156> &in_signal, float trigger)
-        : a(a), d(d), s(s), r(r), in_signal(&in_signal), trigger(trigger) {
+        : in_signal(&in_signal), a(a), d(d), s(s), r(r), trigger(trigger) {
         ;
     }
 
     void out() {
 
-        float scale;
+        float scale = 0;
         // note released
-        if (trigger < 4.5 && state != ENV_RELEASE && state != ENV_IDLE) {
+        if (trigger < 4.5f && state != ENV_RELEASE && state != ENV_IDLE) {
             release_start_level =
                 current_scale; // Store current level for release
             t = 0;             // Reset time for release phase
             state = ENV_RELEASE;
         }
 
-        for (int i = 0; i < 1156; i++) {
+        for (uint i = 0; i < 1156; i++) {
             // Calculate the envelope scale based on current state
             switch (state) {
             case ENV_ATTACK:
@@ -45,7 +46,7 @@ class ADSREnvelope {
                 break;
 
             case ENV_RELEASE:
-                if (trigger > 4.5) {
+                if (trigger > 4.5f) {
                     state = ENV_ATTACK;
                     t = 0;
                 }
@@ -57,7 +58,7 @@ class ADSREnvelope {
                 break;
 
             case ENV_IDLE:
-                if (trigger > 4.5) {
+                if (trigger > 4.5f) {
                     state = ENV_ATTACK;
                     t = 0;
                 }
