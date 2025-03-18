@@ -1,7 +1,11 @@
 #include "Envelope.hpp"
 
+
+ADSREnvelope::ADSREnvelope() : a(0.5f), d(0.1f), s(0.4f), r(1.f), in_signal(nullptr), trigger(0.f), state(ENV_IDLE) {} // Default constructor
+
 ADSREnvelope::ADSREnvelope(float a, float d, float s, float r, std::array<int16_t, 1156>& in_signal, float trigger)
     : in_signal(&in_signal), a(a), d(d), s(s), r(r), trigger(trigger) {}
+
 
 void ADSREnvelope::out() {
     float scale = 0;
@@ -13,8 +17,7 @@ void ADSREnvelope::out() {
         state = ENV_RELEASE;
     }
 
-    for (uint i = 0; i < 1156; i++) {
-        switch (state) {
+    switch (state) {
         case ENV_ATTACK:
             scale = t / a;
             if (t >= a) {
@@ -54,7 +57,9 @@ void ADSREnvelope::out() {
             }
             scale = 0.0f;
             break;
-        }
+    }
+
+    for (uint i = 0; i < 1156; i++) {
 
         current_scale = scale;
         output[i] = static_cast<int16_t>((*in_signal)[i] * scale);

@@ -6,14 +6,16 @@
 #include <cstdint>
 
 class Oscillator {
-public:
+  public:
+    Oscillator();
     Oscillator(WaveType wave_type, float freq);
 
     void out();
     std::array<int16_t, 1156> &get_output();
     void set_freq(float new_freq);
 
-private:
+
+  private:
     const std::array<int16_t, WAVE_TABLE_LEN> *wavetable_;
     std::array<int16_t, 1156> output = {};
     float freq;

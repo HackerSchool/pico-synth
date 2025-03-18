@@ -42,6 +42,7 @@ target_compile_options(pico-synth PRIVATE
     -Wno-error=unused-but-set-variable
     -Wno-error=return-type
     -Wno-error=maybe-uninitialized
+    -Wno-error=unused-parameter
 )
 
 target_sources(${bin_name} PRIVATE 
@@ -49,6 +50,8 @@ target_sources(${bin_name} PRIVATE
     src/Wavetable.cpp
     src/Oscillator.cpp
     src/Envelope.cpp
+    src/Synth.cpp
+    src/MidiHandler.cpp
     src/usb_descriptors.c
     src/tusb_config.h
 )

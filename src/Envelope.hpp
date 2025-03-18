@@ -8,6 +8,7 @@
 // ADSR Envelope Class
 class ADSREnvelope {
   public:
+    ADSREnvelope(); //Default Constructor
     ADSREnvelope(float a, float d, float s, float r,
                  std::array<int16_t, 1156> &in_signal, float trigger);
 

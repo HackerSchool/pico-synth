@@ -1,7 +1,16 @@
+#ifndef MIDI_HANDLER_HPP
+#define MIDI_HANDLER_HPP
+
+// #include "Synth.hpp"
+#include "tusb.h"
+#include <cstdint>
+
+class Synth; // Forward declaration
+
 #define MIDI_MIN 0
 #define MIDI_MAX 127
 
-static const float midi_frequencies[MIDI_MAX + 1] = {
+const float midi_frequencies[MIDI_MAX + 1] = {
     8.1758f,    8.6610f,    9.1770f,   9.7227f,   10.3009f,   10.9134f,
     11.5623f,   12.2499f,   12.9783f,  13.7500f,  14.5676f,   15.4339f,
     16.3516f,   17.3239f,   18.3540f,  19.4454f,  20.6017f,   21.8268f,
@@ -25,3 +34,23 @@ static const float midi_frequencies[MIDI_MAX + 1] = {
     8372.018f,  8869.844f,  9397.273f, 9956.063f, 10548.080f, 11175.300f,
     11839.820f, 12543.850f,
 };
+
+
+// Function declaration (global access)
+float midi_to_freq(uint8_t midi_note);
+
+class MidiHandler {
+public:
+    MidiHandler(Synth& synth);
+    
+    void midi_task();
+
+
+private:
+    Synth& synth;
+    uint32_t note_pos = 0;
+
+    static const uint8_t note_sequence[64]; // Define in .cpp
+};
+
+#endif // MIDI_HANDLER_HPP

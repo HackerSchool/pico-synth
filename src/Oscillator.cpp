@@ -1,5 +1,7 @@
 #include "Oscillator.hpp"
 
+Oscillator::Oscillator() : freq(440.f), wavetable_(&sine_wave_table), step(0.f){} // Default constructor
+
 Oscillator::Oscillator(WaveType wave_type, float freq) : freq(freq) {
     // Choose the wavetable based on wave type
     switch (wave_type) {

@@ -15,11 +15,11 @@
 #include "quadrature_encoder.pio.h"
 
 #include "Envelope.hpp"
+#include "MidiHandler.hpp"
 #include "Oscillator.hpp"
-#include "Wavetable.hpp"
 #include "Synth.hpp"
+#include "Wavetable.hpp"
 #include "i2s_init.hpp"
-#include "MidiHandler.cpp"
 
 uint vol = 100;
 
@@ -29,23 +29,16 @@ std::array<int16_t, 1156> out2 = {};
 bool write_flag = 0;
 bool buff = 0;
 
-
-
-Oscillator osc1 = Oscillator(Square, 440);
-ADSREnvelope env1 = ADSREnvelope(0.5f, 0.1f, 0.4f, 1.f, osc1.get_output(), 5.f);
-
-
-
 int main() {
     // Set up system clock for better audio
     pll_init(pll_usb, 1, 1536 * MHZ, 4, 4);
     clock_configure(clk_usb, 0, CLOCKS_CLK_USB_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
                     96 * MHZ, 48 * MHZ);
     clock_configure(clk_sys, CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
-                    CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB, 96 * MHZ,
-                    96 * MHZ);
+                    CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB, 120.3* MHZ,
+                    120.3* MHZ);
     clock_configure(clk_peri, 0, CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
-                    96 * MHZ, 96 * MHZ);
+                    120.3 * MHZ, 120.3 * MHZ);
 
     stdio_init_all();
     stdio_usb_init();
@@ -61,13 +54,21 @@ int main() {
     // Initialize I2S audio output
     ap = i2s_audio_init(44100);
 
+    // Oscillator osc1 = Oscillator(Square, 440);
+    // ADSREnvelope env1 =
+    //     ADSREnvelope(0.5f, 0.1f, 0.4f, 1.f, osc1.get_output(), 5.f);
+    //
+    Synth synth = Synth();
+
+    MidiHandler midi_handler = MidiHandler(synth);
+
     while (true) {
 
         // Handle USB tasks
         tud_task();
 
         // Handle MIDI messages
-        midi_task(osc1, env1);
+        midi_handler.midi_task();
 
         int c = getchar_timeout_us(0);
         if (c >= 0) {
@@ -76,23 +77,21 @@ int main() {
             if ((c == '=' || c == '+') && vol < 256)
                 vol++;
             if (c == 's')
-                env1.set_trigger(5.0);
+                // env1.set_trigger(5.0);
             if (c == 'p')
-                env1.set_trigger(0.0);
+                // env1.set_trigger(0.0);
             if (c == 'q')
                 break;
             printf("Yo\n\r");
         }
         if (write_flag) {
             if (buff) {
-                osc1.out();
-                env1.out();
-                out1 = env1.get_output();
+                synth.out();
+                out1 = synth.get_output();
                 write_flag = 0;
             } else {
-                osc1.out();
-                env1.out();
-                out2 = env1.get_output();
+                synth.out();
+                out2 = synth.get_output();
                 write_flag = 0;
             }
         }
