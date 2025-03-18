@@ -47,4 +47,5 @@ void Oscillator::set_freq(float new_freq) {
     // Convert to fixed-point (16.16 format)
     step = static_cast<uint32_t>((WAVE_TABLE_LEN * new_freq / 44100.0f) *
                                  65536.0f);
+    pos = 0;
 }

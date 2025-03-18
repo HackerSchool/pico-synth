@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <cstdio>
 
-
 #define FRAC_BITS 24
 
 // Fixed-point multiplication
@@ -16,7 +15,7 @@ uint32_t fp_div(uint32_t a, uint32_t b) {
 }
 
 ADSREnvelope::ADSREnvelope()
-    : a(8388608), d(1677722), s(6710886), r(16777216), in_signal(nullptr),
+    : a(), d(16777216), s(6710886), r(16777216), in_signal(nullptr),
       trigger(0.f), state(ENV_IDLE) {} // Default constructor
 
 ADSREnvelope::ADSREnvelope(float a_in, float d_in, float s_in, float r_in,
@@ -44,32 +43,24 @@ void ADSREnvelope::out() {
 
     switch (state) {
     case ENV_ATTACK:
-        // printf("Env Attack\n\r");
-
-        // scale = (int32_t)(((int64_t)t << 24) / a);
         scale = fp_div(t, a);
-        // scale = t / a;
         if (t >= a) {
             state = ENV_DECAY;
             t = 0;
+            scale = FIXED_ONE; // Force exactly 1.0 at transition
         }
         break;
 
     case ENV_DECAY: {
-
-        // printf("Env Decay\n\r");
         uint32_t one_minus_s = FIXED_ONE - s;
-
-        scale = FIXED_ONE - fp_mul(one_minus_s, fp_div(d, t));
-        // scale = FIXED_ONE - ((one_minus_s * t) / d);
-        // scale = 1.0f - ((1.0f - s) * (t / d));
+        scale = FIXED_ONE - fp_mul(one_minus_s, fp_div(t, d));
         if (t >= d) {
             state = ENV_SUSTAIN;
             t = 0;
+            scale = s; // Force exactly sustain level at transition
         }
         break;
     }
-
     case ENV_SUSTAIN:
 
         // printf("Env Sustain\n\r");
@@ -109,6 +100,13 @@ void ADSREnvelope::out() {
     }
 }
 
-void ADSREnvelope::set_trigger(float trig) { trigger = trig; }
+void ADSREnvelope::set_trigger(float trig) {
+    trigger = trig;
+}
+
+
+void ADSREnvelope::set_idle() {
+    state = ENV_IDLE;
+}
 
 std::array<int16_t, 1156> &ADSREnvelope::get_output() { return output; }

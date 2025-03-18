@@ -14,6 +14,7 @@ class ADSREnvelope {
 
     void out();
     void set_trigger(float trig);
+    void set_idle();
     std::array<int16_t, 1156> &get_output();
 
     uint32_t float_to_fixed_8_24(float in);

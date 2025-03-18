@@ -7,7 +7,7 @@ Synth::Synth() {
     // init the oscillators and envelopes
     for (int i = 0; i < NUM_OSC; i++) {
         oscillators[i] = Oscillator(Triangle, 440.f);
-        envelopes[i] = ADSREnvelope(0.5f, 0.1f, 0.4f, 1.f,
+        envelopes[i] = ADSREnvelope(0.5f, 0.5f, 0.4f, 1.f,
                                     oscillators[i].get_output(), 0.f);
     }
 }
@@ -93,6 +93,7 @@ void Synth::note_on(uint8_t note, uint8_t velocity) {
                 float freq = midi_to_freq(note);
                 oscillators[i].set_freq(freq);
                 envelopes[i].set_trigger(5.f);
+                envelopes[i].set_idle();
                 // printf("New Note: note=%d, velocity=%d\n", note, velocity);
                 break;
             }
