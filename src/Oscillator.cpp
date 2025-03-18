@@ -24,7 +24,6 @@ Oscillator::Oscillator(WaveType wave_type, float freq) : freq(freq) {
         break;
     }
 
-    // step = WAVE_TABLE_LEN * (freq / 44100.0f);
     set_freq(freq);
 }
 
@@ -32,7 +31,6 @@ void Oscillator::out() {
     const uint32_t pos_mask = (WAVE_TABLE_LEN << 16) - 1;
 
     for (int i = 0; i < 1156; i++) {
-        // output[i] = wavetable_->at(static_cast<int>(pos));
 
         // Extract the integer part of the position (top 16 bits)
         uint32_t pos_int = pos >> 16;
@@ -40,11 +38,6 @@ void Oscillator::out() {
 
         // Increment position and wrap around using bitwise operations
         pos = (pos + step) & pos_mask;
-
-        // pos += step;
-        // if (pos >= WAVE_TABLE_LEN) {
-        //     pos -= WAVE_TABLE_LEN;
-        // }
     }
 }
 
@@ -53,5 +46,5 @@ std::array<int16_t, 1156> &Oscillator::get_output() { return output; }
 void Oscillator::set_freq(float new_freq) {
     // Convert to fixed-point (16.16 format)
     step = static_cast<uint32_t>((WAVE_TABLE_LEN * new_freq / 44100.0f) *
-                                       65536.0f);
+                                 65536.0f);
 }

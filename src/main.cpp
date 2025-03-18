@@ -11,6 +11,8 @@
 
 #include "tusb.h"
 // #include "tusb_config.h"
+//
+#include <fpm/fixed.hpp>  // For fpm::fixed_16_16
 
 #include "quadrature_encoder.pio.h"
 
@@ -61,6 +63,13 @@ int main() {
     Synth synth = Synth();
 
     MidiHandler midi_handler = MidiHandler(synth);
+
+    // fpm::fixed_16_16 x {0.5};
+    //
+    // fpm::fixed_16_16 y {12.3f};
+    //
+    // int z = static_cast<float>(x*y);
+    // printf("z %d", z);
 
     while (true) {
 

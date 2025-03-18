@@ -6,7 +6,7 @@
 Synth::Synth() {
     // init the oscillators and envelopes
     for (int i = 0; i < NUM_OSC; i++) {
-        oscillators[i] = Oscillator(Square, 440.f);
+        oscillators[i] = Oscillator(Triangle, 440.f);
         envelopes[i] = ADSREnvelope(0.5f, 0.1f, 0.4f, 1.f,
                                     oscillators[i].get_output(), 0.f);
     }
@@ -21,7 +21,8 @@ void Synth::out() {
     for (int i = 0; i < NUM_OSC; i++) {
         std::array<int16_t, 1156>& env_out_i = envelopes[i].get_output();
         for (int k = 0; k < 1156; k++) {
-            output[k] += env_out_i[k] / NUM_OSC;
+            // divide by 8
+            output[k] += env_out_i[k] >> 3;
         }
     }
 }
