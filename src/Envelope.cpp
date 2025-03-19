@@ -1,18 +1,19 @@
 #include "Envelope.hpp"
+#include "fixed_point.h"
 #include <cstdint>
 #include <cstdio>
 
 #define FRAC_BITS 24
 
-// Fixed-point multiplication
-uint32_t fp_mul(uint32_t a, uint32_t b) {
-    return (uint32_t)(((int64_t)a * b) >> FRAC_BITS);
-}
-
-// Fixed-point division
-uint32_t fp_div(uint32_t a, uint32_t b) {
-    return (uint32_t)(((int64_t)a << FRAC_BITS) / b);
-}
+// // Fixed-point multiplication
+// uint32_t fp_mul(uint32_t a, uint32_t b) {
+//     return (uint32_t)(((int64_t)a * b) >> FRAC_BITS);
+// }
+//
+// // Fixed-point division
+// uint32_t fp_div(uint32_t a, uint32_t b) {
+//     return (uint32_t)(((int64_t)a << FRAC_BITS) / b);
+// }
 
 ADSREnvelope::ADSREnvelope()
     : a(), d(16777216), s(6710886), r(16777216), in_signal(nullptr),
@@ -21,15 +22,15 @@ ADSREnvelope::ADSREnvelope()
 ADSREnvelope::ADSREnvelope(float a_in, float d_in, float s_in, float r_in,
                            std::array<int16_t, 1156> &in_signal, float trigger)
     : in_signal(&in_signal), trigger(trigger) {
-    a = float_to_fixed_8_24(a_in);
-    d = float_to_fixed_8_24(d_in);
-    s = float_to_fixed_8_24(s_in);
-    r = float_to_fixed_8_24(r_in);
+    a = q24_from_float(a_in);
+    d = q24_from_float(d_in);
+    s = q24_from_float(s_in);
+    r = q24_from_float(r_in);
 }
 
-uint32_t ADSREnvelope::float_to_fixed_8_24(float in) {
-    return static_cast<uint32_t>(in * FIXED_ONE);
-}
+// uint32_t ADSREnvelope::float_to_fixed_8_24(float in) {
+//     return static_cast<uint32_t>(in * FIXED_ONE);
+// }
 
 void ADSREnvelope::out() {
     uint32_t scale = 0;
@@ -43,17 +44,17 @@ void ADSREnvelope::out() {
 
     switch (state) {
     case ENV_ATTACK:
-        scale = fp_div(t, a);
+        scale = q24_div(t, a);
         if (t >= a) {
             state = ENV_DECAY;
             t = 0;
-            scale = FIXED_ONE; // Force exactly 1.0 at transition
+            scale = Q24_ONE; // Force exactly 1.0 at transition
         }
         break;
 
     case ENV_DECAY: {
-        uint32_t one_minus_s = FIXED_ONE - s;
-        scale = FIXED_ONE - fp_mul(one_minus_s, fp_div(t, d));
+        q8_24_t one_minus_s = q24_sub(Q24_ONE, s);
+        scale = Q24_ONE - q24_mul(one_minus_s, q24_div(t, d));
         if (t >= d) {
             state = ENV_SUSTAIN;
             t = 0;
@@ -74,7 +75,7 @@ void ADSREnvelope::out() {
             state = ENV_ATTACK;
             t = 0;
         }
-        scale = fp_mul(release_start_level, (FIXED_ONE - fp_div(t, r)));
+        scale = q24_mul(release_start_level, (Q24_ONE - q24_div(t, r)));
         // scale = release_start_level * (1.0f - (t / r));
         if (t >= r) {
             scale = 0.0f;

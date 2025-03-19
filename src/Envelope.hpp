@@ -33,17 +33,17 @@ class ADSREnvelope {
     std::array<int16_t, 1156> output;
 
     // Use fixed-point arithmetic for envelope (8.24 format)
-    uint32_t a, d, s, r; // Attack, Decay, Sustain, Release times in seconds
-    uint32_t current_scale = 0;
-    uint32_t release_start_level = 0.0f;
-    uint32_t t = 0; // Time tracking for envelope phases
+    q8_24_t a, d, s, r; // Attack, Decay, Sustain, Release times in seconds
+    q8_24_t current_scale = 0;
+    q8_24_t release_start_level = 0.0f;
+    q8_24_t t = 0; // Time tracking for envelope phases
 
     float trigger;
     EnvelopeState state = ENV_IDLE;
     float sample_delta = 1.0f / 44100.0f; // Buffer time increment
 
     // Precompute constants
-    static constexpr uint32_t FIXED_ONE = 16777216; // 1.0 in 8.24 format
+    static constexpr q8_24_t FIXED_ONE = Q24_ONE; // 1.0 in 8.24 format
     static constexpr uint32_t SAMPLE_DELTA = static_cast<uint32_t>(
         1.0f / 44100.0f * FIXED_ONE); // Buffer time increment
 };
