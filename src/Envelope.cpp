@@ -5,16 +5,6 @@
 
 #define FRAC_BITS 24
 
-// // Fixed-point multiplication
-// uint32_t fp_mul(uint32_t a, uint32_t b) {
-//     return (uint32_t)(((int64_t)a * b) >> FRAC_BITS);
-// }
-//
-// // Fixed-point division
-// uint32_t fp_div(uint32_t a, uint32_t b) {
-//     return (uint32_t)(((int64_t)a << FRAC_BITS) / b);
-// }
-
 ADSREnvelope::ADSREnvelope()
     : a(), d(16777216), s(6710886), r(16777216), in_signal(nullptr),
       trigger(0.f), state(ENV_IDLE) {} // Default constructor
@@ -27,10 +17,6 @@ ADSREnvelope::ADSREnvelope(float a_in, float d_in, float s_in, float r_in,
     s = q24_from_float(s_in);
     r = q24_from_float(r_in);
 }
-
-// uint32_t ADSREnvelope::float_to_fixed_8_24(float in) {
-//     return static_cast<uint32_t>(in * FIXED_ONE);
-// }
 
 void ADSREnvelope::out() {
     uint32_t scale = 0;
@@ -101,13 +87,8 @@ void ADSREnvelope::out() {
     }
 }
 
-void ADSREnvelope::set_trigger(float trig) {
-    trigger = trig;
-}
+void ADSREnvelope::set_trigger(float trig) { trigger = trig; }
 
-
-void ADSREnvelope::set_idle() {
-    state = ENV_IDLE;
-}
+void ADSREnvelope::set_idle() { state = ENV_IDLE; }
 
 std::array<int16_t, 1156> &ADSREnvelope::get_output() { return output; }

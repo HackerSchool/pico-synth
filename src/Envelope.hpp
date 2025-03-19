@@ -18,8 +18,6 @@ class ADSREnvelope {
     void set_idle();
     std::array<int16_t, 1156> &get_output();
 
-    uint32_t float_to_fixed_8_24(float in);
-
   private:
     enum EnvelopeState {
         ENV_ATTACK,
