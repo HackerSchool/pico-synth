@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <pico/types.h>
+#include "fixed_point.h"
 
 // ADSR Envelope Class
 class ADSREnvelope {

@@ -2,6 +2,7 @@
 #define OSCILLATOR_HPP
 
 #include "Wavetable.hpp"
+#include "fixed_point.h"
 #include <array>
 #include <cstdint>
 
@@ -18,8 +19,8 @@ class Oscillator {
   private:
     const std::array<int16_t, WAVE_TABLE_LEN> *wavetable_;
     std::array<int16_t, 1156> output = {};
-    uint32_t pos = 0;           // Fixed-point position (16.16 format)
-    uint32_t step;          // Fixed-point step size (16.16 format)
+    q16_16_t pos = 0;           // Fixed-point position (16.16 format)
+    q16_16_t step;          // Fixed-point step size (16.16 format)
     float freq;
 };
 

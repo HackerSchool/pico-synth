@@ -6,7 +6,7 @@
 Synth::Synth() {
     // init the oscillators and envelopes
     for (int i = 0; i < NUM_OSC; i++) {
-        oscillators[i] = Oscillator(Triangle, 440.f);
+        oscillators[i] = Oscillator(Sine, 440.f);
         envelopes[i] = ADSREnvelope(0.5f, 0.5f, 0.4f, 1.f,
                                     oscillators[i].get_output(), 0.f);
     }

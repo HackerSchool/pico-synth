@@ -1,4 +1,5 @@
 #include "Oscillator.hpp"
+#include "Wavetable.hpp"
 
 Oscillator::Oscillator()
     : freq(440.f), wavetable_(&sine_wave_table), step(0), pos(0) {
@@ -18,6 +19,9 @@ Oscillator::Oscillator(WaveType wave_type, float freq) : freq(freq) {
         break;
     case Sawtooth:
         wavetable_ = &sawtooth_wave_table;
+        break;
+    case Sinc:
+        wavetable_ = &sinc_table;
         break;
     default:
         wavetable_ = &sine_wave_table;
