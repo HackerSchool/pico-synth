@@ -78,11 +78,14 @@ void ADSREnvelope::out() {
         break;
     }
 
+
     for (uint i = 0; i < 1156; i++) {
 
         current_scale = scale;
+        int16_t scale_q2_14 = (int16_t)(scale >> 10);
         output[i] = static_cast<int16_t>(
-            (static_cast<int64_t>((*in_signal)[i]) * scale) >> 24);
+            // (static_cast<int64_t>((*in_signal)[i]) * scale) >> 24);
+            (static_cast<int32_t>((*in_signal)[i]) * scale_q2_14) >> 14);
         t += SAMPLE_DELTA;
     }
 }

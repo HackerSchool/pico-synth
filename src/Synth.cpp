@@ -19,21 +19,22 @@ void Synth::out() {
         envelopes[i].out();
     }
     for (int i = 0; i < NUM_OSC; i++) {
-        std::array<int16_t, 1156>& env_out_i = envelopes[i].get_output();
+        std::array<int16_t, 1156> &env_out_i = envelopes[i].get_output();
         for (int k = 0; k < 1156; k++) {
             // divide by 8
             output[k] += env_out_i[k] >> 3;
         }
     }
 
-    low_pass.processChunkInPlace(output.data(), output.size());
+    // low_pass.processChunkInPlace(output.data(), output.size());
+    low_pass.out(output.data(), output.size());
 }
 
 std::array<int16_t, 1156> &Synth::get_output() { return output; }
 
 void Synth::process_midi_packet(uint8_t packet[4]) {
     uint8_t msg_type = packet[1] & 0xF0;
-    // uint8_t channel = packet[1] & 0x0F;
+    uint8_t channel = packet[1] & 0x0F;
     uint8_t note = packet[2];
     uint8_t velocity = packet[3];
 
@@ -62,11 +63,13 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
         break;
 
     case 0xB0: // Control Change
-        // printf("Control Change: channel=%d, controller=%d,
-        // value=%d\n", channel,
-        // note, velocity);
+        printf("Control Change: channel=%d, controller=%d, value = % d\n ",
+               channel, note, velocity);
         // Handle control change message
         // For example: set_controller(note, velocity);
+            //
+        float fc = 200.f + (float)velocity / 127.f * 6000.f; 
+        low_pass.set_cutoff_freq(fc);
         break;
 
         // Add other MIDI message types as needed

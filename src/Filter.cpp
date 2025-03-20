@@ -2,13 +2,20 @@
 #include "Wavetable.hpp"
 #include "fixed_point.h"
 #include "tusb.h"
+#include <cstddef>
 #include <cstdint>
+#include <cstdio>
 
 FilterFIR::FilterFIR(float freq_c) {
-    // q16_16_t fs = q16_from_int(44100);
+    set_cutoff_freq(freq_c);
+}
+
+void FilterFIR::set_cutoff_freq(float freq_c) {
+
     cutoff_freq = q16_from_float(freq_c);
     // fc_norm = q16_to_q24(q16_div(cutoff_freq, fs) << 1);
     fc_norm = q24_from_float(freq_c / (44100.f / 2));
+    printf("%f\n", freq_c);
 
     // Calculate filter coefficients
     recalculate_coefficients();
@@ -60,20 +67,21 @@ void FilterFIR::recalculate_coefficients() {
         q8_24_t sinc_val = q24_add(q24_mul(one_minus_weight, sinc_val_low),
                                    q24_mul(weight, sinc_val_high));
 
-        printf("fc_norm = %f\n\r", q24_to_float(fc_norm));
-        // printf("cutoff = %f\n\r", q16_to_float(cutoff_freq));
-        printf("n-minus-m = %f\n\r", q24_to_float(n_minus_M));
-        printf("M = %ld\n\r", q24_to_int(M));
-        printf("x = %f\n\r", q24_to_float(x));
-        printf("index_float = %f\n\r", q24_to_float(index_float));
-        printf("index_low = %d\n\r", index_low);
-        printf("sinc_val_high = %f\n\r", q24_to_float(sinc_val_high));
-        printf("sinc_val_low = %f\n\r", q24_to_float(sinc_val_low));
-        printf("weight = %f\n\r", q24_to_float(weight));
-        printf("sinc_val = %f\n\r", q24_to_float(sinc_val));
+        // printf("fc_norm = %f\n\r", q24_to_float(fc_norm));
+        // // printf("cutoff = %f\n\r", q16_to_float(cutoff_freq));
+        // printf("n-minus-m = %f\n\r", q24_to_float(n_minus_M));
+        // printf("M = %ld\n\r", q24_to_int(M));
+        // printf("x = %f\n\r", q24_to_float(x));
+        // printf("index_float = %f\n\r", q24_to_float(index_float));
+        // printf("index_low = %d\n\r", index_low);
+        // printf("sinc_val_high = %f\n\r", q24_to_float(sinc_val_high));
+        // printf("sinc_val_low = %f\n\r", q24_to_float(sinc_val_low));
+        // printf("weight = %f\n\r", q24_to_float(weight));
+        // printf("sinc_val = %f\n\r", q24_to_float(sinc_val));
 
         // Apply window function from pre-calculated table
         h[i] = q24_mul(sinc_val, hanning_window_table_fp[i]);
+        h_q2_14[i] = (int16_t)(h[i] >> 10); // save as 16 bit aswell
         sum = q24_add(sum, h[i]);
     }
 
@@ -93,6 +101,23 @@ void FilterFIR::reset() {
     }
     buffer_index = 0;
 }
+
+void FilterFIR::out(int16_t *samples, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+        buffer[buffer_index] = samples[i];
+        int32_t sum = 0;
+        for (size_t j = 0; j < FILTER_ORDER; j++) {
+            int sampleIndex = (buffer_index - j + FILTER_ORDER) % FILTER_ORDER;
+            sum += (int32_t)(buffer[sampleIndex] * h_q2_14[j]);
+        }
+        // Update buffer index for next sample
+        buffer_index = (buffer_index + 1) % FILTER_ORDER;
+        samples[i] =
+            (int16_t)(sum >> (5 + 14)); // scale due to number of filter
+    }
+}
+
+std::array<int16_t, 1156> &FilterFIR::get_output() { return output; }
 
 int16_t FilterFIR::process(int16_t sample) {
     // Store new sample in circular buffer
