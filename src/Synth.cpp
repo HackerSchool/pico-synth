@@ -6,8 +6,8 @@
 Synth::Synth() {
     // init the oscillators and envelopes
     for (int i = 0; i < NUM_OSC; i++) {
-        oscillators[i] = Oscillator(Sine, 440.f);
-        envelopes[i] = ADSREnvelope(0.5f, 0.5f, 0.4f, 1.f,
+        oscillators[i] = Oscillator(Sawtooth, 440.f);
+        envelopes[i] = ADSREnvelope(0.0f, 0.0f, 1.f, .5f,
                                     oscillators[i].get_output(), 0.f);
     }
 }
@@ -25,6 +25,8 @@ void Synth::out() {
             output[k] += env_out_i[k] >> 3;
         }
     }
+
+    low_pass.processChunkInPlace(output.data(), output.size());
 }
 
 std::array<int16_t, 1156> &Synth::get_output() { return output; }

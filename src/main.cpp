@@ -9,10 +9,11 @@
 
 #include "pico/audio.h"
 
+#include "fixed_point.h"
 #include "tusb.h"
 // #include "tusb_config.h"
 //
-#include <fpm/fixed.hpp>  // For fpm::fixed_16_16
+#include <fpm/fixed.hpp> // For fpm::fixed_16_16
 
 #include "quadrature_encoder.pio.h"
 
@@ -37,8 +38,8 @@ int main() {
     clock_configure(clk_usb, 0, CLOCKS_CLK_USB_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
                     96 * MHZ, 48 * MHZ);
     clock_configure(clk_sys, CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
-                    CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB, 120.3* MHZ,
-                    120.3* MHZ);
+                    CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
+                    120.3 * MHZ, 120.3 * MHZ);
     clock_configure(clk_peri, 0, CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
                     120.3 * MHZ, 120.3 * MHZ);
 
@@ -85,12 +86,20 @@ int main() {
                 vol--;
             if ((c == '=' || c == '+') && vol < 256)
                 vol++;
-            if (c == 's')
-                // env1.set_trigger(5.0);
-            if (c == 'p')
+            // if (c == 's')
+            // env1.set_trigger(5.0);
+            if (c == 'p') {
+
                 // env1.set_trigger(0.0);
+                synth.low_pass.recalculate_coefficients();
+                for (int i = 0; i < 33; i++) {
+                    printf("h = %f\n\r", q24_to_float(synth.low_pass.h[i]));
+                }
+            }
             if (c == 'q')
-                break;
+                for (int i = 0; i < 512; i++) {
+                    printf("%f,\n\r", q24_to_float(sinc_table_fp[i]));
+                }
             printf("Yo\n\r");
         }
         if (write_flag) {

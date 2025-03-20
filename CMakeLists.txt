@@ -53,6 +53,7 @@ target_sources(${bin_name} PRIVATE
     src/Envelope.cpp
     src/Synth.cpp
     src/MidiHandler.cpp
+    src/Filter.cpp
     src/usb_descriptors.c
     src/tusb_config.h
 )

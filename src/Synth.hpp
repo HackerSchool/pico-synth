@@ -7,8 +7,9 @@
 #include "MidiHandler.hpp"
 #include <cstdint>
 #include "tusb.h"
+#include "Filter.hpp"
 
-#define NUM_OSC 8
+#define NUM_OSC 2
 
 class Synth {
   public:
@@ -20,6 +21,7 @@ class Synth {
     void note_on(uint8_t note, uint8_t velocity);
     void note_off(uint8_t note, uint8_t velocity);
 
+    FilterFIR low_pass = FilterFIR(10000.f);
   private:
     std::array<Oscillator, NUM_OSC> oscillators;
     std::array<ADSREnvelope, NUM_OSC> envelopes;
