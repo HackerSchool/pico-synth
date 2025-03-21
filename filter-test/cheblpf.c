@@ -56,8 +56,15 @@ int main(int argc, char *argv[]) {
     double a = tan(M_PI * f / s);
     double a2 = a * a;
     double u = log((1.0 + sqrt(1.0 + ep * ep)) / ep);
+
+    // printf("u %f\n", u);
+    // printf("a2 %f\n", a2);
     double su = sinh(u / (double)n);
     double cu = cosh(u / (double)n);
+
+
+    printf("su %f\n", (su));
+    printf("cu %f\n", (cu));
     double b, c;
     double *A = (double *)malloc(m * sizeof(double));
     double *d1 = (double *)malloc(m * sizeof(double));
@@ -70,8 +77,11 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < m; ++i) {
         b = sin(M_PI * (2.0 * i + 1.0) / (2.0 * n)) * su;
         c = cos(M_PI * (2.0 * i + 1.0) / (2.0 * n)) * cu;
+        // printf("i = %d b = %f\n", i, (b));
+        // printf("i = %d c = %f\n", i, (c));
         c = b * b + c * c;
         s = a2 * c + 2.0 * a * b + 1.0;
+        // printf("i = %d, s = %f\n", i, s);
         A[i] = a2 / (4.0 * s); // 4.0
         d1[i] = 2.0 * (1 - a2 * c) / s;
         d2[i] = -(a2 * c - 2.0 * a * b + 1.0) / s;
