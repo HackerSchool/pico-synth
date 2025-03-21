@@ -2,6 +2,7 @@
 #include "Oscillator.hpp"
 #include "Wavetable.hpp"
 #include <cstdint>
+#include <cstdio>
 
 Synth::Synth() {
     // init the oscillators and envelopes
@@ -27,7 +28,8 @@ void Synth::out() {
     }
 
     // low_pass.processChunkInPlace(output.data(), output.size());
-    low_pass.out(output.data(), output.size());
+    // low_pass.out(output.data(), output.size());
+    low_pass_cheb.out(output.data(), output.size());
 }
 
 std::array<int16_t, 1156> &Synth::get_output() { return output; }
@@ -69,7 +71,9 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
         // For example: set_controller(note, velocity);
             //
         float fc = 200.f + (float)velocity / 127.f * 6000.f; 
-        low_pass.set_cutoff_freq(fc);
+        printf("fc = %f\n", fc);
+        // low_pass.set_cutoff_freq(fc);
+        low_pass_cheb.set_cutoff_freq(fc, 0.5f);
         break;
 
         // Add other MIDI message types as needed

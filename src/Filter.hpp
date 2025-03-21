@@ -85,8 +85,7 @@ class FilterCheb {
     FilterCheb &operator=(const FilterCheb &) = default;
     ~FilterCheb() = default;
 
-    void set_cutoff_freq(float freq_c);
-
+    void set_cutoff_freq(float fc, float epsilon);
     // Process a single sample
     int16_t process(int16_t sample);
     void out(int16_t *samples, size_t size);

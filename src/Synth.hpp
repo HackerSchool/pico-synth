@@ -22,6 +22,7 @@ class Synth {
     void note_off(uint8_t note, uint8_t velocity);
 
     FilterFIR low_pass = FilterFIR(1000.f);
+    FilterCheb low_pass_cheb = FilterCheb(5000.f, 0.5f, 44100.f);
   private:
     std::array<Oscillator, NUM_OSC> oscillators;
     std::array<ADSREnvelope, NUM_OSC> envelopes;

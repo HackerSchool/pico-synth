@@ -6,9 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 
-FilterFIR::FilterFIR(float freq_c) {
-    set_cutoff_freq(freq_c);
-}
+FilterFIR::FilterFIR(float freq_c) { set_cutoff_freq(freq_c); }
 
 void FilterFIR::set_cutoff_freq(float freq_c) {
 
@@ -159,7 +157,6 @@ void FilterFIR::processChunkInPlace(int16_t *samples, size_t size) {
     }
 }
 
-
 int16_t
 lookup_table_interpolate(const std::array<int16_t, WAVE_TABLE_LEN> &table,
                          int16_t x, size_t q) {
@@ -180,7 +177,14 @@ lookup_table_interpolate(const std::array<int16_t, WAVE_TABLE_LEN> &table,
 
 FilterCheb::FilterCheb(float fc, float epsilon, float fs) {
 
+    // int16_t ep = float_to_q2_14(epsilon); // in ]0.3, 1]
+    set_cutoff_freq(fc, epsilon);
+}
+
+void FilterCheb::set_cutoff_freq(float fc, float epsilon) {
+
     int16_t ep = float_to_q2_14(epsilon); // in ]0.3, 1]
+    float fs = 44100;
     int16_t fc_norm = float_to_q1_15(fc / fs);
 
     // printf("fc_norm %f\n", q1_15_to_float(fc_norm));
@@ -264,12 +268,19 @@ int16_t FilterCheb::che_low_pass(int16_t x) {
     for (int i = 0; i < m; ++i) {
         int16_t d1w1 = ((int32_t)d1[i] * w1[i]) >> 14; // q4.12
         int16_t d2w2 = ((int32_t)d2[i] * w2[i]) >> 15; // q4.12
-        w0[i] = d1w1 + d2w2 + (x >> 3); // this does not feel right, if x is
+        w0[i] = d1w1 + d2w2 + (x >> 4); // this does not feel right, if x is
                                         // small this will kill it
-        x = ((int32_t)A[i] * (w0[i] + 2 * w1[i] + w2[i])) >> 12;
+        x = ((int32_t)A[i] * (w0[i] + 2 * w1[i] + w2[i])) >> 10;
         w2[i] = w1[i];
         w1[i] = w0[i];
-        x = (x << 1);
+        // x = (x <<);
     }
     return x;
+}
+
+
+void FilterCheb::out(int16_t *samples, size_t size) {
+    for (size_t i = 0; i < size; i++) {
+        samples[i] = che_low_pass(samples[i]);
+    }
 }
