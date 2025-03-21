@@ -62,7 +62,6 @@ int main(int argc, char *argv[]) {
     double su = sinh(u / (double)n);
     double cu = cosh(u / (double)n);
 
-
     printf("su %f\n", (su));
     printf("cu %f\n", (cu));
     double b, c;
@@ -96,6 +95,9 @@ int main(int argc, char *argv[]) {
             x = A[i] * (w0[i] + 2.0 * w1[i] + w2[i]);
             w2[i] = w1[i];
             w1[i] = w0[i];
+
+            printf("i = %d, w0[i] = %lf, w1[i] = %lf, w2[i] = %lf\n", i, w0[i],
+                   w1[i], w2[i]);
         }
         printf("%lf\n", ep * x);
     }
