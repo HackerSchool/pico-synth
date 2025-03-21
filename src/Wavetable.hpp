@@ -6,7 +6,7 @@
 #include "fixed_point.h"
 
 #define WAVE_TABLE_LEN 512
-#define FILTER_ORDER 31
+#define FILTER_ORDER 33
 
 
 enum WaveType { Sine, Square, Triangle, Sawtooth, Sinc};

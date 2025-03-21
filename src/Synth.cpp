@@ -7,8 +7,8 @@
 Synth::Synth() {
     // init the oscillators and envelopes
     for (int i = 0; i < NUM_OSC; i++) {
-        oscillators[i] = Oscillator(Sawtooth, 440.f);
-        envelopes[i] = ADSREnvelope(0.0f, 0.0f, 1.f, .5f,
+        oscillators[i] = Oscillator(Square, 440.f);
+        envelopes[i] = ADSREnvelope(0.5f, 0.5f, 1.f, .5f,
                                     oscillators[i].get_output(), 0.f);
     }
 }
@@ -36,7 +36,7 @@ std::array<int16_t, 1156> &Synth::get_output() { return output; }
 
 void Synth::process_midi_packet(uint8_t packet[4]) {
     uint8_t msg_type = packet[1] & 0xF0;
-    uint8_t channel = packet[1] & 0x0F;
+    // uint8_t channel = packet[1] & 0x0F;
     uint8_t note = packet[2];
     uint8_t velocity = packet[3];
 
@@ -65,15 +65,17 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
         break;
 
     case 0xB0: // Control Change
-        printf("Control Change: channel=%d, controller=%d, value = % d\n ",
-               channel, note, velocity);
+        // printf("Control Change: channel=%d, controller=%d, value = % d\n ",channel
+        // channel, note, velocity);
         // Handle control change message
+        if (note == 0x02) {
+            float fc = 200.f + (float)velocity / 127.f * 9000.f;
+            // printf("fc = %f\n", fc);
+            // low_pass.set_cutoff_freq(fc);
+            low_pass_cheb.set_cutoff_freq(fc, 0.5f);
+        }
         // For example: set_controller(note, velocity);
-            //
-        float fc = 200.f + (float)velocity / 127.f * 6000.f; 
-        printf("fc = %f\n", fc);
-        // low_pass.set_cutoff_freq(fc);
-        low_pass_cheb.set_cutoff_freq(fc, 0.5f);
+        //
         break;
 
         // Add other MIDI message types as needed

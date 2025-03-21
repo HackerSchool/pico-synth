@@ -90,7 +90,6 @@ void FilterFIR::recalculate_coefficients() {
             h[i] = q24_mul(h[i], norm_factor);
         }
     }
-    reverse_array(h.data(), h.size());
 }
 
 void FilterFIR::reset() {
@@ -111,7 +110,7 @@ void FilterFIR::out(int16_t *samples, size_t size) {
         // Update buffer index for next sample
         buffer_index = (buffer_index + 1) % FILTER_ORDER;
         samples[i] =
-            (int16_t)(sum >> (5 + 14)); // scale due to number of filter
+            (int16_t)(sum >> (3 + 14)); // scale due to number of filter
     }
 }
 
@@ -251,9 +250,9 @@ void FilterCheb::set_cutoff_freq(float fc, float epsilon) {
         A[i] = (((int32_t)a2 << 14) / s) >> 2;          // 4.0 q1.15
         d1[i] = 2 * (((1 << 15) - a2_c) << 13) / s;     // q2.14
         d2[i] = (-(a2_c - ab_2 + (1 << 15)) << 14) / s; // q1.15
-        printf("i = %d, A[i] = %lf, d1[i] = %lf, d2[i] = %lf\n", i,
-               q1_15_to_float(A[i]), q2_14_to_float(d1[i]),
-               q1_15_to_float(d2[i]));
+        // printf("i = %d, A[i] = %lf, d1[i] = %lf, d2[i] = %lf\n", i,
+        //        q1_15_to_float(A[i]), q2_14_to_float(d1[i]),
+        //        q1_15_to_float(d2[i]));
     }
 }
 
@@ -268,9 +267,9 @@ int16_t FilterCheb::che_low_pass(int16_t x) {
     for (int i = 0; i < m; ++i) {
         int16_t d1w1 = ((int32_t)d1[i] * w1[i]) >> 14; // q4.12
         int16_t d2w2 = ((int32_t)d2[i] * w2[i]) >> 15; // q4.12
-        w0[i] = d1w1 + d2w2 + (x >> 4); // this does not feel right, if x is
+        w0[i] = d1w1 + d2w2 + (x >> 3); // this does not feel right, if x is
                                         // small this will kill it
-        x = ((int32_t)A[i] * (w0[i] + 2 * w1[i] + w2[i])) >> 10;
+        x = ((int32_t)A[i] * (w0[i] + 2 * w1[i] + w2[i])) >> 12;
         w2[i] = w1[i];
         w1[i] = w0[i];
         // x = (x <<);
