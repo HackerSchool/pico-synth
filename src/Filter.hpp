@@ -1,6 +1,14 @@
+#ifndef FILTER_HPP
+#define FILTER_HPP
+
 #include "Wavetable.hpp"
 #include "fixed_point.h"
+#include "tusb.h"
+#include <cstddef>
 #include <cstdint>
+
+#define N_Cheb 8
+#define m N_Cheb / 2
 
 template <typename T> inline void reverse_array(T *array, size_t size) {
     if (size <= 1)
@@ -38,7 +46,6 @@ class FilterFIR {
     FilterFIR &operator=(const FilterFIR &) = default;
     ~FilterFIR() = default;
 
-
     void set_cutoff_freq(float freq_c);
 
     // Process a single sample
@@ -68,3 +75,48 @@ class FilterFIR {
     q16_16_t cutoff_freq;
     q8_24_t fc_norm; // normalized cutoff frequency
 };
+
+class FilterCheb {
+  public:
+    FilterCheb(float fc, float epsilon, float fs);
+    FilterCheb(FilterCheb &&) = default;
+    FilterCheb(const FilterCheb &) = default;
+    FilterCheb &operator=(FilterCheb &&) = default;
+    FilterCheb &operator=(const FilterCheb &) = default;
+    ~FilterCheb() = default;
+
+    void set_cutoff_freq(float freq_c);
+
+    // Process a single sample
+    int16_t process(int16_t sample);
+    void out(int16_t *samples, size_t size);
+
+    // Process a chunk of samples at once
+    // std::vector<int16_t> processChunk(const std::vector<int16_t>& input);
+
+    // Process array of samples in-place (more efficient)
+    void processChunkInPlace(int16_t *samples, size_t size);
+    int16_t che_low_pass(int16_t x);
+
+    std::array<int16_t, 1156> &get_output();
+
+    void reset();
+    void recalculate_coefficients();
+
+  private:
+    // Filter state
+    std::array<int16_t, 1156> output = {};
+    std::array<int16_t, 1156> *in_signal;
+
+    q16_16_t cutoff_freq;
+    q8_24_t fc_norm; // normalized cutoff frequency
+    //
+    int16_t A[m] = {0};
+    int16_t d1[m] = {0};
+    int16_t d2[m] = {0};
+    int16_t w0[m] = {0};
+    int16_t w1[m] = {0};
+    int16_t w2[m] = {0};
+};
+
+#endif //FILTER_HPP

@@ -198,9 +198,9 @@ int main() {
         A[i] = (((int32_t)a2 << 14) / s) >> 2;          // 4.0 q1.15
         d1[i] = 2.0 * (((1 << 15) - a2_c) << 13) / s;   // q2.14
         d2[i] = (-(a2_c - ab_2 + (1 << 15)) << 14) / s; // q1.15
-        // printf("i = %d, A[i] = %lf, d1[i] = %lf, d2[i] = %lf\n", i,
-        //        q1_15_to_float(A[i]), q2_14_to_float(d1[i]),
-        //        q1_15_to_float(d2[i]));
+        printf("i = %d, A[i] = %lf, d1[i] = %lf, d2[i] = %lf\n", i,
+               q1_15_to_float(A[i]), q2_14_to_float(d1[i]),
+               q1_15_to_float(d2[i]));
     }
 
     // ep = (int32_t)2 / ep; // used to normalize

@@ -99,4 +99,35 @@ inline q16_16_t q24_to_q16(q8_24_t x) {
     return x >> (Q24_FRAC_BITS - Q16_FRAC_BITS);
 }
 
+
+// Convert float to Q2.14 format (2 integer bits, 14 fractional bits)
+inline int16_t float_to_q2_14(float value) {
+    return static_cast<int16_t>(value * (1 << 14));
+}
+
+// Convert float to Q1.15 format (1 integer bit, 15 fractional bits)
+inline int16_t float_to_q1_15(float value) {
+    return static_cast<int16_t>(value * (1 << 15));
+}
+
+// Convert float to Q8.8 format (8 integer bits, 8 fractional bits)
+inline int16_t float_to_q8_8(float value) {
+    return static_cast<int16_t>(value * (1 << 8));
+}
+
+// Convert Q2.14 format (2 integer bits, 14 fractional bits) to float
+inline float q2_14_to_float(int16_t value) {
+    return static_cast<float>(value) / (1 << 14);
+}
+
+// Convert Q1.15 format (1 integer bit, 15 fractional bits) to float
+inline float q1_15_to_float(int16_t value) {
+    return static_cast<float>(value) / (1 << 15);
+}
+
+// Convert Q8.8 format (8 integer bits, 8 fractional bits) to float
+inline float q8_8_to_float(int16_t value) {
+    return static_cast<float>(value) / (1 << 8);
+}
+
 #endif // FIXED_POINT_H

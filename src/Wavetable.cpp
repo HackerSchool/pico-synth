@@ -2,6 +2,9 @@
 #include "fixed_point.h"
 #include "math.h"
 
+const int16_t Q15_MAX = 32767;
+const int16_t Q14_MAX = 16384;
+
 // This method allows to define the wavetable at compile time!
 // Sine Wavetable
 const std::array<int16_t, WAVE_TABLE_LEN> sine_wave_table{[]() {
@@ -9,6 +12,15 @@ const std::array<int16_t, WAVE_TABLE_LEN> sine_wave_table{[]() {
     for (int i = 0; i < WAVE_TABLE_LEN; i++) {
         table[i] =
             static_cast<int16_t>(32767 * sin(i * 2 * M_PI / WAVE_TABLE_LEN));
+    }
+    return table;
+}()};
+
+const std::array<int16_t, WAVE_TABLE_LEN> cos_wave_table{[]() {
+    std::array<int16_t, WAVE_TABLE_LEN> table{};
+    for (int i = 0; i < WAVE_TABLE_LEN; i++) {
+        table[i] =
+            static_cast<int16_t>(32767 * cos(i * 2 * M_PI / WAVE_TABLE_LEN));
     }
     return table;
 }()};
@@ -90,5 +102,45 @@ const std::array<q8_24_t, FILTER_ORDER> hanning_window_table_fp{[]() {
             0.5f * (1.0f - cos(2.0f * M_PI * i / (FILTER_ORDER - 1.0f))));
         table[i] = q24_from_float(value); // Scale to int16_t range
     }
+    return table;
+}()};
+
+const std::array<int16_t, WAVE_TABLE_LEN> tan_wave_table{[]() {
+    std::array<int16_t, WAVE_TABLE_LEN> table{};
+    for (int i = 0; i < WAVE_TABLE_LEN; i++) {
+        table[i] = static_cast<int16_t>(
+            32767 * tan(i * 0.25 * M_PI /
+                        WAVE_TABLE_LEN)); // in this range it goes from 0 to 1
+    }
+    return table;
+}()};
+
+// Lookup tables for sinh, cosh, and u approximations
+const std::array<int16_t, WAVE_TABLE_LEN> sinh_wave_table{[]() {
+    std::array<int16_t, WAVE_TABLE_LEN> table{};
+    for (int i = 0; i < WAVE_TABLE_LEN; i++) {
+        double x = (1.0 * i / WAVE_TABLE_LEN); // Range (0,1]
+        table[i] = static_cast<int16_t>(Q14_MAX * sinh(x));
+    }
+    return table;
+}()};
+
+const std::array<int16_t, WAVE_TABLE_LEN> cosh_wave_table{[]() {
+    std::array<int16_t, WAVE_TABLE_LEN> table{};
+    for (int i = 0; i < WAVE_TABLE_LEN; i++) {
+        double x = (1.0 * i / WAVE_TABLE_LEN);
+        table[i] = static_cast<int16_t>(Q14_MAX * cosh(x));
+    }
+    return table;
+}()};
+
+const std::array<int16_t, WAVE_TABLE_LEN> u_wave_table{[]() {
+    std::array<int16_t, WAVE_TABLE_LEN> table{};
+    for (int i = 1; i < WAVE_TABLE_LEN; i++) { // Start at 1 to avoid log(0)
+        double x = (1.0 * i / WAVE_TABLE_LEN); // Range (0,1]
+        table[i] =
+            static_cast<int16_t>(Q14_MAX * log((1.0 + sqrt(1.0 + x * x)) / x));
+    }
+    table[0] = table[1]; // Avoid issues with index 0
     return table;
 }()};

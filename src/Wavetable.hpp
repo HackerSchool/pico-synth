@@ -18,7 +18,15 @@ extern const std::array<int16_t, WAVE_TABLE_LEN> sawtooth_wave_table;
 extern const std::array<int16_t, WAVE_TABLE_LEN> sinc_table;
 
 
+extern const std::array<int16_t, WAVE_TABLE_LEN> cos_wave_table;
+extern const std::array<int16_t, WAVE_TABLE_LEN> tan_wave_table;
+extern const std::array<int16_t, WAVE_TABLE_LEN> cosh_wave_table;
+extern const std::array<int16_t, WAVE_TABLE_LEN> sinh_wave_table;
+extern const std::array<int16_t, WAVE_TABLE_LEN> u_wave_table;
+
 extern const std::array<q8_24_t, WAVE_TABLE_LEN> sinc_table_fp;
 extern const std::array<q8_24_t, FILTER_ORDER> hanning_window_table_fp;
+
+
 
 #endif // !WAVETABLE
