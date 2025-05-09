@@ -2,12 +2,13 @@
 #define SYNTH_HPP
 
 #include "Envelope.hpp"
+#include "Filter.hpp"
+#include "MidiHandler.hpp"
 #include "Oscillator.hpp"
 #include "Wavetable.hpp"
-#include "MidiHandler.hpp"
-#include <cstdint>
 #include "tusb.h"
-#include "Filter.hpp"
+#include <cstdint>
+#include <bitset>
 
 #define NUM_OSC 8
 
@@ -20,13 +21,18 @@ class Synth {
 
     void note_on(uint8_t note, uint8_t velocity);
     void note_off(uint8_t note, uint8_t velocity);
+    const char *get_notes_playing_names();
+    std::bitset<128> get_notes_bitmask() const { return notes_playing_bitset; }
 
     FilterFIR low_pass = FilterFIR(1000.f);
     FilterCheb low_pass_cheb = FilterCheb(5000.f, 1.f, 44100.f);
+
   private:
     std::array<Oscillator, NUM_OSC> oscillators;
     std::array<ADSREnvelope, NUM_OSC> envelopes;
     std::array<int16_t, 1156> output = {};
+
+    std::bitset<128> notes_playing_bitset;
 
     uint8_t osc_midi_note[NUM_OSC] = {};
     bool osc_playing[NUM_OSC] = {};

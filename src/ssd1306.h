@@ -30,6 +30,12 @@ SOFTWARE.
 
 #ifndef _inc_ssd1306
 #define _inc_ssd1306
+
+// ssd1306.h
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <hardware/i2c.h>
 #include <pico/stdlib.h>
 
@@ -307,5 +313,9 @@ void ssd1306_draw_string_with_font(ssd1306_t *p, uint32_t x, uint32_t y,
 */
 void ssd1306_draw_string(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t scale,
                          const char *s);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

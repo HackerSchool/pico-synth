@@ -7,8 +7,8 @@
 Synth::Synth() {
     // init the oscillators and envelopes
     for (int i = 0; i < NUM_OSC; i++) {
-        oscillators[i] = Oscillator(Square, 440.f);
-        envelopes[i] = ADSREnvelope(0.5f, 0.5f, 1.f, .5f,
+        oscillators[i] = Oscillator(Sawtooth, 440.f);
+        envelopes[i] = ADSREnvelope(0.1f, 0.2f, 0.8f, .5f,
                                     oscillators[i].get_output(), 0.f);
     }
 }
@@ -65,9 +65,8 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
         break;
 
     case 0xB0: // Control Change
-        // printf("Control Change: channel=%d, controller=%d, value = % d\n ",channel
-        // channel, note, velocity);
-        // Handle control change message
+        // printf("Control Change: channel=%d, controller=%d, value = % d\n
+        // ",channel channel, note, velocity); Handle control change message
         if (note == 0x02) {
             float fc = 200.f + (float)velocity / 127.f * 9000.f;
             // printf("fc = %f\n", fc);
@@ -100,6 +99,7 @@ void Synth::note_on(uint8_t note, uint8_t velocity) {
             if (!osc_playing[i]) {
                 osc_playing[i] = true;
                 osc_midi_note[i] = note;
+                notes_playing_bitset.set(note);
 
                 float freq = midi_to_freq(note);
                 oscillators[i].set_freq(freq);
@@ -119,9 +119,37 @@ void Synth::note_off(uint8_t note, uint8_t velocity) {
         if (osc_midi_note[i] == note && osc_playing[i]) {
             envelopes[i].set_trigger(0.f);
             osc_playing[i] = false;
+            notes_playing_bitset.reset(note);
             // printf("Note Off on Synth: note=%d, velocity=%d\n", note,
             // velocity);
             break;
         }
     }
+}
+
+const char *Synth::get_notes_playing_names() {
+    static char buffer[64]; // Adjust size as needed
+    int pos = 0;
+
+    for (int note = 0; note < 128; ++note) {
+        if (notes_playing_bitset.test(note)) {
+            const char *name = midi_note_names[note];
+            int written =
+                snprintf(buffer + pos, sizeof(buffer) - pos, "%s,", name);
+            if (written < 0 || written >= (int)(sizeof(buffer) - pos)) {
+                // Truncated or error
+                break;
+            }
+            pos += written;
+        }
+    }
+
+    // Remove trailing comma if present
+    if (pos > 0 && buffer[pos - 1] == ',') {
+        buffer[pos - 1] = '\0';
+    } else {
+        buffer[pos] = '\0';
+    }
+
+    return buffer;
 }

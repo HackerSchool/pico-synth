@@ -94,7 +94,7 @@ pico_generate_pio_header(${bin_name} ${CMAKE_CURRENT_LIST_DIR}/pio/quadrature_en
 target_compile_definitions(${bin_name} PRIVATE
     PICO_AUDIO_I2S_PIO=1
     PICO_AUDIO_I2S_DMA_IRQ=1
-    CORE1_PROCESS_I2S_CALLBACK
+    # CORE1_PROCESS_I2S_CALLBACK
 )
 
 # Extra outputs
