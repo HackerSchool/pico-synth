@@ -14,6 +14,7 @@
 // #include "tusb_config.h"
 //
 #include <fpm/fixed.hpp> // For fpm::fixed_16_16
+#include "ssd1306.h"
 
 #include "quadrature_encoder.pio.h"
 
