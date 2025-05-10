@@ -1,5 +1,5 @@
 # pico-synth
-The Pico-Synth Board v0.1 is the first version of a Raspberry Pi Pico based synthesizer, featuring an I2S DAC with line-out, a 4x4 switch matrix with individual LEDs, four rotary encoders with switches, an OLED screen, and an SD card slot for optional storage. This fist iteration of the board was designed with a focus on low cost and component availability.
+The Pico-Synth Board v0.1 is the first version of a Raspberry Pi Pico based synthesizer, featuring an I2S DAC with line-out, a 2x8 switch matrix with individual LEDs, four rotary encoders with switches, an OLED screen, and an SD card slot for optional storage. This fist iteration of the board was designed with a focus on low cost and component availability.
 
 <img src="https://github.com/HackerSchool/pico-synth/blob/main/hardware/electronics/Images/v0.1_Render_Front.png" width="600">
 
