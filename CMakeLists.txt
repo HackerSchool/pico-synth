@@ -25,6 +25,7 @@ pico_sdk_init()
 add_subdirectory(lib/pico_audio_i2s_32b)
 add_subdirectory(lib/pico_audio_i2s_32b/src/pico_audio_32b)
 add_subdirectory(lib/fpm)
+# add_subdirectory(lib/pico-ssd1306)
 
 set(bin_name ${PROJECT_NAME})
 add_executable(${bin_name}
@@ -44,6 +45,7 @@ target_compile_options(pico-synth PRIVATE
     -Wno-error=return-type
     -Wno-error=maybe-uninitialized
     -Wno-error=unused-parameter
+    -Wno-error=discarded-qualifiers
 )
 
 target_sources(${bin_name} PRIVATE 
@@ -56,6 +58,7 @@ target_sources(${bin_name} PRIVATE
     src/Filter.cpp
     src/usb_descriptors.c
     src/tusb_config.h
+    src/ssd1306.c
 )
 
 # Add include directories for TinyUSB
@@ -74,6 +77,7 @@ target_link_libraries(${bin_name} PRIVATE
     pico_audio_i2s_32b
     hardware_pio       # Required for quadrature encoder PIO
     hardware_irq       # Required for handling encoder interrupts
+    hardware_i2c       # Required for the screen
     pico_multicore     # If using Core 1 for processing
     tinyusb_device
     tinyusb_board
@@ -90,7 +94,7 @@ pico_generate_pio_header(${bin_name} ${CMAKE_CURRENT_LIST_DIR}/pio/quadrature_en
 target_compile_definitions(${bin_name} PRIVATE
     PICO_AUDIO_I2S_PIO=1
     PICO_AUDIO_I2S_DMA_IRQ=1
-    CORE1_PROCESS_I2S_CALLBACK
+    # CORE1_PROCESS_I2S_CALLBACK
 )
 
 # Extra outputs

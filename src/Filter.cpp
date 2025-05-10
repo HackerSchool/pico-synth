@@ -38,9 +38,6 @@ void FilterFIR::recalculate_coefficients() {
             x = -x;
 
         // Map x to the sinc_table_fp index range
-        // q8_24_t index_float = q24_div(q24_mul(x, q24_from_int(WAVE_TABLE_LEN
-        // - 1)),
-        //                               q24_from_int(32));
 
         int64_t index_float = static_cast<int64_t>(x)
                               << 4; // multibly by 16 -> sinc_len/sinc_range
@@ -57,25 +54,12 @@ void FilterFIR::recalculate_coefficients() {
         q8_24_t sinc_val_high = sinc_table_fp[index_high];
 
         // Fractional part for interpolation weight
-        // q8_24_t weight = q24_sub(index_float, q24_from_int(index_low));
         // the 24 least significant bits from index_float
         q8_24_t weight = (index_float & 0xFFFFFF);
         q8_24_t one_minus_weight = q24_sub(q24_from_int(1), weight);
 
         q8_24_t sinc_val = q24_add(q24_mul(one_minus_weight, sinc_val_low),
                                    q24_mul(weight, sinc_val_high));
-
-        // printf("fc_norm = %f\n\r", q24_to_float(fc_norm));
-        // // printf("cutoff = %f\n\r", q16_to_float(cutoff_freq));
-        // printf("n-minus-m = %f\n\r", q24_to_float(n_minus_M));
-        // printf("M = %ld\n\r", q24_to_int(M));
-        // printf("x = %f\n\r", q24_to_float(x));
-        // printf("index_float = %f\n\r", q24_to_float(index_float));
-        // printf("index_low = %d\n\r", index_low);
-        // printf("sinc_val_high = %f\n\r", q24_to_float(sinc_val_high));
-        // printf("sinc_val_low = %f\n\r", q24_to_float(sinc_val_low));
-        // printf("weight = %f\n\r", q24_to_float(weight));
-        // printf("sinc_val = %f\n\r", q24_to_float(sinc_val));
 
         // Apply window function from pre-calculated table
         h[i] = q24_mul(sinc_val, hanning_window_table_fp[i]);

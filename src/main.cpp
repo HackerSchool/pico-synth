@@ -13,6 +13,7 @@
 #include "tusb.h"
 // #include "tusb_config.h"
 //
+#include "ssd1306.h"
 #include <fpm/fixed.hpp> // For fpm::fixed_16_16
 
 #include "quadrature_encoder.pio.h"
@@ -31,6 +32,14 @@ std::array<int16_t, 1156> out1 = {};
 std::array<int16_t, 1156> out2 = {};
 bool write_flag = 0;
 bool buff = 0;
+
+void setup_gpios(void) {
+    i2c_init(i2c1, 400000);
+    gpio_set_function(26, GPIO_FUNC_I2C);
+    gpio_set_function(27, GPIO_FUNC_I2C);
+    gpio_pull_up(26);
+    gpio_pull_up(27);
+}
 
 int main() {
     // Set up system clock for better audio
@@ -57,10 +66,19 @@ int main() {
     // Initialize I2S audio output
     ap = i2s_audio_init(44100);
 
-    // Oscillator osc1 = Oscillator(Square, 440);
-    // ADSREnvelope env1 =
-    //     ADSREnvelope(0.5f, 0.1f, 0.4f, 1.f, osc1.get_output(), 5.f);
-    //
+    setup_gpios();
+
+    const char *words[] = {"SSD1306", "DISPLAY", "DRIVER"};
+
+    ssd1306_t disp;
+
+    disp.external_vcc = false;
+    ssd1306_init(&disp, 128, 64, 0x3C, i2c1);
+
+    // ssd1306_hflip(&disp, 1);
+    ssd1306_rotate(&disp, 1);
+    ssd1306_clear(&disp);
+
     Synth synth = Synth();
 
     MidiHandler midi_handler = MidiHandler(synth);
@@ -72,6 +90,9 @@ int main() {
     // int z = static_cast<float>(x*y);
     // printf("z %d", z);
 
+    ssd1306_draw_string(&disp, 8, 24, 1, words[0]);
+    ssd1306_show(&disp);
+
     while (true) {
 
         // Handle USB tasks
@@ -79,6 +100,16 @@ int main() {
 
         // Handle MIDI messages
         midi_handler.midi_task();
+
+        static std::bitset<128> last_state;
+
+        if (synth.get_notes_bitmask() != last_state) {
+            last_state = synth.get_notes_bitmask();
+            const char *notes_str = synth.get_notes_playing_names();
+            ssd1306_clear(&disp);
+            ssd1306_draw_string(&disp, 8, 24, 1, notes_str);
+            ssd1306_show(&disp);
+        }
 
         int c = getchar_timeout_us(0);
         if (c >= 0) {
