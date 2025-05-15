@@ -33,12 +33,106 @@ std::array<int16_t, 1156> out2 = {};
 bool write_flag = 0;
 bool buff = 0;
 
+#define PCF8574_KEYPAD_ADDR 0x20
+#define PCF8574_LED_ADDR_1 0x20
+#define PCF8574_LED_ADDR_2 0x21
+
+uint8_t led_state_1 = 0xFF;
+uint8_t led_state_2 = 0xFF;
+
+const uint8_t COL_PINS[4] = {0, 1, 6, 4};
+const uint8_t ROW_PINS[4] = {2, 3, 5, 7};
+
+uint8_t LED_MAP[16] = {1, 3, 4, 7, 0, 2, 5, 6, 0, 2, 4, 6, 1, 3, 5, 7};
+
+uint16_t scan_key_state(i2c_inst_t *i2c) {
+    uint16_t state = 0;
+
+    for (int col = 0; col < 4; col++) {
+        uint8_t data = 0xFF;
+        data &= ~(1 << COL_PINS[col]); // Drive this column LOW
+
+        // Send to PCF8574
+        i2c_write_blocking(i2c, PCF8574_KEYPAD_ADDR, &data, 1, true);
+        sleep_us(5); // let signals settle
+
+        // Read state
+        uint8_t val;
+        i2c_read_blocking(i2c, PCF8574_KEYPAD_ADDR, &val, 1, false);
+
+        for (int row = 0; row < 4; row++) {
+            if (!(val & (1 << ROW_PINS[row]))) {
+                int key_index = row + col * 4;
+                state |= (1 << key_index);
+            }
+        }
+    }
+
+    // Reset PCF to default HIGH
+    uint8_t reset = 0xFF;
+    i2c_write_blocking(i2c, PCF8574_KEYPAD_ADDR, &reset, 1, false);
+
+    // printf("scan_key_state result: 0x%04X\n", state);
+    return state;
+}
+
+void update_led(i2c_inst_t *i2c, int key, bool on) {
+    uint8_t pin = LED_MAP[key];
+    uint8_t addr;
+    uint8_t *led_state;
+
+    if (key < 8) {
+        addr = PCF8574_LED_ADDR_1;
+        led_state = &led_state_1;
+    } else {
+        addr = PCF8574_LED_ADDR_2;
+        led_state = &led_state_2;
+        key -= 8;
+    }
+
+    if (on) {
+        *led_state &= ~(1 << pin); // Active LOW: 0 = ON
+    } else {
+        *led_state |= (1 << pin); // 1 = OFF
+    }
+
+    // Write updated state to PCF8574
+    uint8_t data = *led_state;
+    i2c_write_blocking(i2c, addr, &data, 1, false);
+    // int result = i2c_write_blocking(i2c, addr, &data, 1, false);
+    // if (result < 0) {
+    //     // printf("I2C write FAILED to 0x%02X\n", addr);
+    // } else {
+    //     printf("Wrote 0x%02X to PCF8574 @ 0x%02X\n", data, addr);
+    // }
+}
+
+void update_leds_from_keys(i2c_inst_t *i2c, uint16_t prev_state,
+                           uint16_t curr_state) {
+    uint16_t changed = prev_state ^ curr_state;
+
+    for (int i = 0; i < 16; ++i) {
+        if (changed & (1 << i)) {
+            bool pressed = curr_state & (1 << i);
+            printf("  Key %d %s\n", i, pressed ? "PRESSED" : "RELEASED");
+
+            update_led(i2c, i, pressed);
+        }
+    }
+}
+
 void setup_gpios(void) {
     i2c_init(i2c1, 400000);
     gpio_set_function(26, GPIO_FUNC_I2C);
     gpio_set_function(27, GPIO_FUNC_I2C);
     gpio_pull_up(26);
     gpio_pull_up(27);
+
+    i2c_init(i2c0, 100 * 1000);
+    gpio_set_function(20, GPIO_FUNC_I2C); // SDA
+    gpio_set_function(21, GPIO_FUNC_I2C); // SCL
+    gpio_pull_up(20);
+    gpio_pull_up(21);
 }
 
 int main() {
@@ -83,15 +177,10 @@ int main() {
 
     MidiHandler midi_handler = MidiHandler(synth);
 
-    // fpm::fixed_16_16 x {0.5};
-    //
-    // fpm::fixed_16_16 y {12.3f};
-    //
-    // int z = static_cast<float>(x*y);
-    // printf("z %d", z);
-
     ssd1306_draw_string(&disp, 8, 24, 1, words[0]);
     ssd1306_show(&disp);
+
+    uint16_t prev_state = 0;
 
     while (true) {
 
@@ -110,6 +199,10 @@ int main() {
             ssd1306_draw_string(&disp, 8, 24, 1, notes_str);
             ssd1306_show(&disp);
         }
+
+        uint16_t curr_state = scan_key_state(i2c0);
+        update_leds_from_keys(i2c1, prev_state, curr_state);
+        prev_state = curr_state;
 
         int c = getchar_timeout_us(0);
         if (c >= 0) {
