@@ -44,7 +44,7 @@ uint16_t scan_key_state(i2c_inst_t *i2c) {
 
         // Send to PCF8574
         i2c_write_blocking(i2c, PCF8574_KEYPAD_ADDR, &data, 1, true);
-        sleep_us(5); // let signals settle
+        // sleep_us(5); // let signals settle
 
         // Read state
         uint8_t val;
@@ -104,9 +104,35 @@ void update_leds_from_keys(i2c_inst_t *i2c, uint16_t prev_state,
     for (int i = 0; i < 16; ++i) {
         if (changed & (1 << i)) {
             bool pressed = curr_state & (1 << i);
-            printf("  Key %d %s\n", i, pressed ? "PRESSED" : "RELEASED");
+            // printf("  Key %d %s\n", i, pressed ? "PRESSED" : "RELEASED");
 
             update_led(i2c, i, pressed);
         }
     }
+}
+
+
+KeyChanges compute_key_changes(uint16_t prev_state, uint16_t curr_state) {
+    KeyChanges changes = {0, 0};
+    uint16_t changed = prev_state ^ curr_state;
+
+    // for (int i = 0; i < 16; ++i) {
+    //     if (!(changed & (1 << i)))
+    //         continue;
+    //
+    //     int midi_note = key_to_midi[i];
+    //     if (midi_note == -1)
+    //         continue;
+    //
+    //     bool pressed = curr_state & (1 << i);
+    //     if (pressed)
+    //         changes.note_on_mask |= (1 << i);
+    //     else
+    //         changes.note_off_mask |= (1 << i);
+    // }
+
+    changes.note_on_mask = changed & curr_state;
+    changes.note_off_mask = changed & prev_state;
+
+    return changes;
 }

@@ -98,6 +98,8 @@ int main() {
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         init_encoder(&encoders[i]);
     }
+    const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
+                                 66, 68, 70, -1, 67, 69, 71, 72};
 
     while (true) {
 
@@ -135,7 +137,29 @@ int main() {
         }
 
         uint16_t curr_state = scan_key_state(i2c0);
+
         update_leds_from_keys(i2c1, prev_state, curr_state);
+        KeyChanges key_changes = compute_key_changes(prev_state, curr_state);
+
+        for (int i = 0; i < 16; ++i) {
+            // if its 1
+            if ((key_changes.note_on_mask & (1 << i))) {
+
+                uint8_t note = key_to_midi[i];
+                if (note != 255) {
+                    synth.note_on(note, 127);
+                }
+            }
+            if ((key_changes.note_off_mask & (1 << i))) {
+
+                uint8_t note = key_to_midi[i];
+
+                if (note != 255) {
+                    synth.note_off(note, 0);
+                }
+            }
+        }
+
         prev_state = curr_state;
 
         int c = getchar_timeout_us(0);

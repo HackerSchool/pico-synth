@@ -22,6 +22,14 @@ typedef struct {
     uint sm;
 } Encoder;
 
+
+struct KeyChanges {
+    uint16_t note_on_mask;
+    uint16_t note_off_mask;
+};
+
+KeyChanges compute_key_changes(uint16_t prev_state, uint16_t curr_state);
+
 extern Encoder encoders[NUM_ENCODERS];
 
 // Initialize a quadrature encoder PIO state machine
@@ -37,4 +45,8 @@ void update_led(i2c_inst_t *i2c, int key, bool on);
 void update_leds_from_keys(i2c_inst_t *i2c, uint16_t prev_state,
                            uint16_t curr_state);
 
+
+KeyChanges compute_key_changes(uint16_t prev_state, uint16_t curr_state); 
+
 #endif // !HARDWARE_MANAGER
+//
