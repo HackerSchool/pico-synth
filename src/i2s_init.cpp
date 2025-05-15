@@ -10,7 +10,8 @@ bool decode_flg = false;
 static constexpr int32_t DAC_ZERO = 1;
 
 #define audio_pio __CONCAT(pio, PICO_AUDIO_I2S_PIO)
-#define SAMPLES_PER_BUFFER 1156 // Samples / channel
+// #define SAMPLES_PER_BUFFER 1156 // Samples / channel
+// #define SAMPLES_PER_BUFFER 512 // Samples / channel
 
 static audio_format_t audio_format = {.sample_freq = 44100,
                                       .pcm_format = AUDIO_PCM_FORMAT_S32,

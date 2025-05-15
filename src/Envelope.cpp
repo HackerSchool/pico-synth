@@ -1,4 +1,5 @@
 #include "Envelope.hpp"
+#include "config.hpp"
 #include "fixed_point.h"
 #include <cstdint>
 #include <cstdio>
@@ -10,7 +11,7 @@ ADSREnvelope::ADSREnvelope()
       trigger(0.f), state(ENV_IDLE) {} // Default constructor
 
 ADSREnvelope::ADSREnvelope(float a_in, float d_in, float s_in, float r_in,
-                           std::array<int16_t, 1156> &in_signal, float trigger)
+                           std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal, float trigger)
     : in_signal(&in_signal), trigger(trigger) {
     a = q24_from_float(a_in);
     d = q24_from_float(d_in);
@@ -79,7 +80,7 @@ void ADSREnvelope::out() {
     }
 
 
-    for (uint i = 0; i < 1156; i++) {
+    for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
 
         current_scale = scale;
         int16_t scale_q2_14 = (int16_t)(scale >> 10);
@@ -94,4 +95,4 @@ void ADSREnvelope::set_trigger(float trig) { trigger = trig; }
 
 void ADSREnvelope::set_idle() { state = ENV_IDLE; }
 
-std::array<int16_t, 1156> &ADSREnvelope::get_output() { return output; }
+std::array<int16_t, SAMPLES_PER_BUFFER> &ADSREnvelope::get_output() { return output; }

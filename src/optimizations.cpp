@@ -1,10 +1,11 @@
 // Optimized Oscillator.hpp
+#include "config.hpp"
 class Oscillator {
 private:
     const std::vector<int16_t>* wavetable_;
     uint32_t pos_fixed;           // Fixed-point position (16.16 format)
     uint32_t step_fixed;          // Fixed-point step size (16.16 format)
-    std::array<int16_t, 1156> output;
+    std::array<int16_t, SAMPLES_PER_BUFFER> output;
 
 public:
     Oscillator() : wavetable_(&sine_wave_table), pos_fixed(0), step_fixed(0) {}
@@ -35,7 +36,7 @@ public:
         const uint32_t pos_mask = (WAVE_TABLE_LEN << 16) - 1;
         const uint32_t table_len = WAVE_TABLE_LEN;
         
-        for (int i = 0; i < 1156; i++) {
+        for (int i = 0; i < SAMPLES_PER_BUFFER; i++) {
             // Extract the integer part of the position (top 16 bits)
             uint32_t pos_int = pos_fixed >> 16;
             output[i] = (*wavetable_)[pos_int];
@@ -45,7 +46,7 @@ public:
         }
     }
     
-    std::array<int16_t, 1156>& get_output() {
+    std::array<int16_t, SAMPLES_PER_BUFFER>& get_output() {
         return output;
     }
     
@@ -76,8 +77,8 @@ private:
     uint32_t current_scale_fixed;
     
     EnvelopeState state;
-    std::array<int16_t, 1156> output;
-    std::array<int16_t, 1156>* in_signal;
+    std::array<int16_t, SAMPLES_PER_BUFFER> output;
+    std::array<int16_t, SAMPLES_PER_BUFFER>* in_signal;
     bool triggered;
 
     // Precompute constants
@@ -88,7 +89,7 @@ public:
                      r_fixed(16777216), in_signal(nullptr), triggered(false), 
                      t_fixed(0), current_scale_fixed(0), state(ENV_IDLE) {}
     
-    ADSREnvelope(float a, float d, float s, float r, std::array<int16_t, 1156>& in_signal, float trigger)
+    ADSREnvelope(float a, float d, float s, float r, std::array<int16_t, SAMPLES_PER_BUFFER>& in_signal, float trigger)
         : in_signal(&in_signal), triggered(trigger > 4.5f) {
         // Convert to fixed-point (8.24 format)
         a_fixed = static_cast<uint32_t>(a * FIXED_ONE);
@@ -118,7 +119,7 @@ public:
                     state = ENV_DECAY;
                     t_fixed = 0;
                     process_buffer_decay();
-                } else if (t_fixed + 1156 * SAMPLE_DELTA_FIXED >= a_fixed) {
+                } else if (t_fixed + SAMPLES_PER_BUFFER * SAMPLE_DELTA_FIXED >= a_fixed) {
                     // Transition from attack to decay during this buffer
                     uint32_t samples_in_attack = (a_fixed - t_fixed) / SAMPLE_DELTA_FIXED;
                     process_buffer_attack_decay(samples_in_attack);
@@ -134,7 +135,7 @@ public:
                     state = ENV_SUSTAIN;
                     t_fixed = 0;
                     process_buffer_sustain();
-                } else if (t_fixed + 1156 * SAMPLE_DELTA_FIXED >= d_fixed) {
+                } else if (t_fixed + SAMPLES_PER_BUFFER * SAMPLE_DELTA_FIXED >= d_fixed) {
                     // Transition from decay to sustain
                     uint32_t samples_in_decay = (d_fixed - t_fixed) / SAMPLE_DELTA_FIXED;
                     process_buffer_decay_sustain(samples_in_decay);
@@ -159,7 +160,7 @@ public:
                     // Envelope complete
                     state = ENV_IDLE;
                     process_buffer_idle();
-                } else if (t_fixed + 1156 * SAMPLE_DELTA_FIXED >= r_fixed) {
+                } else if (t_fixed + SAMPLES_PER_BUFFER * SAMPLE_DELTA_FIXED >= r_fixed) {
                     // Transition from release to idle
                     uint32_t samples_in_release = (r_fixed - t_fixed) / SAMPLE_DELTA_FIXED;
                     process_buffer_release_idle(samples_in_release);
@@ -188,14 +189,14 @@ public:
         triggered = trig > 4.5f;
     }
     
-    std::array<int16_t, 1156>& get_output() {
+    std::array<int16_t, SAMPLES_PER_BUFFER>& get_output() {
         return output;
     }
 
 private:
     // Specialized processing functions for each envelope state
     void process_buffer_attack() {
-        for (uint i = 0; i < 1156; i++) {
+        for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
             current_scale_fixed = (t_fixed * FIXED_ONE) / a_fixed;
             output[i] = static_cast<int16_t>(((*in_signal)[i] * current_scale_fixed) >> 24);
             t_fixed += SAMPLE_DELTA_FIXED;
@@ -204,7 +205,7 @@ private:
     
     void process_buffer_decay() {
         uint32_t one_minus_s = FIXED_ONE - s_fixed;
-        for (uint i = 0; i < 1156; i++) {
+        for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
             current_scale_fixed = FIXED_ONE - ((one_minus_s * t_fixed) / d_fixed);
             output[i] = static_cast<int16_t>(((*in_signal)[i] * current_scale_fixed) >> 24);
             t_fixed += SAMPLE_DELTA_FIXED;
@@ -213,14 +214,14 @@ private:
     
     void process_buffer_sustain() {
         // Apply the same scale to all samples in sustain
-        for (uint i = 0; i < 1156; i++) {
+        for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
             current_scale_fixed = s_fixed;
             output[i] = static_cast<int16_t>(((*in_signal)[i] * s_fixed) >> 24);
         }
     }
     
     void process_buffer_release() {
-        for (uint i = 0; i < 1156; i++) {
+        for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
             current_scale_fixed = release_start_fixed * (FIXED_ONE - (t_fixed / r_fixed));
             output[i] = static_cast<int16_t>(((*in_signal)[i] * current_scale_fixed) >> 24);
             t_fixed += SAMPLE_DELTA_FIXED;
@@ -248,7 +249,7 @@ private:
         
         // Process decay phase
         uint32_t one_minus_s = FIXED_ONE - s_fixed;
-        for (; i < 1156; i++) {
+        for (; i < SAMPLES_PER_BUFFER; i++) {
             current_scale_fixed = FIXED_ONE - ((one_minus_s * t_fixed) / d_fixed);
             output[i] = static_cast<int16_t>(((*in_signal)[i] * current_scale_fixed) >> 24);
             t_fixed += SAMPLE_DELTA_FIXED;
@@ -269,7 +270,7 @@ private:
         state = ENV_SUSTAIN;
         
         // Process sustain phase
-        for (; i < 1156; i++) {
+        for (; i < SAMPLES_PER_BUFFER; i++) {
             output[i] = static_cast<int16_t>(((*in_signal)[i] * s_fixed) >> 24);
         }
     }
@@ -287,7 +288,7 @@ private:
         state = ENV_IDLE;
         
         // Clear the rest of the buffer
-        memset(&output[i], 0, (1156 - i) * sizeof(int16_t));
+        memset(&output[i], 0, (SAMPLES_PER_BUFFER - i) * sizeof(int16_t));
     }
 };
 
@@ -296,14 +297,14 @@ class Synth {
 private:
     std::array<Oscillator, NUM_OSC> oscillators;
     std::array<ADSREnvelope, NUM_OSC> envelopes;
-    std::array<int16_t, 1156> output;
+    std::array<int16_t, SAMPLES_PER_BUFFER> output;
     std::array<uint8_t, NUM_OSC> osc_midi_note;
     std::array<bool, NUM_OSC> osc_playing;
     std::array<uint8_t, NUM_OSC> osc_age;  // Age counter for voice stealing
     uint8_t voice_counter;                 // Counter for tracking voice allocation
     
     // Temp buffer for mixing
-    std::array<int32_t, 1156> mix_buffer;
+    std::array<int32_t, SAMPLES_PER_BUFFER> mix_buffer;
 
 public:
     Synth() : voice_counter(0) {
@@ -335,8 +336,8 @@ public:
                 envelopes[i].out();
                 
                 // Mix into buffer - directly accumulate
-                std::array<int16_t, 1156>& env_out = envelopes[i].get_output();
-                for (int k = 0; k < 1156; k++) {
+                std::array<int16_t, SAMPLES_PER_BUFFER>& env_out = envelopes[i].get_output();
+                for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
                     mix_buffer[k] += env_out[k];
                 }
             }
@@ -344,7 +345,7 @@ public:
         
         // Scale and clip the final output
         int divisor = (active_voices > 0) ? active_voices : 1;
-        for (int k = 0; k < 1156; k++) {
+        for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
             // Scale by number of active voices and clip
             int32_t sample = mix_buffer[k] / divisor;
             if (sample > 32767) sample = 32767;
@@ -353,7 +354,7 @@ public:
         }
     }
     
-    std::array<int16_t, 1156>& get_output() { 
+    std::array<int16_t, SAMPLES_PER_BUFFER>& get_output() { 
         return output; 
     }
     

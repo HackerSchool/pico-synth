@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <pico/types.h>
+#include "config.hpp"
 #include "fixed_point.h"
 
 // ADSR Envelope Class
@@ -11,12 +12,12 @@ class ADSREnvelope {
   public:
     ADSREnvelope(); // Default Constructor
     ADSREnvelope(float a, float d, float s, float r,
-                 std::array<int16_t, 1156> &in_signal, float trigger);
+                 std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal, float trigger);
 
     void out();
     void set_trigger(float trig);
     void set_idle();
-    std::array<int16_t, 1156> &get_output();
+    std::array<int16_t, SAMPLES_PER_BUFFER> &get_output();
 
   private:
     enum EnvelopeState {
@@ -27,8 +28,8 @@ class ADSREnvelope {
         ENV_IDLE
     };
 
-    std::array<int16_t, 1156> *in_signal;
-    std::array<int16_t, 1156> output;
+    std::array<int16_t, SAMPLES_PER_BUFFER> *in_signal;
+    std::array<int16_t, SAMPLES_PER_BUFFER> output;
 
     // Use fixed-point arithmetic for envelope (8.24 format)
     q8_24_t a, d, s, r; // Attack, Decay, Sustain, Release times in seconds

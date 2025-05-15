@@ -1,6 +1,7 @@
 #include "Synth.hpp"
 #include "Oscillator.hpp"
 #include "Wavetable.hpp"
+#include "config.hpp"
 #include <cstdint>
 #include <cstdio>
 
@@ -20,8 +21,8 @@ void Synth::out() {
         envelopes[i].out();
     }
     for (int i = 0; i < NUM_OSC; i++) {
-        std::array<int16_t, 1156> &env_out_i = envelopes[i].get_output();
-        for (int k = 0; k < 1156; k++) {
+        std::array<int16_t, SAMPLES_PER_BUFFER> &env_out_i = envelopes[i].get_output();
+        for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
             // divide by 8
             output[k] += env_out_i[k] >> 3;
         }
@@ -32,7 +33,7 @@ void Synth::out() {
     low_pass_cheb.out(output.data(), output.size());
 }
 
-std::array<int16_t, 1156> &Synth::get_output() { return output; }
+std::array<int16_t, SAMPLES_PER_BUFFER> &Synth::get_output() { return output; }
 
 void Synth::process_midi_packet(uint8_t packet[4]) {
     uint8_t msg_type = packet[1] & 0xF0;

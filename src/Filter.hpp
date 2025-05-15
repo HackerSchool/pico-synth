@@ -2,6 +2,7 @@
 #define FILTER_HPP
 
 #include "Wavetable.hpp"
+#include "config.hpp"
 #include "fixed_point.h"
 #include "tusb.h"
 #include <cstddef>
@@ -58,7 +59,7 @@ class FilterFIR {
     // Process array of samples in-place (more efficient)
     void processChunkInPlace(int16_t *samples, size_t size);
 
-    std::array<int16_t, 1156> &get_output();
+    std::array<int16_t, SAMPLES_PER_BUFFER> &get_output();
 
     void reset();
     void recalculate_coefficients();
@@ -69,8 +70,8 @@ class FilterFIR {
     // Filter state
     std::array<int16_t, FILTER_ORDER> buffer = {0};
     int buffer_index = 0;
-    std::array<int16_t, 1156> output = {};
-    std::array<int16_t, 1156> *in_signal;
+    std::array<int16_t, SAMPLES_PER_BUFFER> output = {};
+    std::array<int16_t, SAMPLES_PER_BUFFER> *in_signal;
 
     q16_16_t cutoff_freq;
     q8_24_t fc_norm; // normalized cutoff frequency
@@ -97,15 +98,15 @@ class FilterCheb {
     void processChunkInPlace(int16_t *samples, size_t size);
     int16_t che_low_pass(int16_t x);
 
-    std::array<int16_t, 1156> &get_output();
+    std::array<int16_t, SAMPLES_PER_BUFFER> &get_output();
 
     void reset();
     void recalculate_coefficients();
 
   private:
     // Filter state
-    std::array<int16_t, 1156> output = {};
-    std::array<int16_t, 1156> *in_signal;
+    std::array<int16_t, SAMPLES_PER_BUFFER> output = {};
+    std::array<int16_t, SAMPLES_PER_BUFFER> *in_signal;
 
     q16_16_t cutoff_freq;
     q8_24_t fc_norm; // normalized cutoff frequency

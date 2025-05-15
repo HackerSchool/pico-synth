@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <stdio.h>
 
+#include "config.hpp"
 #include "hardware/clocks.h"
 #include "hardware/pio.h"
 #include "hardware/pll.h"
@@ -29,8 +30,8 @@
 uint vol = 100;
 
 // Double output buffer
-std::array<int16_t, 1156> out1 = {};
-std::array<int16_t, 1156> out2 = {};
+std::array<int16_t, SAMPLES_PER_BUFFER> out1 = {};
+std::array<int16_t, SAMPLES_PER_BUFFER> out2 = {};
 bool write_flag = 0;
 bool buff = 0;
 
@@ -191,7 +192,7 @@ int main() {
                 write_flag = 0;
             } else {
                 synth.out();
-                out2 = synth.get_output();
+                out1 = synth.get_output();
                 write_flag = 0;
             }
         }
@@ -215,7 +216,7 @@ void decode() {
         return;
     }
     int32_t *samples = (int32_t *)buffer->buffer->bytes;
-    std::array<int16_t, 1156> &out = (buff) ? out2 : out1;
+    std::array<int16_t, SAMPLES_PER_BUFFER> &out = (buff) ? out1 : out1;
     for (uint i = 0; i < buffer->max_sample_count; i++) {
         int32_t value0 = (vol * out[i]) << 8u;
         int32_t value1 = (vol * out[i]) << 8u;

@@ -4,6 +4,7 @@
 #include "pico/audio.h"
 #include "pico/audio_i2s.h"
 #include "pico/stdlib.h"
+#include "config.hpp"
 
 extern audio_buffer_pool_t *ap;
 extern bool decode_flg;

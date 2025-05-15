@@ -1,5 +1,6 @@
 #include "Filter.hpp"
 #include "Wavetable.hpp"
+#include "config.hpp"
 #include "fixed_point.h"
 #include "tusb.h"
 #include <cstddef>
@@ -98,7 +99,7 @@ void FilterFIR::out(int16_t *samples, size_t size) {
     }
 }
 
-std::array<int16_t, 1156> &FilterFIR::get_output() { return output; }
+std::array<int16_t, SAMPLES_PER_BUFFER> &FilterFIR::get_output() { return output; }
 
 int16_t FilterFIR::process(int16_t sample) {
     // Store new sample in circular buffer

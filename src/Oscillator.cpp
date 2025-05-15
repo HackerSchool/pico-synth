@@ -1,5 +1,6 @@
 #include "Oscillator.hpp"
 #include "Wavetable.hpp"
+#include "config.hpp"
 
 Oscillator::Oscillator()
     : freq(440.f), wavetable_(&sine_wave_table), step(0), pos(0) {
@@ -34,7 +35,7 @@ Oscillator::Oscillator(WaveType wave_type, float freq) : freq(freq) {
 void Oscillator::out() {
     const uint32_t pos_mask = (WAVE_TABLE_LEN << 16) - 1;
 
-    for (int i = 0; i < 1156; i++) {
+    for (int i = 0; i < SAMPLES_PER_BUFFER; i++) {
 
         // Extract the integer part of the position (top 16 bits)
         uint32_t pos_int = pos >> 16;
@@ -45,7 +46,7 @@ void Oscillator::out() {
     }
 }
 
-std::array<int16_t, 1156> &Oscillator::get_output() { return output; }
+std::array<int16_t, SAMPLES_PER_BUFFER> &Oscillator::get_output() { return output; }
 
 void Oscillator::set_freq(float new_freq) {
     // Convert to fixed-point (16.16 format)
