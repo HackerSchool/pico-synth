@@ -56,6 +56,7 @@ target_sources(${bin_name} PRIVATE
     src/Synth.cpp
     src/MidiHandler.cpp
     src/Filter.cpp
+    src/HardwareManager.cpp
     src/usb_descriptors.c
     src/tusb_config.h
     src/ssd1306.c
