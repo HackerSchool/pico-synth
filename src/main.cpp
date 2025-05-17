@@ -36,6 +36,11 @@ bool write_flag = 0;
 bool buff = 0;
 
 void setup_gpios(void) {
+    // Enable less noise in audio output
+    gpio_init(PIN_DCDC_PSM_CTRL);
+    gpio_set_dir(PIN_DCDC_PSM_CTRL, GPIO_OUT);
+    gpio_put(PIN_DCDC_PSM_CTRL, 1);
+
     i2c_init(i2c1, 400000);
     gpio_set_function(26, GPIO_FUNC_I2C);
     gpio_set_function(27, GPIO_FUNC_I2C);
@@ -65,11 +70,6 @@ int main() {
 
     // Initialize TinyUSB
     tusb_init();
-
-    // Enable less noise in audio output
-    gpio_init(PIN_DCDC_PSM_CTRL);
-    gpio_set_dir(PIN_DCDC_PSM_CTRL, GPIO_OUT);
-    gpio_put(PIN_DCDC_PSM_CTRL, 1);
 
     // Initialize I2S audio output
     ap = i2s_audio_init(44100);
@@ -102,6 +102,8 @@ int main() {
     const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
                                  66, 68, 70, -1, 67, 69, 71, 72};
 
+    static WaveType last_wave_type = static_cast<WaveType>(-1);
+
     while (true) {
 
         // Handle USB tasks
@@ -120,6 +122,13 @@ int main() {
                 printf("Encoder %d: count = %ld (delta %ld)\n", i, count,
                        delta);
                 enc->last_count = count;
+                if (i == 0 && abs(delta) > 1) { // Only handle encoder 0
+                              // int delta_steps = count - last_wave_count;
+                              // if (delta_steps != 0) {
+                    synth.cycle_wave_type((delta > 0) ? 1 : -1);
+                    // last_wave_count = count;
+                    // }
+                }
             }
 
             if (!gpio_get(enc->sw_pin)) {
@@ -131,9 +140,22 @@ int main() {
 
         if (synth.get_notes_bitmask() != last_state) {
             last_state = synth.get_notes_bitmask();
-            const char *notes_str = synth.get_notes_playing_names();
-            ssd1306_clear(&disp);
-            ssd1306_draw_string(&disp, 8, 24, 1, notes_str);
+            // const char *notes_str = synth.get_notes_playing_names();
+            ssd1306_clear_square(&disp, 8, 24, 120, 8); // width fits ~14 chars
+            ssd1306_draw_string(&disp, 8, 24, 1,
+                                synth.get_notes_playing_names());
+            ssd1306_show(&disp);
+        }
+
+        if (synth.oscillators[0].get_wave_type() != last_wave_type) {
+            last_wave_type = synth.oscillators[0].get_wave_type();
+
+            // const char *wave_name = wave_type_to_string(last_wave_type);
+            // Clear only the wave type value area (adjust width if needed)
+            ssd1306_clear_square(&disp, 56, 0, 64, 8); // 8px height per line
+            ssd1306_draw_string(&disp, 8, 0, 1, "Wave:");
+            ssd1306_draw_string(&disp, 56, 0, 1,
+                                wave_type_to_string(last_wave_type));
             ssd1306_show(&disp);
         }
 

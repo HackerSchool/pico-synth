@@ -5,6 +5,23 @@
 const int16_t Q15_MAX = 32767;
 const int16_t Q14_MAX = 16384;
 
+const char *wave_type_to_string(WaveType type) {
+    switch (type) {
+    case Sine:
+        return "Sine";
+    case Square:
+        return "Square";
+    case Triangle:
+        return "Triangle";
+    case Sawtooth:
+        return "Saw";
+    case Sinc:
+        return "Sinc";
+    default:
+        return "Unknown";
+    }
+}
+
 // This method allows to define the wavetable at compile time!
 // Sine Wavetable
 const std::array<int16_t, WAVE_TABLE_LEN> sine_wave_table{[]() {

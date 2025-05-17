@@ -21,7 +21,8 @@ void Synth::out() {
         envelopes[i].out();
     }
     for (int i = 0; i < NUM_OSC; i++) {
-        std::array<int16_t, SAMPLES_PER_BUFFER> &env_out_i = envelopes[i].get_output();
+        std::array<int16_t, SAMPLES_PER_BUFFER> &env_out_i =
+            envelopes[i].get_output();
         for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
             // divide by 8
             output[k] += env_out_i[k] >> 3;
@@ -30,7 +31,7 @@ void Synth::out() {
 
     // low_pass.processChunkInPlace(output.data(), output.size());
     // low_pass.out(output.data(), output.size());
-    low_pass_cheb.out(output.data(), output.size());
+    // low_pass_cheb.out(output.data(), output.size());
 }
 
 std::array<int16_t, SAMPLES_PER_BUFFER> &Synth::get_output() { return output; }
@@ -153,4 +154,24 @@ const char *Synth::get_notes_playing_names() {
     }
 
     return buffer;
+}
+
+void Synth::cycle_wave_type(int delta) {
+    WaveType wave_type = oscillators[0].get_wave_type();
+    int new_index = static_cast<int>(wave_type) + delta;
+
+    // Wrap around the enum range
+    const int max_wave = static_cast<int>(WaveType::Sinc);
+    if (new_index > max_wave)
+        new_index = 0;
+    if (new_index < 0)
+        new_index = max_wave;
+
+    wave_type = static_cast<WaveType>(new_index);
+
+    for (auto &osc : oscillators) {
+        osc.set_wavetable(wave_type);
+    }
+
+    printf("Waveform set to: %d\n", wave_type);
 }
