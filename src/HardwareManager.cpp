@@ -1,6 +1,7 @@
 #include "HardwareManager.hpp"
 #include "fixed_point.h"
 #include "ssd1306.h"
+#include <cstdio>
 
 uint8_t led_state_1 = 0xFF;
 uint8_t led_state_2 = 0xFF;
@@ -166,13 +167,27 @@ void HardwareManager::handle_encoders() {
                 synth.cycle_wave_type(delta > 0 ? 1 : -1);
                 break;
 
-            case 1:
+            case 1: {
                 q8_24_t increment = q24_from_float(.1f);
                 for (auto &env : synth.envelopes) {
                     env.increment_ADSR(current_adsr_param,
                                        delta > 0 ? increment : -increment);
                 }
                 adsr_dirty = true;
+                break;
+            }
+            case 2:
+                // Only adjust filter cutoff if not in FILTER_OFF mode
+                if (synth.current_filter_type != FILTER_OFF) {
+                    float cut_off = synth.get_filter_cutoff();
+                    float new_cut_off = cut_off + (delta > 0 ? 50.f : -50.f);
+                    // Ensure cutoff stays within reasonable bounds
+                    new_cut_off = new_cut_off < 20.0f ? 20.0f : new_cut_off;
+                    new_cut_off =
+                        new_cut_off > 20000.0f ? 20000.0f : new_cut_off;
+                    synth.set_filter_cutoff(new_cut_off, 0.5f);
+                }
+                filter_dirty = true;
                 break;
             }
         }
@@ -185,6 +200,15 @@ void HardwareManager::handle_encoders() {
         }
         if (i == 1)
             last_encoder1_button = current_btn;
+
+        // Add filter type cycling on encoder 2's button
+        if (i == 2 && !current_btn && last_encoder2_button) {
+            synth.cycle_filter_type();
+            filter_dirty = true;
+        }
+        if (i == 2) {
+            last_encoder2_button = current_btn;
+        }
     }
 }
 
@@ -235,6 +259,12 @@ void HardwareManager::update_display() {
         adsr_dirty = false;
     }
 
+    if (filter_dirty) {
+        draw_filter();
+        changed = true;
+        filter_dirty = false;
+    }
+
     if (changed) {
         ssd1306_show(&disp);
     }
@@ -253,15 +283,61 @@ void HardwareManager::draw_wave_type() {
 
 void HardwareManager::draw_adsr() {
     ssd1306_clear_square(&disp, 0, 36, 128, 16); // 2 lines tall
-    // ssd1306_invert(&dist, 5)
 
     char values[4][8];
     synth.envelopes[0].get_ADSR_strings(values); // 2 decimal digits
 
+    // Draw parameter strings starting at x=8
     char line1[24], line2[24];
-    snprintf(line1, sizeof(line1), "A:%s  D:%s", values[0], values[1]);
-    snprintf(line2, sizeof(line2), "S:%s  R:%s", values[2], values[3]);
+    snprintf(line1, sizeof(line1), "A:%s   D:%s", values[0], values[1]);
+    snprintf(line2, sizeof(line2), "S:%s   R:%s", values[2], values[3]);
+    ssd1306_draw_string(&disp, 8, 36, 1, line1);
+    ssd1306_draw_string(&disp, 8, 44, 1, line2);
 
-    ssd1306_draw_string(&disp, 0, 36, 1, line1);
-    ssd1306_draw_string(&disp, 0, 44, 1, line2);
+    // Draw arrow at one of four fixed positions based on current_adsr_param
+    int arrow_x, arrow_y;
+
+    switch (current_adsr_param) {
+    case 0: // A
+        arrow_x = 0;
+        arrow_y = 36;
+        break;
+    case 1: // D
+        arrow_x = 52;
+        arrow_y = 36;
+        break;
+    case 2: // S
+        arrow_x = 0;
+        arrow_y = 44;
+        break;
+    case 3: // R
+        arrow_x = 52;
+        arrow_y = 44;
+        break;
+    }
+
+    // Draw the arrow character
+    ssd1306_draw_char(&disp, arrow_x, arrow_y, 1, '>');
+}
+
+void HardwareManager::draw_filter() {
+    char fc_value[32];
+
+    // Display different information based on filter type
+    switch (synth.current_filter_type) {
+    case FILTER_LOW_PASS:
+        snprintf(fc_value, sizeof(fc_value), "LP: %.1f Hz",
+                 synth.get_filter_cutoff());
+        break;
+    case FILTER_CHEBYSHEV:
+        snprintf(fc_value, sizeof(fc_value), "Cheb: %.1f Hz",
+                 synth.get_filter_cutoff());
+        break;
+    default: // off
+        snprintf(fc_value, sizeof(fc_value), "Filter: OFF");
+        break;
+    }
+
+    ssd1306_clear_square(&disp, 0, 8, 128, 8); // Clear the entire line
+    ssd1306_draw_string(&disp, 8, 8, 1, fc_value);
 }

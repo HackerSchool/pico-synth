@@ -29,9 +29,21 @@ void Synth::out() {
         }
     }
 
-    // low_pass.processChunkInPlace(output.data(), output.size());
     // low_pass.out(output.data(), output.size());
     // low_pass_cheb.out(output.data(), output.size());
+
+    // Apply the selected filter
+    switch (current_filter_type) {
+    case FILTER_LOW_PASS:
+        low_pass.out(output.data(), output.size());
+        break;
+    case FILTER_CHEBYSHEV:
+        low_pass_cheb.out(output.data(), output.size());
+        break;
+    default:
+        // No filtering
+        break;
+    }
 }
 
 std::array<int16_t, SAMPLES_PER_BUFFER> &Synth::get_output() { return output; }
@@ -70,10 +82,10 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
         // printf("Control Change: channel=%d, controller=%d, value = % d\n
         // ",channel channel, note, velocity); Handle control change message
         if (note == 0x02) {
-            float fc = 200.f + (float)velocity / 127.f * 9000.f;
+            // float fc = 200.f + (float)velocity / 127.f * 9000.f;
             // printf("fc = %f\n", fc);
             // low_pass.set_cutoff_freq(fc);
-            low_pass_cheb.set_cutoff_freq(fc, 0.5f);
+            // low_pass_cheb.set_cutoff_freq(fc, 0.5f);
         }
         // For example: set_controller(note, velocity);
         //
@@ -174,4 +186,33 @@ void Synth::cycle_wave_type(int delta) {
     }
 
     printf("Waveform set to: %d\n", wave_type);
+}
+
+void Synth::cycle_filter_type() {
+    current_filter_type =
+        static_cast<FilterType>((current_filter_type + 1) % NUM_FILTER_TYPES);
+}
+
+void Synth::set_filter_cutoff(float cutoff, float q) {
+    switch (current_filter_type) {
+    case FILTER_LOW_PASS:
+        low_pass.set_cutoff_freq(cutoff);
+        break;
+    case FILTER_CHEBYSHEV:
+        low_pass_cheb.set_cutoff_freq(cutoff, q);
+        break;
+    default:
+        break;
+    }
+}
+
+float Synth::get_filter_cutoff() {
+    switch (current_filter_type) {
+    case FILTER_LOW_PASS:
+        return low_pass.get_cutoff();
+    case FILTER_CHEBYSHEV:
+        return low_pass_cheb.get_cutoff();
+    default:
+        return 0.0f;
+    }
 }

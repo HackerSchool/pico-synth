@@ -33,6 +33,13 @@ class Synth {
     std::array<Oscillator, NUM_OSC> oscillators;
     std::array<ADSREnvelope, NUM_OSC> envelopes;
 
+    void cycle_filter_type();
+
+    void set_filter_cutoff(float cutoff, float q = 0.5f);
+
+    float get_filter_cutoff();
+    FilterType current_filter_type = FILTER_CHEBYSHEV; // Default to Chebyshev
+
   private:
     std::array<int16_t, SAMPLES_PER_BUFFER> output = {};
 

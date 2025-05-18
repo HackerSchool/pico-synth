@@ -77,17 +77,20 @@ class HardwareManager {
     void draw_notes();
     void draw_wave_type();
     void draw_adsr();
+    void draw_filter();
 
-    uint16_t prev_state = 0;
+        uint16_t prev_state = 0;
 
-    // Display
-    ssd1306_t disp;
+        // Display
+        ssd1306_t disp;
 
-    void init_display();
-    int current_adsr_param = 0;       // 0=A, 1=D, 2=S, 3=R
-    bool last_encoder1_button = true; // for edge detection
-    bool adsr_dirty = 0;
-};
+        void init_display();
+        int current_adsr_param = 0;       // 0=A, 1=D, 2=S, 3=R
+        bool last_encoder1_button = true; // for edge detection
+        bool last_encoder2_button = true; // for edge detection
+        bool adsr_dirty = 0;
+        bool filter_dirty = 0;
+    };
 
 #endif // !HARDWARE_MANAGER
-//
+    //

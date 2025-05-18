@@ -170,6 +170,7 @@ void FilterCheb::set_cutoff_freq(float fc, float epsilon) {
     int16_t ep = float_to_q2_14(epsilon); // in ]0.3, 1]
     float fs = 44100;
     int16_t fc_norm = float_to_q1_15(fc / fs);
+    cutoff_freq = q16_from_float(fc);
 
     // printf("fc_norm %f\n", q1_15_to_float(fc_norm));
 

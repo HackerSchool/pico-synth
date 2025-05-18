@@ -11,6 +11,13 @@
 #define N_Cheb 8
 #define m N_Cheb / 2
 
+enum FilterType {
+    FILTER_OFF,
+    FILTER_LOW_PASS,
+    FILTER_CHEBYSHEV,
+    NUM_FILTER_TYPES
+};
+
 template <typename T> inline void reverse_array(T *array, size_t size) {
     if (size <= 1)
         return; // Nothing to reverse
@@ -48,6 +55,7 @@ class FilterFIR {
     ~FilterFIR() = default;
 
     void set_cutoff_freq(float freq_c);
+    float get_cutoff(){return q16_to_float(cutoff_freq);}
 
     // Process a single sample
     int16_t process(int16_t sample);
@@ -87,6 +95,7 @@ class FilterCheb {
     ~FilterCheb() = default;
 
     void set_cutoff_freq(float fc, float epsilon);
+    float get_cutoff() { return q16_to_float(cutoff_freq); }
     // Process a single sample
     int16_t process(int16_t sample);
     void out(int16_t *samples, size_t size);
@@ -119,4 +128,4 @@ class FilterCheb {
     int16_t w2[m] = {0};
 };
 
-#endif //FILTER_HPP
+#endif // FILTER_HPP
