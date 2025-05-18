@@ -196,19 +196,24 @@ void HardwareManager::update_leds(uint16_t prev, uint16_t curr) {
 }
 
 void HardwareManager::update_display() {
+    bool changed = false;
     std::bitset<128> note_state = synth.get_notes_bitmask();
     if (note_state != last_note_state) {
         last_note_state = note_state;
         draw_notes();
+        changed = true;
     }
 
     WaveType current = synth.oscillators[0].get_wave_type();
     if (current != last_wave_type) {
         last_wave_type = current;
         draw_wave_type();
+        changed = true;
     }
 
-    ssd1306_show(&disp);
+    if (changed) {
+        ssd1306_show(&disp);
+    }
 }
 
 void HardwareManager::draw_notes() {
