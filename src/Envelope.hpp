@@ -1,23 +1,34 @@
 #ifndef ENVELOPE_HPP
 #define ENVELOPE_HPP
 
+#include "config.hpp"
+#include "fixed_point.h"
 #include <array>
 #include <cstdint>
 #include <pico/types.h>
-#include "config.hpp"
-#include "fixed_point.h"
 
 // ADSR Envelope Class
 class ADSREnvelope {
   public:
     ADSREnvelope(); // Default Constructor
     ADSREnvelope(float a, float d, float s, float r,
-                 std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal, float trigger);
+                 std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal,
+                 float trigger);
 
     void out();
     void set_trigger(float trig);
     void set_idle();
+
+    void set_ADSR(float a_in, float d_in, float s_in,
+                                float r_in); 
+
     std::array<int16_t, SAMPLES_PER_BUFFER> &get_output();
+
+    void increment_ADSR(uint8_t which, int32_t delta_q24);
+
+    std::array<int32_t, 4> get_ADSR();
+
+    void get_ADSR_strings(char out[4][8]);
 
   private:
     enum EnvelopeState {

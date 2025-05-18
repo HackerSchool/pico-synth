@@ -11,7 +11,8 @@ ADSREnvelope::ADSREnvelope()
       trigger(0.f), state(ENV_IDLE) {} // Default constructor
 
 ADSREnvelope::ADSREnvelope(float a_in, float d_in, float s_in, float r_in,
-                           std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal, float trigger)
+                           std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal,
+                           float trigger)
     : in_signal(&in_signal), trigger(trigger) {
     a = q24_from_float(a_in);
     d = q24_from_float(d_in);
@@ -79,7 +80,6 @@ void ADSREnvelope::out() {
         break;
     }
 
-
     for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
 
         current_scale = scale;
@@ -93,6 +93,50 @@ void ADSREnvelope::out() {
 
 void ADSREnvelope::set_trigger(float trig) { trigger = trig; }
 
+void ADSREnvelope::set_ADSR(float a_in, float d_in, float s_in, float r_in) {
+    a = q24_from_float(a_in);
+    d = q24_from_float(d_in);
+    s = q24_from_float(s_in);
+    r = q24_from_float(r_in);
+}
+
+void ADSREnvelope::increment_ADSR(uint8_t which, int32_t delta_q24) {
+    uint32_t zero = 0;
+    switch (which) {
+    case 0: // Attack
+        a = std::max(zero, static_cast<uint32_t>(a + delta_q24));
+        break;
+    case 1: // Decay
+        d = std::max(zero, static_cast<uint32_t>(d + delta_q24));
+        break;
+    case 2: // Sustain (clamp to [0, 1.0] in Q8.24)
+        s += delta_q24;
+        if (s < 0)
+            s = 0;
+        if (s > (1 << 24))
+            s = (1 << 24);
+        break;
+    case 3: // Release
+        r = std::max(zero, static_cast<uint32_t>(r + delta_q24));
+        break;
+    default:
+        break;
+    }
+}
+
+std::array<int32_t, 4> ADSREnvelope::get_ADSR() { return {a, d, s, r}; }
+
+void ADSREnvelope::get_ADSR_strings(char out[4][8]) {
+    const int32_t params[4] = {a, d, s, r};
+
+    for (int i = 0; i < 4; ++i) {
+        float val = q24_to_float(params[i]);
+        snprintf(out[i], 8, "%.2f", val); // Format with 2 decimal digits
+    }
+}
+
 void ADSREnvelope::set_idle() { state = ENV_IDLE; }
 
-std::array<int16_t, SAMPLES_PER_BUFFER> &ADSREnvelope::get_output() { return output; }
+std::array<int16_t, SAMPLES_PER_BUFFER> &ADSREnvelope::get_output() {
+    return output;
+}

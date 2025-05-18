@@ -1,4 +1,6 @@
 #include "HardwareManager.hpp"
+#include "fixed_point.h"
+#include "ssd1306.h"
 
 uint8_t led_state_1 = 0xFF;
 uint8_t led_state_2 = 0xFF;
@@ -156,17 +158,33 @@ void HardwareManager::handle_encoders() {
         int32_t count = quadrature_encoder_get_count(enc->pio, enc->sm);
         int32_t delta = count - enc->last_count;
 
-        if (delta != 0) {
+        if (delta != 0 && abs(delta) > 1) {
             enc->last_count = count;
 
-            if (i == 0 && abs(delta) > 1) {
+            switch (i) {
+            case 0:
                 synth.cycle_wave_type(delta > 0 ? 1 : -1);
+                break;
+
+            case 1:
+                q8_24_t increment = q24_from_float(.1f);
+                for (auto &env : synth.envelopes) {
+                    env.increment_ADSR(current_adsr_param,
+                                       delta > 0 ? increment : -increment);
+                }
+                adsr_dirty = true;
+                break;
             }
         }
 
-        if (!gpio_get(enc->sw_pin)) {
-            printf("Encoder %d: 🔘 button pressed\n", i);
+        // Handle button press (edge detect)
+        bool current_btn = gpio_get(enc->sw_pin);
+        if (i == 1 && !current_btn && last_encoder1_button) {
+            current_adsr_param = (current_adsr_param + 1) % 4;
+            adsr_dirty = true;
         }
+        if (i == 1)
+            last_encoder1_button = current_btn;
     }
 }
 
@@ -211,6 +229,12 @@ void HardwareManager::update_display() {
         changed = true;
     }
 
+    if (adsr_dirty) {
+        draw_adsr(); // new function below
+        changed = true;
+        adsr_dirty = false;
+    }
+
     if (changed) {
         ssd1306_show(&disp);
     }
@@ -225,4 +249,19 @@ void HardwareManager::draw_wave_type() {
     ssd1306_clear_square(&disp, 56, 0, 64, 8);
     ssd1306_draw_string(&disp, 8, 0, 1, "Wave:");
     ssd1306_draw_string(&disp, 56, 0, 1, wave_type_to_string(last_wave_type));
+}
+
+void HardwareManager::draw_adsr() {
+    ssd1306_clear_square(&disp, 0, 36, 128, 16); // 2 lines tall
+    // ssd1306_invert(&dist, 5)
+
+    char values[4][8];
+    synth.envelopes[0].get_ADSR_strings(values); // 2 decimal digits
+
+    char line1[24], line2[24];
+    snprintf(line1, sizeof(line1), "A:%s  D:%s", values[0], values[1]);
+    snprintf(line2, sizeof(line2), "S:%s  R:%s", values[2], values[3]);
+
+    ssd1306_draw_string(&disp, 0, 36, 1, line1);
+    ssd1306_draw_string(&disp, 0, 44, 1, line2);
 }
