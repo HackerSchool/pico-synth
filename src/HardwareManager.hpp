@@ -1,10 +1,12 @@
 #ifndef HARDWARE_MANAGER
 #define HARDWARE_MANAGER
 
+#include "Synth.hpp"
 #include "hardware/i2c.h"
 #include "hardware/pio.h"
 #include "i2s_init.hpp"
 #include "quadrature_encoder.pio.h"
+#include "ssd1306.h"
 #include "tusb.h"
 #include <cstdint>
 
@@ -21,7 +23,6 @@ typedef struct {
     PIO pio;
     uint sm;
 } Encoder;
-
 
 struct KeyChanges {
     uint16_t note_on_mask;
@@ -45,8 +46,44 @@ void update_led(i2c_inst_t *i2c, int key, bool on);
 void update_leds_from_keys(i2c_inst_t *i2c, uint16_t prev_state,
                            uint16_t curr_state);
 
+KeyChanges compute_key_changes(uint16_t prev_state, uint16_t curr_state);
 
-KeyChanges compute_key_changes(uint16_t prev_state, uint16_t curr_state); 
+class HardwareManager {
+  public:
+    HardwareManager(Synth &synth_ref);
+
+    void init();
+    void update();      // called every loop
+    void poll_inputs(); // handle encoders + buttons
+    void update_display();
+
+  private:
+    Synth &synth;
+
+    Encoder encoders[NUM_ENCODERS] = {
+        {.last_count = 0, .clk_pin = 10, .sw_pin = 9, .pio = pio0, .sm = 0},
+        {.last_count = 0, .clk_pin = 7, .sw_pin = 6, .pio = pio0, .sm = 1},
+        {.last_count = 0, .clk_pin = 4, .sw_pin = 3, .pio = pio0, .sm = 2},
+        {.last_count = 0, .clk_pin = 1, .sw_pin = 0, .pio = pio0, .sm = 3},
+    };
+    std::bitset<128> last_note_state;
+    WaveType last_wave_type = static_cast<WaveType>(-1);
+    uint16_t prev_keys = 0;
+
+    // Helpers
+    void handle_encoders();
+    void handle_keypad();
+    void update_leds(uint16_t prev, uint16_t curr);
+    void draw_notes();
+    void draw_wave_type();
+
+    uint16_t prev_state = 0;
+
+    // Display
+    ssd1306_t disp;
+
+    void init_display();
+};
 
 #endif // !HARDWARE_MANAGER
 //

@@ -8,12 +8,8 @@ const uint8_t ROW_PINS[4] = {2, 3, 5, 7};
 
 uint8_t LED_MAP[16] = {1, 3, 4, 7, 0, 2, 5, 6, 0, 2, 4, 6, 1, 3, 5, 7};
 
-Encoder encoders[NUM_ENCODERS] = {
-    {.last_count = 0, .clk_pin = 10, .sw_pin = 9, .pio = pio0, .sm = 0},
-    {.last_count = 0, .clk_pin = 7, .sw_pin = 6, .pio = pio0, .sm = 1},
-    {.last_count = 0, .clk_pin = 4, .sw_pin = 3, .pio = pio0, .sm = 2},
-    {.last_count = 0, .clk_pin = 1, .sw_pin = 0, .pio = pio0, .sm = 3},
-};
+const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
+                             66, 68, 70, -1, 67, 69, 71, 72};
 
 // Initialize a quadrature encoder PIO state machine
 void init_encoder(Encoder *enc) {
@@ -111,28 +107,117 @@ void update_leds_from_keys(i2c_inst_t *i2c, uint16_t prev_state,
     }
 }
 
-
 KeyChanges compute_key_changes(uint16_t prev_state, uint16_t curr_state) {
     KeyChanges changes = {0, 0};
     uint16_t changed = prev_state ^ curr_state;
-
-    // for (int i = 0; i < 16; ++i) {
-    //     if (!(changed & (1 << i)))
-    //         continue;
-    //
-    //     int midi_note = key_to_midi[i];
-    //     if (midi_note == -1)
-    //         continue;
-    //
-    //     bool pressed = curr_state & (1 << i);
-    //     if (pressed)
-    //         changes.note_on_mask |= (1 << i);
-    //     else
-    //         changes.note_off_mask |= (1 << i);
-    // }
 
     changes.note_on_mask = changed & curr_state;
     changes.note_off_mask = changed & prev_state;
 
     return changes;
+}
+
+HardwareManager::HardwareManager(Synth &synth_ref) : synth(synth_ref) {}
+
+void HardwareManager::init() {
+
+    for (int i = 0; i < NUM_ENCODERS; ++i) {
+        init_encoder(&encoders[i]);
+    }
+    //
+    // // Init display
+    init_display();
+}
+
+void HardwareManager::init_display() {
+    disp.external_vcc = false;
+    ssd1306_init(&disp, 128, 64, 0x3C, i2c1);
+    // ssd1306_hflip(&disp, 1);
+    ssd1306_rotate(&disp, 1);
+    ssd1306_clear(&disp);
+    const char *words[] = {"SSD1306", "DISPLAY", "DRIVER"};
+    ssd1306_draw_string(&disp, 8, 24, 1, words[0]);
+    ssd1306_show(&disp);
+}
+
+void HardwareManager::update() {
+    poll_inputs();
+    update_display();
+}
+
+void HardwareManager::poll_inputs() {
+    handle_encoders();
+    handle_keypad();
+}
+
+void HardwareManager::handle_encoders() {
+    for (int i = 0; i < NUM_ENCODERS; ++i) {
+        Encoder *enc = &encoders[i];
+        int32_t count = quadrature_encoder_get_count(enc->pio, enc->sm);
+        int32_t delta = count - enc->last_count;
+
+        if (delta != 0) {
+            enc->last_count = count;
+
+            if (i == 0 && abs(delta) > 1) {
+                synth.cycle_wave_type(delta > 0 ? 1 : -1);
+            }
+        }
+
+        if (!gpio_get(enc->sw_pin)) {
+            printf("Encoder %d: 🔘 button pressed\n", i);
+        }
+    }
+}
+
+void HardwareManager::handle_keypad() {
+    uint16_t curr = scan_key_state(i2c0);
+    KeyChanges changes = compute_key_changes(prev_keys, curr);
+    update_leds_from_keys(i2c1, prev_keys, curr);
+
+    for (int i = 0; i < 16; ++i) {
+        if ((changes.note_on_mask >> i) & 1) {
+            uint8_t note = key_to_midi[i];
+            if (note != 255)
+                synth.note_on(note, 127);
+        }
+        if ((changes.note_off_mask >> i) & 1) {
+            uint8_t note = key_to_midi[i];
+            if (note != 255)
+                synth.note_off(note, 0);
+        }
+    }
+
+    prev_keys = curr;
+}
+
+void HardwareManager::update_leds(uint16_t prev, uint16_t curr) {
+    update_leds_from_keys(i2c1, prev, curr); // use your existing helper
+}
+
+void HardwareManager::update_display() {
+    std::bitset<128> note_state = synth.get_notes_bitmask();
+    if (note_state != last_note_state) {
+        last_note_state = note_state;
+        draw_notes();
+    }
+
+    WaveType current = synth.oscillators[0].get_wave_type();
+    if (current != last_wave_type) {
+        last_wave_type = current;
+        draw_wave_type();
+    }
+
+    ssd1306_show(&disp);
+}
+
+void HardwareManager::draw_notes() {
+    ssd1306_clear_square(&disp, 8, 24, 120, 8);
+    ssd1306_draw_string(&disp, 8, 24, 1, synth.get_notes_playing_names());
+}
+
+void HardwareManager::draw_wave_type() {
+    ssd1306_clear_square(&disp, 56, 0, 64, 8);
+    ssd1306_draw_string(&disp, 8, 0, 1, "Wave:");
+    ssd1306_draw_string(&disp, 56, 0, 1, wave_type_to_string(last_wave_type));
 }

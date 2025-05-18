@@ -76,33 +76,30 @@ int main() {
 
     setup_gpios();
 
-    const char *words[] = {"SSD1306", "DISPLAY", "DRIVER"};
+    // const char *words[] = {"SSD1306", "DISPLAY", "DRIVER"};
 
-    ssd1306_t disp;
-
-    disp.external_vcc = false;
-    ssd1306_init(&disp, 128, 64, 0x3C, i2c1);
-
-    // ssd1306_hflip(&disp, 1);
-    ssd1306_rotate(&disp, 1);
-    ssd1306_clear(&disp);
+   // ssd1306_t disp;
+    //
+    // disp.external_vcc = false;
+    // ssd1306_init(&disp, 128, 64, 0x3C, i2c1);
+    //
+    // // ssd1306_hflip(&disp, 1);
+    // ssd1306_rotate(&disp, 1);
+    // ssd1306_clear(&disp);
 
     Synth synth = Synth();
 
     MidiHandler midi_handler = MidiHandler(synth);
 
-    ssd1306_draw_string(&disp, 8, 24, 1, words[0]);
-    ssd1306_show(&disp);
+    // ssd1306_draw_string(&disp, 8, 24, 1, words[0]);
+    // ssd1306_show(&disp);
 
-    uint16_t prev_state = 0;
+    // uint16_t prev_state = 0;
 
-    for (int i = 0; i < NUM_ENCODERS; ++i) {
-        init_encoder(&encoders[i]);
-    }
-    const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
-                                 66, 68, 70, -1, 67, 69, 71, 72};
+    // static WaveType last_wave_type = static_cast<WaveType>(-1);
+    HardwareManager hw = HardwareManager(synth);
 
-    static WaveType last_wave_type = static_cast<WaveType>(-1);
+    hw.init();
 
     while (true) {
 
@@ -112,78 +109,8 @@ int main() {
         // Handle MIDI messages
         midi_handler.midi_task();
 
-        // encoders
-        for (int i = 0; i < NUM_ENCODERS; ++i) {
-            Encoder *enc = &encoders[i];
-            int32_t count = quadrature_encoder_get_count(enc->pio, enc->sm);
-            int32_t delta = count - enc->last_count;
-
-            if (delta != 0) {
-                printf("Encoder %d: count = %ld (delta %ld)\n", i, count,
-                       delta);
-                enc->last_count = count;
-                if (i == 0 && abs(delta) > 1) { // Only handle encoder 0
-                              // int delta_steps = count - last_wave_count;
-                              // if (delta_steps != 0) {
-                    synth.cycle_wave_type((delta > 0) ? 1 : -1);
-                    // last_wave_count = count;
-                    // }
-                }
-            }
-
-            if (!gpio_get(enc->sw_pin)) {
-                printf("Encoder %d: 🔘 button pressed\n", i);
-            }
-        }
-
-        static std::bitset<128> last_state;
-
-        if (synth.get_notes_bitmask() != last_state) {
-            last_state = synth.get_notes_bitmask();
-            // const char *notes_str = synth.get_notes_playing_names();
-            ssd1306_clear_square(&disp, 8, 24, 120, 8); // width fits ~14 chars
-            ssd1306_draw_string(&disp, 8, 24, 1,
-                                synth.get_notes_playing_names());
-            ssd1306_show(&disp);
-        }
-
-        if (synth.oscillators[0].get_wave_type() != last_wave_type) {
-            last_wave_type = synth.oscillators[0].get_wave_type();
-
-            // const char *wave_name = wave_type_to_string(last_wave_type);
-            // Clear only the wave type value area (adjust width if needed)
-            ssd1306_clear_square(&disp, 56, 0, 64, 8); // 8px height per line
-            ssd1306_draw_string(&disp, 8, 0, 1, "Wave:");
-            ssd1306_draw_string(&disp, 56, 0, 1,
-                                wave_type_to_string(last_wave_type));
-            ssd1306_show(&disp);
-        }
-
-        uint16_t curr_state = scan_key_state(i2c0);
-
-        update_leds_from_keys(i2c1, prev_state, curr_state);
-        KeyChanges key_changes = compute_key_changes(prev_state, curr_state);
-
-        for (int i = 0; i < 16; ++i) {
-            // if its 1
-            if ((key_changes.note_on_mask & (1 << i))) {
-
-                uint8_t note = key_to_midi[i];
-                if (note != 255) {
-                    synth.note_on(note, 127);
-                }
-            }
-            if ((key_changes.note_off_mask & (1 << i))) {
-
-                uint8_t note = key_to_midi[i];
-
-                if (note != 255) {
-                    synth.note_off(note, 0);
-                }
-            }
-        }
-
-        prev_state = curr_state;
+        hw.update();
+        // prev_state = curr_state;
 
         int c = getchar_timeout_us(0);
         if (c >= 0) {
