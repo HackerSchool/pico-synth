@@ -1,4 +1,4 @@
-24980677618092083
+24989404682781567
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -66346,6 +66346,13 @@ CP Radial series Radial pin pitch 2.50mm  diameter 5mm Electrolytic Capacitor
 2
 2
 Lame_Lib
+C_0402_1005Metric
+Capacitor SMD 0402 (1005 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 76, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator
+capacitor
+0
+2
+2
+Lame_Lib
 C_CERAMIC_1x2
 
 C capacitor std
@@ -66388,12 +66395,33 @@ D DO-41_SOD81 series Axial Horizontal pin pitch 7.62mm  length 5.2mm diameter 2.
 2
 2
 Lame_Lib
+Fingertip_Section
+
+
+0
+0
+0
+Lame_Lib
 GoLP_CORA_Z7
 
 
 0
 49
 49
+Lame_Lib
+INESC_Sensors
+
+
+0
+2
+2
+Lame_Lib
+LGA-4-CT815x
+VLGA, 4 Pin (https://ww1.microchip.com/downloads/en/DeviceDoc/DSC60XX-Ultra-Small-Ultra-Low-Power-MEMS-Oscillator-DS20005625C.pdf#page=15), generated with kicad-footprint-generator ipc_noLead_generator.py
+VLGA NoLead
+0
+4
+4
 Lame_Lib
 Potentiometer_Bourns_3386W_Horizontal
 Potentiometer, horizontal, Bourns 3386W, 9.53 x 4.83 x 9.53mm, https://www.bourns.com/docs/Product-Datasheets/3386.pdf
@@ -66429,6 +66457,13 @@ rotary encoder
 0
 7
 6
+Lame_Lib
+SMD_Wire_Connector_1x03
+
+
+0
+3
+3
 Lame_Lib
 SW_Cherry_MX_1.00u_PCB
 Cherry MX keyswitch, 1.00u, PCB mount, http://cherryamericas.com/wp-content/uploads/2014/12/mx_cat.pdf

@@ -488,7 +488,7 @@
       "plot": "Fab/",
       "pos_files": "",
       "specctra_dsn": "",
-      "step": "",
+      "step": "Images/PicoSynth_wTracks.step",
       "svg": "",
       "vrml": ""
     },
