@@ -1,4 +1,5 @@
 #include "HardwareManager.hpp"
+#include "Wavetable.hpp"
 #include "fixed_point.h"
 #include "ssd1306.h"
 #include <cstdint>
@@ -12,8 +13,6 @@ const uint8_t ROW_PINS[4] = {2, 3, 5, 7};
 
 uint8_t LED_MAP[16] = {1, 3, 4, 7, 0, 2, 5, 6, 0, 2, 4, 6, 1, 3, 5, 7};
 
-const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
-                             66, 68, 70, -1, 67, 69, 71, 72};
 
 // Initialize a quadrature encoder PIO state machine
 void init_encoder(Encoder *enc) {
@@ -146,13 +145,12 @@ void HardwareManager::init_display() {
 
 void HardwareManager::update() {
     poll_inputs();
-    update_display();
+    // update_display();
 }
 
 void HardwareManager::poll_inputs() {
     poll_encoders();
-    handle_encoders();
-    handle_keypad();
+    poll_keypad();
 }
 
 void HardwareManager::poll_encoders() {
@@ -174,128 +172,46 @@ void HardwareManager::poll_encoders() {
     }
 }
 
-void HardwareManager::handle_encoders() {
-    for (int i = 0; i < NUM_ENCODERS; ++i) {
-        Encoder *enc = &encoders[i];
-        int32_t delta = enc->delta;
 
-        if (delta != 0 && abs(delta) > 1) {
-            switch (i) {
-            case 0:
-                synth.cycle_wave_type(delta > 0 ? 1 : -1);
-                break;
-
-            case 1: {
-                q8_24_t increment = q24_from_float(.1f);
-                for (auto &env : synth.envelopes) {
-                    env.increment_ADSR(current_adsr_param,
-                                       delta > 0 ? increment : -increment);
-                }
-                adsr_dirty = true;
-                break;
-            }
-            case 2:
-                // Only adjust filter cutoff if not in FILTER_OFF mode
-                if (synth.current_filter_type != FILTER_OFF) {
-                    float cut_off = synth.get_filter_cutoff();
-                    float new_cut_off = cut_off + (delta > 0 ? 50.f : -50.f);
-                    // Ensure cutoff stays within reasonable bounds
-                    new_cut_off = new_cut_off < 20.0f ? 20.0f : new_cut_off;
-                    new_cut_off =
-                        new_cut_off > 20000.0f ? 20000.0f : new_cut_off;
-                    synth.set_filter_cutoff(new_cut_off, 0.5f);
-                    // printf("new cut off %f\n", new_cut_off);
-                }
-                filter_dirty = true;
-                break;
-            }
-        }
-
-        if (!enc->button_state && enc->button_edge) {
-            if (i == 1) {
-
-                current_adsr_param = (current_adsr_param + 1) % 4;
-                adsr_dirty = true;
-            }
-            if (i == 2) {
-
-                synth.cycle_filter_type();
-                filter_dirty = true;
-            }
-        }
-    }
-}
-
-void HardwareManager::handle_keypad() {
-    uint16_t curr = scan_key_state(i2c0);
-    KeyChanges changes = compute_key_changes(prev_keys, curr);
-    update_leds_from_keys(i2c1, prev_keys, curr);
-
-    for (int i = 0; i < 16; ++i) {
-        if ((changes.note_on_mask >> i) & 1) {
-            uint8_t note = key_to_midi[i];
-            if (note != 255)
-                synth.note_on(note, 127);
-        }
-        if ((changes.note_off_mask >> i) & 1) {
-            uint8_t note = key_to_midi[i];
-            if (note != 255)
-                synth.note_off(note, 0);
-        }
-    }
-
-    prev_keys = curr;
+void HardwareManager::poll_keypad() {
+    curr_switches = scan_key_state(i2c0);
+    // KeyChanges changes = compute_key_changes(prev_keys, curr);
+    // update_leds_from_keys(i2c1, prev_keys, curr);
+    //
+    // for (int i = 0; i < 16; ++i) {
+    //     if ((changes.note_on_mask >> i) & 1) {
+    //         uint8_t note = key_to_midi[i];
+    //         if (note != 255)
+    //             synth.note_on(note, 127);
+    //     }
+    //     if ((changes.note_off_mask >> i) & 1) {
+    //         uint8_t note = key_to_midi[i];
+    //         if (note != 255)
+    //             synth.note_off(note, 0);
+    //     }
+    // }
+    //
+    // prev_keys = curr;
 }
 
 void HardwareManager::update_leds(uint16_t prev, uint16_t curr) {
     update_leds_from_keys(i2c1, prev, curr); // use your existing helper
 }
 
-void HardwareManager::update_display() {
-    bool changed = false;
-    std::bitset<128> note_state = synth.get_notes_bitmask();
-    if (note_state != last_note_state) {
-        last_note_state = note_state;
-        draw_notes();
-        changed = true;
-    }
-
-    WaveType current = synth.oscillators[0].get_wave_type();
-    if (current != last_wave_type) {
-        last_wave_type = current;
-        draw_wave_type();
-        changed = true;
-    }
-
-    if (adsr_dirty) {
-        draw_adsr(); // new function below
-        changed = true;
-        adsr_dirty = false;
-    }
-
-    if (filter_dirty) {
-        draw_filter();
-        changed = true;
-        filter_dirty = false;
-    }
-
-    if (changed) {
-        ssd1306_show(&disp);
-    }
-}
 
 void HardwareManager::draw_notes() {
     ssd1306_clear_square(&disp, 8, 24, 120, 8);
     ssd1306_draw_string(&disp, 8, 24, 1, synth.get_notes_playing_names());
 }
 
-void HardwareManager::draw_wave_type() {
+void HardwareManager::draw_wave_type(WaveType wave_type) {
     ssd1306_clear_square(&disp, 56, 0, 64, 8);
     ssd1306_draw_string(&disp, 8, 0, 1, "Wave:");
-    ssd1306_draw_string(&disp, 56, 0, 1, wave_type_to_string(last_wave_type));
+    ssd1306_draw_string(&disp, 56, 0, 1, wave_type_to_string(wave_type));
+    // printf("wave type: %s \n", wave_type_to_string(last_wave_type));
 }
 
-void HardwareManager::draw_adsr() {
+void HardwareManager::draw_adsr(int current_adsr_param) {
     ssd1306_clear_square(&disp, 0, 36, 128, 16); // 2 lines tall
 
     char values[4][8];
@@ -354,4 +270,9 @@ void HardwareManager::draw_filter() {
 
     ssd1306_clear_square(&disp, 0, 8, 128, 8); // Clear the entire line
     ssd1306_draw_string(&disp, 8, 8, 1, fc_value);
+}
+
+
+void HardwareManager::display_show() {
+    ssd1306_show(&disp);
 }

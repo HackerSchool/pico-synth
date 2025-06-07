@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <stdio.h>
 
+#include "Ui.hpp"
 #include "pico/bootrom.h"
 
 
@@ -106,8 +107,10 @@ int main() {
 
     // static WaveType last_wave_type = static_cast<WaveType>(-1);
     HardwareManager hw = HardwareManager(synth);
-
     hw.init();
+
+
+    UiHandler ui = UiHandler(synth, hw, midi_handler);
 
     while (true) {
 
@@ -118,6 +121,7 @@ int main() {
         midi_handler.midi_task();
 
         hw.update();
+        ui.update();
         // prev_state = curr_state;
 
         int c = getchar_timeout_us(0);

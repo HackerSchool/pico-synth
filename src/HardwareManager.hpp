@@ -2,6 +2,7 @@
 #define HARDWARE_MANAGER
 
 #include "Synth.hpp"
+#include "Wavetable.hpp"
 #include "hardware/i2c.h"
 #include "hardware/pio.h"
 #include "i2s_init.hpp"
@@ -62,9 +63,6 @@ class HardwareManager {
     void poll_inputs(); // handle encoders + buttons
     void update_display();
 
-  private:
-    Synth &synth;
-
     Encoder encoders[NUM_ENCODERS] = {
         {.last_count = 0,
          .clk_pin = 10,
@@ -100,35 +98,37 @@ class HardwareManager {
          .button_edge = 0},
     };
 
-    // int8_t encoder_deltas[NUM_ENCODERS] = {0, 0, 0, 0};
-    // bool encoder_button_state[NUM_ENCODERS] = {false, false, false, false};
-    // bool encoder_button_edge[NUM_ENCODERS] = {false, false, false, false};
+    // int current_adsr_param = 0; // 0=A, 1=D, 2=S, 3=R
+    // bool adsr_dirty = 0;
+    // bool filter_dirty = 0;
+
+    uint16_t curr_switches = 0;
+
+    void draw_notes();
+    void draw_wave_type(WaveType wave_type);
+    void draw_adsr(int current_adsr_param);
+    void draw_filter();
+    void display_show();
+
+  private:
+    Synth &synth;
 
     std::bitset<128> last_note_state;
     WaveType last_wave_type = static_cast<WaveType>(-1);
-    uint16_t prev_keys = 0;
 
     // Helpers
-    void handle_encoders();
     void poll_encoders();
-    void handle_keypad();
+    void poll_keypad();
     void update_leds(uint16_t prev, uint16_t curr);
-    void draw_notes();
-    void draw_wave_type();
-    void draw_adsr();
-    void draw_filter();
 
-    uint16_t prev_state = 0;
+    // uint16_t prev_state = 0;
 
     // Display
     ssd1306_t disp;
 
     void init_display();
-    int current_adsr_param = 0;       // 0=A, 1=D, 2=S, 3=R
-    bool last_encoder1_button = true; // for edge detection
-    bool last_encoder2_button = true; // for edge detection
-    bool adsr_dirty = 0;
-    bool filter_dirty = 0;
+    // bool last_encoder1_button = true; // for edge detection
+    // bool last_encoder2_button = true; // for edge detection
 };
 
 #endif // !HARDWARE_MANAGER

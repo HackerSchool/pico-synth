@@ -58,6 +58,7 @@ class MidiHandler {
     MidiHandler(Synth &synth);
 
     void midi_task();
+    void midi_send_note(uint8_t note, uint8_t velocity, bool on);
 
   private:
     Synth &synth;
