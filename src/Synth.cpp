@@ -185,7 +185,7 @@ void Synth::cycle_wave_type(int delta) {
         osc.set_wavetable(wave_type);
     }
 
-    printf("Waveform set to: %d\n", wave_type);
+    // printf("Waveform set to: %d\n", wave_type);
 }
 
 void Synth::cycle_filter_type() {

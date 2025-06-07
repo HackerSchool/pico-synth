@@ -2,10 +2,12 @@
 #include "Oscillator.hpp"
 #include "Synth.hpp"
 #include "tusb.h"
+#include <cstdio>
 #include "MidiHandler.hpp"
 
 // Convert MIDI note to frequency (global function)
 float midi_to_freq(uint8_t midi_note) {
+    printf("note: %f\n", midi_frequencies[midi_note]);
     return (midi_note <= MIDI_MAX) ? midi_frequencies[midi_note] : 0.0f;
 }
 

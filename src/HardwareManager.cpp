@@ -1,6 +1,7 @@
 #include "HardwareManager.hpp"
 #include "fixed_point.h"
 #include "ssd1306.h"
+#include <cstdint>
 #include <cstdio>
 
 uint8_t led_state_1 = 0xFF;
@@ -149,19 +150,36 @@ void HardwareManager::update() {
 }
 
 void HardwareManager::poll_inputs() {
+    poll_encoders();
     handle_encoders();
     handle_keypad();
+}
+
+void HardwareManager::poll_encoders() {
+    for (int i = 0; i < NUM_ENCODERS; ++i) {
+        Encoder *enc = &encoders[i];
+        int32_t count = quadrature_encoder_get_count(enc->pio, enc->sm);
+        int32_t delta = count - enc->last_count;
+        enc->delta = delta;
+
+        if (delta != 0 && abs(delta) > 1) {
+            // here we only count delta bigger than 1 as a naive debouncer
+            enc->last_count = count;
+        }
+
+        // Handle button press (edge detect)
+        bool current_btn = gpio_get(enc->sw_pin);
+        enc->button_edge = (current_btn != enc->button_state);
+        enc->button_state = current_btn;
+    }
 }
 
 void HardwareManager::handle_encoders() {
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         Encoder *enc = &encoders[i];
-        int32_t count = quadrature_encoder_get_count(enc->pio, enc->sm);
-        int32_t delta = count - enc->last_count;
+        int32_t delta = enc->delta;
 
         if (delta != 0 && abs(delta) > 1) {
-            enc->last_count = count;
-
             switch (i) {
             case 0:
                 synth.cycle_wave_type(delta > 0 ? 1 : -1);
@@ -186,28 +204,24 @@ void HardwareManager::handle_encoders() {
                     new_cut_off =
                         new_cut_off > 20000.0f ? 20000.0f : new_cut_off;
                     synth.set_filter_cutoff(new_cut_off, 0.5f);
+                    // printf("new cut off %f\n", new_cut_off);
                 }
                 filter_dirty = true;
                 break;
             }
         }
 
-        // Handle button press (edge detect)
-        bool current_btn = gpio_get(enc->sw_pin);
-        if (i == 1 && !current_btn && last_encoder1_button) {
-            current_adsr_param = (current_adsr_param + 1) % 4;
-            adsr_dirty = true;
-        }
-        if (i == 1)
-            last_encoder1_button = current_btn;
+        if (!enc->button_state && enc->button_edge) {
+            if (i == 1) {
 
-        // Add filter type cycling on encoder 2's button
-        if (i == 2 && !current_btn && last_encoder2_button) {
-            synth.cycle_filter_type();
-            filter_dirty = true;
-        }
-        if (i == 2) {
-            last_encoder2_button = current_btn;
+                current_adsr_param = (current_adsr_param + 1) % 4;
+                adsr_dirty = true;
+            }
+            if (i == 2) {
+
+                synth.cycle_filter_type();
+                filter_dirty = true;
+            }
         }
     }
 }

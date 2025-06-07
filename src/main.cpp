@@ -1,6 +1,9 @@
-#include <array>
+#include <pico/types.h>
 #include <cstdint>
 #include <stdio.h>
+
+#include "pico/bootrom.h"
+
 
 #include "config.hpp"
 #include "hardware/clocks.h"
@@ -34,6 +37,11 @@ std::array<int16_t, SAMPLES_PER_BUFFER> out1 = {};
 std::array<int16_t, SAMPLES_PER_BUFFER> out2 = {};
 bool write_flag = 0;
 bool buff = 0;
+
+
+void enter_bootsel_mode() {
+    reset_usb_boot(0, 0);  // Jump to BOOTSEL (UF2) mode
+}
 
 void setup_gpios(void) {
     // Enable less noise in audio output
@@ -132,6 +140,8 @@ int main() {
                 for (int i = 0; i < 512; i++) {
                     printf("%f,\n\r", q24_to_float(sinc_table_fp[i]));
                 }
+            if (c == 'b')
+                enter_bootsel_mode();
             printf("Yo\n\r");
         }
         if (write_flag) {

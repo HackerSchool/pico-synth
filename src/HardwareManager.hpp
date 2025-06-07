@@ -22,6 +22,11 @@ typedef struct {
     uint sw_pin;
     PIO pio;
     uint sm;
+
+    int32_t delta;
+    bool button_state;
+    bool button_edge;
+
 } Encoder;
 
 struct KeyChanges {
@@ -61,17 +66,51 @@ class HardwareManager {
     Synth &synth;
 
     Encoder encoders[NUM_ENCODERS] = {
-        {.last_count = 0, .clk_pin = 10, .sw_pin = 9, .pio = pio0, .sm = 0},
-        {.last_count = 0, .clk_pin = 7, .sw_pin = 6, .pio = pio0, .sm = 1},
-        {.last_count = 0, .clk_pin = 4, .sw_pin = 3, .pio = pio0, .sm = 2},
-        {.last_count = 0, .clk_pin = 1, .sw_pin = 0, .pio = pio0, .sm = 3},
+        {.last_count = 0,
+         .clk_pin = 10,
+         .sw_pin = 9,
+         .pio = pio0,
+         .sm = 0,
+         .delta = 0,
+         .button_state = 0,
+         .button_edge = 0},
+        {.last_count = 0,
+         .clk_pin = 7,
+         .sw_pin = 6,
+         .pio = pio0,
+         .sm = 1,
+         .delta = 0,
+         .button_state = 0,
+         .button_edge = 0},
+        {.last_count = 0,
+         .clk_pin = 4,
+         .sw_pin = 3,
+         .pio = pio0,
+         .sm = 2,
+         .delta = 0,
+         .button_state = 0,
+         .button_edge = 0},
+        {.last_count = 0,
+         .clk_pin = 1,
+         .sw_pin = 0,
+         .pio = pio0,
+         .sm = 3,
+         .delta = 0,
+         .button_state = 0,
+         .button_edge = 0},
     };
+
+    // int8_t encoder_deltas[NUM_ENCODERS] = {0, 0, 0, 0};
+    // bool encoder_button_state[NUM_ENCODERS] = {false, false, false, false};
+    // bool encoder_button_edge[NUM_ENCODERS] = {false, false, false, false};
+
     std::bitset<128> last_note_state;
     WaveType last_wave_type = static_cast<WaveType>(-1);
     uint16_t prev_keys = 0;
 
     // Helpers
     void handle_encoders();
+    void poll_encoders();
     void handle_keypad();
     void update_leds(uint16_t prev, uint16_t curr);
     void draw_notes();
@@ -79,18 +118,18 @@ class HardwareManager {
     void draw_adsr();
     void draw_filter();
 
-        uint16_t prev_state = 0;
+    uint16_t prev_state = 0;
 
-        // Display
-        ssd1306_t disp;
+    // Display
+    ssd1306_t disp;
 
-        void init_display();
-        int current_adsr_param = 0;       // 0=A, 1=D, 2=S, 3=R
-        bool last_encoder1_button = true; // for edge detection
-        bool last_encoder2_button = true; // for edge detection
-        bool adsr_dirty = 0;
-        bool filter_dirty = 0;
-    };
+    void init_display();
+    int current_adsr_param = 0;       // 0=A, 1=D, 2=S, 3=R
+    bool last_encoder1_button = true; // for edge detection
+    bool last_encoder2_button = true; // for edge detection
+    bool adsr_dirty = 0;
+    bool filter_dirty = 0;
+};
 
 #endif // !HARDWARE_MANAGER
-    //
+//
