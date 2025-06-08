@@ -37,6 +37,7 @@ class Sequencer {
     void get_notes();
     void get_tempo();
     void get_swing();
+    uint8_t get_current_step();
 
     void schedule_next_alarm();
 
@@ -55,6 +56,8 @@ class Sequencer {
 
     bool toggle = 0;
     bool step_flag = 0;
+
+    bool play_flag = 0;
 };
 
 #endif // !STEP_SEQUENCER

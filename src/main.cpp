@@ -9,8 +9,6 @@
 #include "hardware/pio.h"
 #include "hardware/pll.h"
 #include "hardware/structs/clocks.h"
-#include "hardware/structs/systick.h"
-#include "hardware/timer.h"
 
 #include "pico/audio.h"
 
@@ -114,12 +112,12 @@ int main() {
 
     hw.init();
 
-    UiHandler ui = UiHandler(synth, hw, midi_handler);
 
     printf("About to construct Sequencer\n");
     Sequencer seq(synth, midi_handler);
     printf("Constructed Sequencer\n");
 
+    UiHandler ui = UiHandler(synth, hw, midi_handler, seq);
 
     while (true) {
         // Handle USB tasks

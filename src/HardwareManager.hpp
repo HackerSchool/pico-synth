@@ -110,6 +110,9 @@ class HardwareManager {
     void draw_midi_settings(bool midi_out, bool midi_in, bool switches_in,
                             bool sequencer_in, bool sequencer_out);
     void draw_filter();
+
+    void draw_sequencer_settings(bool playing, uint32_t tempo,
+                                 uint8_t current_step);
     void display_show();
 
   private:

@@ -1,0 +1,86 @@
+#include "Sequencer.hpp"
+#include "Ui.hpp"
+
+
+void UiHandler::sequencer_handle_encoders(UiHandler& self, Synth &synth, HardwareManager &hw) {
+    
+    Sequencer& sequencer = self.seq;
+    for (int i = 0; i < NUM_ENCODERS; ++i) {
+        Encoder *enc = &hw.encoders[i];
+        int32_t delta = enc->delta;
+        
+        // Handle encoder rotations
+        if (delta != 0 && abs(delta) > 1) {
+            switch (i) {
+            case 0:
+                // Tempo control (encoder 0)
+                if (delta > 0) {
+                    self.display_tempo += 5;
+                    if (self.display_tempo > 200) self.display_tempo = 200;
+                } else {
+                    if (self.display_tempo > 5) self.display_tempo -= 5;
+                }
+                sequencer.set_tempo(self.display_tempo);
+                self.sequencer_settings_dirty = true;
+                printf("Tempo: %ld BPM\n", self.display_tempo);
+                break;
+            case 1:
+                // Could be used for swing or other parameters in the future
+                break;
+            case 2:
+                // Could be used for pattern length or other parameters
+                break;
+            }
+        }
+        
+        // Handle button presses
+        if (!enc->button_state && enc->button_edge) {
+            switch (i) {
+            case 0:
+                // Play/Pause toggle (encoder 0 button)
+                self.sequencer_playing = !self.sequencer_playing;
+                if (self.sequencer_playing) {
+                    sequencer.play();
+                    printf("Sequencer: PLAY\n");
+                } else {
+                    sequencer.pause();
+                    printf("Sequencer: PAUSE\n");
+                }
+                self.sequencer_settings_dirty = true;
+                break;
+            case 1:
+                // Reset to step 1 (encoder 1 button)
+                sequencer.play_from_step(0);
+                self.display_current_step = 0;
+                self.sequencer_settings_dirty = true;
+                printf("Sequencer: Reset to step 1\n");
+                break;
+            case 2:
+                // Could be used for other sequencer functions
+                break;
+            case 3:
+                // Exit back to main menu
+                self.ui_state = UI_STATE_MAIN;
+                printf("State: MAIN_STATE\n");
+                break;
+            }
+        }
+    }
+}
+
+void UiHandler::sequencer_update_display(UiHandler &self) {
+    Sequencer &sequencer =self.seq;
+    HardwareManager &hw = self.hw;
+    
+   // Check if step has changed
+    uint8_t current_step = sequencer.get_current_step();
+    bool step_changed = (current_step != self.display_current_step);
+    self.display_current_step = current_step;
+    
+    // Update display if settings changed OR step changed
+    if (self.sequencer_settings_dirty || step_changed) {
+        hw.draw_sequencer_settings(self.sequencer_playing, self.display_tempo, self.display_current_step);
+        hw.display_show();
+        self.sequencer_settings_dirty = false;
+    }
+}

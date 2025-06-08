@@ -303,3 +303,51 @@ void HardwareManager::draw_midi_settings(bool midi_out, bool midi_in, bool switc
     // Instructions at bottom
     ssd1306_draw_string(&disp, 8, 56, 1, "Btn4: Back");
 }
+
+// Implementation in HardwareManager
+void HardwareManager::draw_sequencer_settings(bool playing, uint32_t tempo, uint8_t current_step) {
+    // Clear the display area
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+    
+    // Title
+    ssd1306_draw_string(&disp, 8, 0, 1, "Sequencer");
+    
+    // Play/Pause status
+    char status_line[20];
+    snprintf(status_line, sizeof(status_line), "Status: %s", playing ? "PLAYING" : "PAUSED");
+    ssd1306_draw_string(&disp, 8, 12, 1, status_line);
+    
+    // Tempo display
+    char tempo_line[20];
+    snprintf(tempo_line, sizeof(tempo_line), "Tempo: %ld BPM", tempo);
+    ssd1306_draw_string(&disp, 8, 20, 1, tempo_line);
+    
+    // Current step display
+    char step_line[20];
+    snprintf(step_line, sizeof(step_line), "Step: %d/16", current_step + 1);
+    ssd1306_draw_string(&disp, 8, 28, 1, step_line);
+    
+    // Visual step indicator (dots or bars)
+    const int step_width = 6;
+    const int step_spacing = 7;
+    const int start_x = 8;
+    const int start_y = 38;
+    
+    for (int i = 0; i < 16; i++) {
+        int x = start_x + (i * step_spacing);
+        if (i == current_step) {
+            // Current step - filled rectangle
+            ssd1306_draw_square(&disp, x, start_y, step_width, 6);
+        } else {
+            // Other steps - empty rectangle
+            ssd1306_draw_line(&disp, x, start_y, x + step_width, start_y);
+            ssd1306_draw_line(&disp, x, start_y + 6, x + step_width, start_y + 6);
+            ssd1306_draw_line(&disp, x, start_y, x, start_y + 6);
+            ssd1306_draw_line(&disp, x + step_width, start_y, x + step_width, start_y + 6);
+        }
+    }
+    
+    // Instructions at bottom
+    ssd1306_draw_string(&disp, 8, 48, 1, "E1: Tempo E1btn: Play");
+    ssd1306_draw_string(&disp, 8, 56, 1, "E2btn: Reset E4: Back");
+}

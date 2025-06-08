@@ -13,7 +13,7 @@ Sequencer::Sequencer(Synth &synth, MidiHandler &midi)
 void Sequencer::update() {
     
     // the step flag is set by a hardware timer!
-    if (step_flag) { 
+    if (play_flag && step_flag) { 
         printf("Step flag set yo!\n");
         play_step(step_current);
         step_current++;
@@ -61,8 +61,12 @@ void Sequencer::initialize_pattern() {
     }
 }
 
-void Sequencer::play(){}
-void Sequencer::pause(){}
+void Sequencer::play(){
+    play_flag = true;
+}
+void Sequencer::pause(){
+    play_flag = false;
+}
 void Sequencer::play_from_step(uint8_t step){}
 
 void Sequencer::play_step(uint8_t step) {
@@ -96,3 +100,8 @@ void Sequencer::get_notes_on_step(uint8_t step){}
 void Sequencer::get_notes(){}
 void Sequencer::get_tempo(){}
 void Sequencer::get_swing(){}
+
+
+uint8_t Sequencer::get_current_step(){
+    return step_current;
+}

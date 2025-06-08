@@ -41,8 +41,8 @@ void UiHandler::midi_handle_encoders(UiHandler& self, Synth &synth, HardwareMana
                 break;
             case 3:
                 // Exit back to main menu
-                self.ui_state = UI_STATE_MAIN;
-                printf("State: MAIN_STATE\n");
+                self.ui_state = UI_STATE_SEQUENCER;
+                printf("State: SEQUENCER_STATE\n");
                 break;
             }
         }
