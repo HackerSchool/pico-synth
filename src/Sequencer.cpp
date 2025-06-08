@@ -1,23 +1,44 @@
 #include "Sequencer.hpp"
+#include "Ui.hpp"
+#include <cstdint>
 
 Sequencer::Sequencer(Synth &synth, MidiHandler &midi)
     : synth(synth), midi(midi) {
     set_tempo(120);
     initialize_pattern();
     printf("\n\n\nSequencer init!\n\n\n");
+    schedule_next_alarm();
 }
 
 void Sequencer::update() {
     
-    step_counter--;
-    if (step_counter == 0) {
+    // the step flag is set by a hardware timer!
+    if (step_flag) { 
+        printf("Step flag set yo!\n");
         play_step(step_current);
-        step_counter = cycle_count;
         step_current++;
         if (step_current >= SEQ_LEN) {
             step_current = 0;
         }
+        step_flag = 0;
     }
+}
+
+
+
+void Sequencer::schedule_next_alarm() {
+    // uint64_t delay_us =
+    //     toggle ? 2000000 : 1000000; // Alternate between 2s and 1s
+    toggle = !toggle;
+    // uint64_t delay_us = timer_interval;
+    add_alarm_in_us(timer_interval, alarm_callback, this, true);
+}
+
+int64_t Sequencer::alarm_callback(alarm_id_t id, void *user_data) {
+    Sequencer* self = static_cast<Sequencer*>(user_data);
+    self->step_flag = true;         // Set the flag
+    self->schedule_next_alarm();    // Chain the next alarm
+    return 0;
 }
 
 
@@ -65,11 +86,10 @@ void Sequencer::remove_note_from_step(uint8_t step, uint8_t note){}
 
 void Sequencer::set_tempo(uint32_t new_tempo) {
     tempo = new_tempo;
-    float cycles = 60.f * cycle_freq / tempo;
-    cycle_count = int(cycles);
-    step_counter = cycle_count;
-    printf("Cycle count: %ld, for tempo: %ld\n", cycle_count, tempo);
+    float interval = 60.f * 1000000.f / tempo;
+    timer_interval = static_cast<uint64_t>(interval);
 };
+
 void Sequencer::set_swing(uint32_t swing){}
 
 void Sequencer::get_notes_on_step(uint8_t step){}

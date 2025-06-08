@@ -2,7 +2,6 @@
 #include <pico/types.h>
 #include <stdio.h>
 
-#include "Ui.hpp"
 #include "pico/bootrom.h"
 
 #include "config.hpp"
@@ -10,6 +9,8 @@
 #include "hardware/pio.h"
 #include "hardware/pll.h"
 #include "hardware/structs/clocks.h"
+#include "hardware/structs/systick.h"
+#include "hardware/timer.h"
 
 #include "pico/audio.h"
 
@@ -28,8 +29,10 @@
 #include "Oscillator.hpp"
 #include "Sequencer.hpp"
 #include "Synth.hpp"
+#include "Ui.hpp"
 #include "Wavetable.hpp"
 #include "i2s_init.hpp"
+
 
 uint vol = 100;
 
@@ -117,8 +120,8 @@ int main() {
     Sequencer seq(synth, midi_handler);
     printf("Constructed Sequencer\n");
 
-    while (true) {
 
+    while (true) {
         // Handle USB tasks
         tud_task();
 

@@ -1,10 +1,12 @@
 #ifndef STEP_SEQUENCER
 #define STEP_SEQUENCER
 
-#include "tusb.h"
+#include "hardware/structs/systick.h"
+#include "hardware/timer.h"
 #include "MidiHandler.hpp"
 #include "Synth.hpp"
 #include "config.hpp"
+#include "tusb.h"
 #include <cstdint>
 
 #define SEQ_LEN 16
@@ -36,19 +38,23 @@ class Sequencer {
     void get_tempo();
     void get_swing();
 
+    void schedule_next_alarm();
+
+    static int64_t alarm_callback(alarm_id_t id, void *user_data);
+
   private:
     Synth &synth;
     MidiHandler &midi;
 
     StepInfo step_info[SEQ_LEN];
 
-    uint32_t step_counter = 0;
     uint8_t step_current = 0;
-
+    uint64_t timer_interval = 1000000;
     uint32_t tempo = 120;
     uint32_t swing = 0;
-    uint32_t cycle_count = 100;
-    float cycle_freq = 44100.f * 150.f / (SAMPLES_PER_BUFFER * 96.f);
+
+    bool toggle = 0;
+    bool step_flag = 0;
 };
 
 #endif // !STEP_SEQUENCER
