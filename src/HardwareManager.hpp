@@ -107,6 +107,8 @@ class HardwareManager {
     void draw_notes();
     void draw_wave_type(WaveType wave_type);
     void draw_adsr(int current_adsr_param);
+    void draw_midi_settings(bool midi_out, bool midi_in, bool switches_in,
+                            bool sequencer_in, bool sequencer_out);
     void draw_filter();
     void display_show();
 

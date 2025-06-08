@@ -276,3 +276,30 @@ void HardwareManager::draw_filter() {
 void HardwareManager::display_show() {
     ssd1306_show(&disp);
 }
+
+void HardwareManager::draw_midi_settings(bool midi_out, bool midi_in, bool switches_in, 
+                                        bool sequencer_in, bool sequencer_out) {
+    // Clear the display area for MIDI settings
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+    
+    // Title
+    ssd1306_draw_string(&disp, 8, 0, 1, "MIDI Settings");
+    
+    // Draw each setting with ON/OFF status
+    char line1[20], line2[20], line3[20], line4[20], line5[20];
+    
+    snprintf(line1, sizeof(line1), "MIDI Out: %s", midi_out ? "ON" : "OFF");
+    snprintf(line2, sizeof(line2), "MIDI In:  %s", midi_in ? "ON" : "OFF");  
+    snprintf(line3, sizeof(line3), "Switches: %s", switches_in ? "ON" : "OFF");
+    snprintf(line4, sizeof(line4), "Seq In:   %s", sequencer_in ? "ON" : "OFF");
+    snprintf(line5, sizeof(line5), "Seq Out:  %s", sequencer_out ? "ON" : "OFF");
+    
+    ssd1306_draw_string(&disp, 8, 12, 1, line1);
+    ssd1306_draw_string(&disp, 8, 20, 1, line2);
+    ssd1306_draw_string(&disp, 8, 28, 1, line3);
+    ssd1306_draw_string(&disp, 8, 36, 1, line4);
+    ssd1306_draw_string(&disp, 8, 44, 1, line5);
+    
+    // Instructions at bottom
+    ssd1306_draw_string(&disp, 8, 56, 1, "Btn4: Back");
+}

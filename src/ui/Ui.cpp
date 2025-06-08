@@ -30,15 +30,19 @@ void UiHandler::main_handle_switches(UiHandler &self) {
         if ((changes.note_on_mask >> i) & 1) {
             uint8_t note = key_to_midi[i];
             if (note != 255) {
-                synth.note_on(note, 127);
-                midi.midi_send_note(note, 127, true);
+                if (self.switches_in)
+                    synth.note_on(note, 127);
+                if (self.midi_out)
+                    midi.midi_send_note(note, 127, true);
             }
         }
         if ((changes.note_off_mask >> i) & 1) {
             uint8_t note = key_to_midi[i];
             if (note != 255) {
-                synth.note_off(note, 0);
-                midi.midi_send_note(note, 0, false);
+                if (self.switches_in)
+                    synth.note_off(note, 0);
+                if (self.midi_out)
+                    midi.midi_send_note(note, 0, false);
             }
         }
     }

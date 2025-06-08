@@ -66,12 +66,19 @@ class UiHandler {
     // shit I need for the main state
     int current_adsr_param = 0; // 0=A, 1=D, 2=S, 3=R
     std::bitset<128> last_note_state;
+    uint16_t prev_switches = 0;
     WaveType last_wave_type = static_cast<WaveType>(-1);
-    uint16_t prev_keys = 0;
     bool adsr_dirty = 0;
     bool filter_dirty = 0;
 
-    uint16_t prev_switches = 0;
+    // midi state
+    bool midi_in = false; //midi into pico synth
+    bool midi_out = false; //switches to midi out
+    bool switches_in = true; //switches into pico synth
+    bool sequencer_in = true; //sequencer synth in
+    bool sequencer_out = true; //sequencer midi out
+    bool midi_settings_dirty = false; //sequencer midi out
+
 
 };
 
