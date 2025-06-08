@@ -26,6 +26,7 @@
 #include "HardwareManager.hpp"
 #include "MidiHandler.hpp"
 #include "Oscillator.hpp"
+#include "Sequencer.hpp"
 #include "Synth.hpp"
 #include "Wavetable.hpp"
 #include "i2s_init.hpp"
@@ -107,9 +108,14 @@ int main() {
 
     // static WaveType last_wave_type = static_cast<WaveType>(-1);
     HardwareManager hw = HardwareManager(synth);
+
     hw.init();
 
     UiHandler ui = UiHandler(synth, hw, midi_handler);
+
+    printf("About to construct Sequencer\n");
+    Sequencer seq(synth, midi_handler);
+    printf("Constructed Sequencer\n");
 
     while (true) {
 
@@ -121,6 +127,7 @@ int main() {
 
         hw.update();
         ui.update();
+        seq.update();
         // prev_state = curr_state;
 
         int c = getchar_timeout_us(0);
