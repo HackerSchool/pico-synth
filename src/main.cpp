@@ -1,10 +1,9 @@
-#include <pico/types.h>
 #include <cstdint>
+#include <pico/types.h>
 #include <stdio.h>
 
 #include "Ui.hpp"
 #include "pico/bootrom.h"
-
 
 #include "config.hpp"
 #include "hardware/clocks.h"
@@ -39,9 +38,8 @@ std::array<int16_t, SAMPLES_PER_BUFFER> out2 = {};
 bool write_flag = 0;
 bool buff = 0;
 
-
 void enter_bootsel_mode() {
-    reset_usb_boot(0, 0);  // Jump to BOOTSEL (UF2) mode
+    reset_usb_boot(0, 0); // Jump to BOOTSEL (UF2) mode
 }
 
 void setup_gpios(void) {
@@ -69,10 +67,12 @@ int main() {
     clock_configure(clk_usb, 0, CLOCKS_CLK_USB_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
                     96 * MHZ, 48 * MHZ);
     clock_configure(clk_sys, CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
-                    CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
-                    120.3 * MHZ, 120.3 * MHZ);
-    clock_configure(clk_peri, 0, CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
-                    120.3 * MHZ, 120.3 * MHZ);
+                    CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB, 150 * MHZ,
+                    150 * MHZ);
+    // Keep peripheral clock at standard rate for I2S timing
+    clock_configure(clk_peri, 0,
+                    CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS, 150 * MHZ,
+                    150 * MHZ); // Standard 125MHz
 
     stdio_init_all();
     stdio_usb_init();
@@ -87,7 +87,7 @@ int main() {
 
     // const char *words[] = {"SSD1306", "DISPLAY", "DRIVER"};
 
-   // ssd1306_t disp;
+    // ssd1306_t disp;
     //
     // disp.external_vcc = false;
     // ssd1306_init(&disp, 128, 64, 0x3C, i2c1);
@@ -108,7 +108,6 @@ int main() {
     // static WaveType last_wave_type = static_cast<WaveType>(-1);
     HardwareManager hw = HardwareManager(synth);
     hw.init();
-
 
     UiHandler ui = UiHandler(synth, hw, midi_handler);
 

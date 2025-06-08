@@ -58,5 +58,7 @@ std::array<int16_t, SAMPLES_PER_BUFFER> &Oscillator::get_output() {
 
 void Oscillator::set_freq(float new_freq) {
     // Convert to fixed-point (16.16 format)
-    step = static_cast<uint32_t>(WAVE_TABLE_LEN * new_freq * 65536.0f/ 44100.0f);
+    float magic_number = 1.5625; // its because we overclock from 96 to 150MHz
+        step = static_cast<uint32_t>(WAVE_TABLE_LEN * new_freq * magic_number *
+                                     65536.0f / 44100.0f);
 }
