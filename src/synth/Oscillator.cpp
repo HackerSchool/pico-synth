@@ -36,9 +36,7 @@ void Oscillator::set_wavetable(WaveType wave_type) {
     wave_type_ = wave_type;
 }
 
-WaveType Oscillator::get_wave_type(){
-    return wave_type_;
-}
+WaveType Oscillator::get_wave_type() { return wave_type_; }
 
 void Oscillator::out() {
     const uint32_t pos_mask = (WAVE_TABLE_LEN << 16) - 1;
@@ -46,7 +44,7 @@ void Oscillator::out() {
     for (int i = 0; i < SAMPLES_PER_BUFFER; i++) {
 
         // Extract the integer part of the position (top 16 bits)
-        uint32_t pos_int = pos >> 16;
+        uint16_t pos_int = pos >> 16;
         output[i] = (*wavetable_)[pos_int];
 
         // Increment position and wrap around using bitwise operations
@@ -60,6 +58,7 @@ std::array<int16_t, SAMPLES_PER_BUFFER> &Oscillator::get_output() {
 
 void Oscillator::set_freq(float new_freq) {
     // Convert to fixed-point (16.16 format)
-    step = static_cast<uint32_t>((WAVE_TABLE_LEN * new_freq / 44100.0f) *
-                                 65536.0f);
+    float magic_number = 1.5625; // its because we overclock from 96 to 150MHz
+        step = static_cast<uint32_t>(WAVE_TABLE_LEN * new_freq * magic_number *
+                                     65536.0f / 44100.0f);
 }

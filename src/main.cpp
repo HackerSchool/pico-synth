@@ -1,6 +1,8 @@
-#include <array>
 #include <cstdint>
+#include <pico/types.h>
 #include <stdio.h>
+
+#include "pico/bootrom.h"
 
 #include "config.hpp"
 #include "hardware/clocks.h"
@@ -23,9 +25,12 @@
 #include "HardwareManager.hpp"
 #include "MidiHandler.hpp"
 #include "Oscillator.hpp"
+#include "Sequencer.hpp"
 #include "Synth.hpp"
+#include "Ui.hpp"
 #include "Wavetable.hpp"
 #include "i2s_init.hpp"
+
 
 uint vol = 100;
 
@@ -34,6 +39,10 @@ std::array<int16_t, SAMPLES_PER_BUFFER> out1 = {};
 std::array<int16_t, SAMPLES_PER_BUFFER> out2 = {};
 bool write_flag = 0;
 bool buff = 0;
+
+void enter_bootsel_mode() {
+    reset_usb_boot(0, 0); // Jump to BOOTSEL (UF2) mode
+}
 
 void setup_gpios(void) {
     // Enable less noise in audio output
@@ -60,10 +69,12 @@ int main() {
     clock_configure(clk_usb, 0, CLOCKS_CLK_USB_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
                     96 * MHZ, 48 * MHZ);
     clock_configure(clk_sys, CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
-                    CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
-                    120.3 * MHZ, 120.3 * MHZ);
-    clock_configure(clk_peri, 0, CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
-                    120.3 * MHZ, 120.3 * MHZ);
+                    CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB, 150 * MHZ,
+                    150 * MHZ);
+    // Keep peripheral clock at standard rate for I2S timing
+    clock_configure(clk_peri, 0,
+                    CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS, 150 * MHZ,
+                    150 * MHZ); // Standard 125MHz
 
     stdio_init_all();
     stdio_usb_init();
@@ -78,7 +89,7 @@ int main() {
 
     // const char *words[] = {"SSD1306", "DISPLAY", "DRIVER"};
 
-   // ssd1306_t disp;
+    // ssd1306_t disp;
     //
     // disp.external_vcc = false;
     // ssd1306_init(&disp, 128, 64, 0x3C, i2c1);
@@ -101,8 +112,14 @@ int main() {
 
     hw.init();
 
-    while (true) {
 
+    printf("About to construct Sequencer\n");
+    Sequencer seq(synth, midi_handler);
+    printf("Constructed Sequencer\n");
+
+    UiHandler ui = UiHandler(synth, hw, midi_handler, seq);
+
+    while (true) {
         // Handle USB tasks
         tud_task();
 
@@ -110,6 +127,8 @@ int main() {
         midi_handler.midi_task();
 
         hw.update();
+        ui.update();
+        seq.update();
         // prev_state = curr_state;
 
         int c = getchar_timeout_us(0);
@@ -132,6 +151,8 @@ int main() {
                 for (int i = 0; i < 512; i++) {
                     printf("%f,\n\r", q24_to_float(sinc_table_fp[i]));
                 }
+            if (c == 'b')
+                enter_bootsel_mode();
             printf("Yo\n\r");
         }
         if (write_flag) {

@@ -2,6 +2,7 @@
 #define HARDWARE_MANAGER
 
 #include "Synth.hpp"
+#include "Wavetable.hpp"
 #include "hardware/i2c.h"
 #include "hardware/pio.h"
 #include "i2s_init.hpp"
@@ -22,6 +23,11 @@ typedef struct {
     uint sw_pin;
     PIO pio;
     uint sm;
+
+    int32_t delta;
+    bool button_state;
+    bool button_edge;
+
 } Encoder;
 
 struct KeyChanges {
@@ -57,40 +63,78 @@ class HardwareManager {
     void poll_inputs(); // handle encoders + buttons
     void update_display();
 
+    Encoder encoders[NUM_ENCODERS] = {
+        {.last_count = 0,
+         .clk_pin = 10,
+         .sw_pin = 9,
+         .pio = pio0,
+         .sm = 0,
+         .delta = 0,
+         .button_state = 0,
+         .button_edge = 0},
+        {.last_count = 0,
+         .clk_pin = 7,
+         .sw_pin = 6,
+         .pio = pio0,
+         .sm = 1,
+         .delta = 0,
+         .button_state = 0,
+         .button_edge = 0},
+        {.last_count = 0,
+         .clk_pin = 4,
+         .sw_pin = 3,
+         .pio = pio0,
+         .sm = 2,
+         .delta = 0,
+         .button_state = 0,
+         .button_edge = 0},
+        {.last_count = 0,
+         .clk_pin = 1,
+         .sw_pin = 0,
+         .pio = pio0,
+         .sm = 3,
+         .delta = 0,
+         .button_state = 0,
+         .button_edge = 0},
+    };
+
+    // int current_adsr_param = 0; // 0=A, 1=D, 2=S, 3=R
+    // bool adsr_dirty = 0;
+    // bool filter_dirty = 0;
+
+    uint16_t curr_switches = 0;
+
+    void draw_notes();
+    void draw_wave_type(WaveType wave_type);
+    void draw_adsr(int current_adsr_param);
+    void draw_midi_settings(bool midi_out, bool midi_in, bool switches_in,
+                            bool sequencer_in, bool sequencer_out);
+    void draw_filter();
+
+    void draw_sequencer_settings(bool playing, uint32_t tempo,
+                                 uint8_t current_step);
+    void display_show();
+
   private:
     Synth &synth;
 
-    Encoder encoders[NUM_ENCODERS] = {
-        {.last_count = 0, .clk_pin = 10, .sw_pin = 9, .pio = pio0, .sm = 0},
-        {.last_count = 0, .clk_pin = 7, .sw_pin = 6, .pio = pio0, .sm = 1},
-        {.last_count = 0, .clk_pin = 4, .sw_pin = 3, .pio = pio0, .sm = 2},
-        {.last_count = 0, .clk_pin = 1, .sw_pin = 0, .pio = pio0, .sm = 3},
-    };
     std::bitset<128> last_note_state;
     WaveType last_wave_type = static_cast<WaveType>(-1);
-    uint16_t prev_keys = 0;
 
     // Helpers
-    void handle_encoders();
-    void handle_keypad();
+    void poll_encoders();
+    void poll_keypad();
     void update_leds(uint16_t prev, uint16_t curr);
-    void draw_notes();
-    void draw_wave_type();
-    void draw_adsr();
-    void draw_filter();
 
-        uint16_t prev_state = 0;
+    // uint16_t prev_state = 0;
 
-        // Display
-        ssd1306_t disp;
+    // Display
+    ssd1306_t disp;
 
-        void init_display();
-        int current_adsr_param = 0;       // 0=A, 1=D, 2=S, 3=R
-        bool last_encoder1_button = true; // for edge detection
-        bool last_encoder2_button = true; // for edge detection
-        bool adsr_dirty = 0;
-        bool filter_dirty = 0;
-    };
+    void init_display();
+    // bool last_encoder1_button = true; // for edge detection
+    // bool last_encoder2_button = true; // for edge detection
+};
 
 #endif // !HARDWARE_MANAGER
-    //
+//

@@ -1,0 +1,4 @@
+- software bootloader - ok, mandar um b por serial
+- state machine/ menus thing
+- Midi out
+- Sequencer

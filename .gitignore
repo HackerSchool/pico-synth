@@ -37,3 +37,7 @@
 .cache/*
 .clangd
 .clang-format
+
+/demos*
+
+
