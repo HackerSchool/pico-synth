@@ -1,6 +1,8 @@
 #include "HardwareManager.hpp"
+#include "Wavetable.hpp"
 #include "fixed_point.h"
 #include "ssd1306.h"
+#include <cstdint>
 #include <cstdio>
 
 uint8_t led_state_1 = 0xFF;
@@ -11,8 +13,6 @@ const uint8_t ROW_PINS[4] = {2, 3, 5, 7};
 
 uint8_t LED_MAP[16] = {1, 3, 4, 7, 0, 2, 5, 6, 0, 2, 4, 6, 1, 3, 5, 7};
 
-const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
-                             66, 68, 70, -1, 67, 69, 71, 72};
 
 // Initialize a quadrature encoder PIO state machine
 void init_encoder(Encoder *enc) {
@@ -145,143 +145,73 @@ void HardwareManager::init_display() {
 
 void HardwareManager::update() {
     poll_inputs();
-    update_display();
+    // update_display();
 }
 
 void HardwareManager::poll_inputs() {
-    handle_encoders();
-    handle_keypad();
+    poll_encoders();
+    poll_keypad();
 }
 
-void HardwareManager::handle_encoders() {
+void HardwareManager::poll_encoders() {
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         Encoder *enc = &encoders[i];
         int32_t count = quadrature_encoder_get_count(enc->pio, enc->sm);
         int32_t delta = count - enc->last_count;
+        enc->delta = delta;
 
         if (delta != 0 && abs(delta) > 1) {
+            // here we only count delta bigger than 1 as a naive debouncer
             enc->last_count = count;
-
-            switch (i) {
-            case 0:
-                synth.cycle_wave_type(delta > 0 ? 1 : -1);
-                break;
-
-            case 1: {
-                q8_24_t increment = q24_from_float(.1f);
-                for (auto &env : synth.envelopes) {
-                    env.increment_ADSR(current_adsr_param,
-                                       delta > 0 ? increment : -increment);
-                }
-                adsr_dirty = true;
-                break;
-            }
-            case 2:
-                // Only adjust filter cutoff if not in FILTER_OFF mode
-                if (synth.current_filter_type != FILTER_OFF) {
-                    float cut_off = synth.get_filter_cutoff();
-                    float new_cut_off = cut_off + (delta > 0 ? 50.f : -50.f);
-                    // Ensure cutoff stays within reasonable bounds
-                    new_cut_off = new_cut_off < 20.0f ? 20.0f : new_cut_off;
-                    new_cut_off =
-                        new_cut_off > 20000.0f ? 20000.0f : new_cut_off;
-                    synth.set_filter_cutoff(new_cut_off, 0.5f);
-                }
-                filter_dirty = true;
-                break;
-            }
         }
 
         // Handle button press (edge detect)
         bool current_btn = gpio_get(enc->sw_pin);
-        if (i == 1 && !current_btn && last_encoder1_button) {
-            current_adsr_param = (current_adsr_param + 1) % 4;
-            adsr_dirty = true;
-        }
-        if (i == 1)
-            last_encoder1_button = current_btn;
-
-        // Add filter type cycling on encoder 2's button
-        if (i == 2 && !current_btn && last_encoder2_button) {
-            synth.cycle_filter_type();
-            filter_dirty = true;
-        }
-        if (i == 2) {
-            last_encoder2_button = current_btn;
-        }
+        enc->button_edge = (current_btn != enc->button_state);
+        enc->button_state = current_btn;
     }
 }
 
-void HardwareManager::handle_keypad() {
-    uint16_t curr = scan_key_state(i2c0);
-    KeyChanges changes = compute_key_changes(prev_keys, curr);
-    update_leds_from_keys(i2c1, prev_keys, curr);
 
-    for (int i = 0; i < 16; ++i) {
-        if ((changes.note_on_mask >> i) & 1) {
-            uint8_t note = key_to_midi[i];
-            if (note != 255)
-                synth.note_on(note, 127);
-        }
-        if ((changes.note_off_mask >> i) & 1) {
-            uint8_t note = key_to_midi[i];
-            if (note != 255)
-                synth.note_off(note, 0);
-        }
-    }
-
-    prev_keys = curr;
+void HardwareManager::poll_keypad() {
+    curr_switches = scan_key_state(i2c0);
+    // KeyChanges changes = compute_key_changes(prev_keys, curr);
+    // update_leds_from_keys(i2c1, prev_keys, curr);
+    //
+    // for (int i = 0; i < 16; ++i) {
+    //     if ((changes.note_on_mask >> i) & 1) {
+    //         uint8_t note = key_to_midi[i];
+    //         if (note != 255)
+    //             synth.note_on(note, 127);
+    //     }
+    //     if ((changes.note_off_mask >> i) & 1) {
+    //         uint8_t note = key_to_midi[i];
+    //         if (note != 255)
+    //             synth.note_off(note, 0);
+    //     }
+    // }
+    //
+    // prev_keys = curr;
 }
 
 void HardwareManager::update_leds(uint16_t prev, uint16_t curr) {
     update_leds_from_keys(i2c1, prev, curr); // use your existing helper
 }
 
-void HardwareManager::update_display() {
-    bool changed = false;
-    std::bitset<128> note_state = synth.get_notes_bitmask();
-    if (note_state != last_note_state) {
-        last_note_state = note_state;
-        draw_notes();
-        changed = true;
-    }
-
-    WaveType current = synth.oscillators[0].get_wave_type();
-    if (current != last_wave_type) {
-        last_wave_type = current;
-        draw_wave_type();
-        changed = true;
-    }
-
-    if (adsr_dirty) {
-        draw_adsr(); // new function below
-        changed = true;
-        adsr_dirty = false;
-    }
-
-    if (filter_dirty) {
-        draw_filter();
-        changed = true;
-        filter_dirty = false;
-    }
-
-    if (changed) {
-        ssd1306_show(&disp);
-    }
-}
 
 void HardwareManager::draw_notes() {
     ssd1306_clear_square(&disp, 8, 24, 120, 8);
     ssd1306_draw_string(&disp, 8, 24, 1, synth.get_notes_playing_names());
 }
 
-void HardwareManager::draw_wave_type() {
+void HardwareManager::draw_wave_type(WaveType wave_type) {
     ssd1306_clear_square(&disp, 56, 0, 64, 8);
     ssd1306_draw_string(&disp, 8, 0, 1, "Wave:");
-    ssd1306_draw_string(&disp, 56, 0, 1, wave_type_to_string(last_wave_type));
+    ssd1306_draw_string(&disp, 56, 0, 1, wave_type_to_string(wave_type));
+    // printf("wave type: %s \n", wave_type_to_string(last_wave_type));
 }
 
-void HardwareManager::draw_adsr() {
+void HardwareManager::draw_adsr(int current_adsr_param) {
     ssd1306_clear_square(&disp, 0, 36, 128, 16); // 2 lines tall
 
     char values[4][8];
@@ -334,10 +264,90 @@ void HardwareManager::draw_filter() {
                  synth.get_filter_cutoff());
         break;
     default: // off
-        snprintf(fc_value, sizeof(fc_value), "Filter: OFfffF");
+        snprintf(fc_value, sizeof(fc_value), "Filter: OFF");
         break;
     }
 
     ssd1306_clear_square(&disp, 0, 8, 128, 8); // Clear the entire line
     ssd1306_draw_string(&disp, 8, 8, 1, fc_value);
+}
+
+
+void HardwareManager::display_show() {
+    ssd1306_show(&disp);
+}
+
+void HardwareManager::draw_midi_settings(bool midi_out, bool midi_in, bool switches_in, 
+                                        bool sequencer_in, bool sequencer_out) {
+    // Clear the display area for MIDI settings
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+    
+    // Title
+    ssd1306_draw_string(&disp, 8, 0, 1, "MIDI Settings");
+    
+    // Draw each setting with ON/OFF status
+    char line1[20], line2[20], line3[20], line4[20], line5[20];
+    
+    snprintf(line1, sizeof(line1), "MIDI Out: %s", midi_out ? "ON" : "OFF");
+    snprintf(line2, sizeof(line2), "MIDI In:  %s", midi_in ? "ON" : "OFF");  
+    snprintf(line3, sizeof(line3), "Switches: %s", switches_in ? "ON" : "OFF");
+    snprintf(line4, sizeof(line4), "Seq In:   %s", sequencer_in ? "ON" : "OFF");
+    snprintf(line5, sizeof(line5), "Seq Out:  %s", sequencer_out ? "ON" : "OFF");
+    
+    ssd1306_draw_string(&disp, 8, 12, 1, line1);
+    ssd1306_draw_string(&disp, 8, 20, 1, line2);
+    ssd1306_draw_string(&disp, 8, 28, 1, line3);
+    ssd1306_draw_string(&disp, 8, 36, 1, line4);
+    ssd1306_draw_string(&disp, 8, 44, 1, line5);
+    
+    // Instructions at bottom
+    ssd1306_draw_string(&disp, 8, 56, 1, "Btn4: Back");
+}
+
+// Implementation in HardwareManager
+void HardwareManager::draw_sequencer_settings(bool playing, uint32_t tempo, uint8_t current_step) {
+    // Clear the display area
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+    
+    // Title
+    ssd1306_draw_string(&disp, 8, 0, 1, "Sequencer");
+    
+    // Play/Pause status
+    char status_line[20];
+    snprintf(status_line, sizeof(status_line), "Status: %s", playing ? "PLAYING" : "PAUSED");
+    ssd1306_draw_string(&disp, 8, 12, 1, status_line);
+    
+    // Tempo display
+    char tempo_line[20];
+    snprintf(tempo_line, sizeof(tempo_line), "Tempo: %ld BPM", tempo);
+    ssd1306_draw_string(&disp, 8, 20, 1, tempo_line);
+    
+    // Current step display
+    char step_line[20];
+    snprintf(step_line, sizeof(step_line), "Step: %d/16", current_step + 1);
+    ssd1306_draw_string(&disp, 8, 28, 1, step_line);
+    
+    // Visual step indicator (dots or bars)
+    const int step_width = 6;
+    const int step_spacing = 7;
+    const int start_x = 8;
+    const int start_y = 38;
+    
+    for (int i = 0; i < 16; i++) {
+        int x = start_x + (i * step_spacing);
+        if (i == current_step) {
+            // Current step - filled rectangle
+            ssd1306_draw_square(&disp, x, start_y, step_width, 6);
+        } else {
+            // Other steps - empty rectangle
+            ssd1306_draw_line(&disp, x, start_y, x + step_width, start_y);
+            ssd1306_draw_line(&disp, x, start_y + 6, x + step_width, start_y + 6);
+            ssd1306_draw_line(&disp, x, start_y, x, start_y + 6);
+            ssd1306_draw_line(&disp, x + step_width, start_y, x + step_width, start_y + 6);
+        }
+    }
+    
+    // Instructions at bottom
+    ssd1306_draw_string(&disp, 8, 48, 1, "E1: Tempo E1btn: Play");
+    ssd1306_draw_string(&disp, 8, 56, 1, "E2btn: Reset E4: Back");
 }

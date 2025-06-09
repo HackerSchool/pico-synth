@@ -5,6 +5,17 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 include($ENV{PICO_EXTRAS_PATH}/external/pico_extras_import.cmake)
 
+
+
+# If no build type specified, default to Release (max optimization)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+# Explicitly set optimization flags for Release builds
+set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+
 # Disable Werror if it's being set somewhere else
 if(CMAKE_CXX_FLAGS MATCHES "-Werror")
     string(REPLACE "-Werror" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -49,12 +60,17 @@ target_compile_options(pico-synth PRIVATE
 
 target_sources(${bin_name} PRIVATE 
     src/i2s_init.cpp
-    src/Wavetable.cpp
-    src/Oscillator.cpp
-    src/Envelope.cpp
-    src/Synth.cpp
+    src/Sequencer.cpp
+    src/synth/Wavetable.cpp
+    src/synth/Oscillator.cpp
+    src/synth/Envelope.cpp
+    src/synth/Synth.cpp
+    src/ui/Ui.cpp
+    src/ui/main_menu.cpp
+    src/ui/midi_menu.cpp
+    src/ui/sequencer_menu.cpp
     src/MidiHandler.cpp
-    src/Filter.cpp
+    src/synth/Filter.cpp
     src/HardwareManager.cpp
     src/usb_descriptors.c
     src/tusb_config.h
@@ -64,6 +80,8 @@ target_sources(${bin_name} PRIVATE
 # Add include directories for TinyUSB
 target_include_directories(pico-synth PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/synth
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
 )
 
 # Enable USB and UART for debugging
@@ -77,7 +95,7 @@ target_link_libraries(${bin_name} PRIVATE
     pico_audio_i2s_32b
     hardware_pio       # Required for quadrature encoder PIO
     hardware_irq       # Required for handling encoder interrupts
-    hardware_i2c       # Required for the screen
+    hardware_i2c       # Required for i2c
     pico_multicore     # If using Core 1 for processing
     tinyusb_device
     tinyusb_board
