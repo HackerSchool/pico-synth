@@ -334,7 +334,7 @@ void HardwareManager::draw_filter() {
                  synth.get_filter_cutoff());
         break;
     default: // off
-        snprintf(fc_value, sizeof(fc_value), "Filter: OFF");
+        snprintf(fc_value, sizeof(fc_value), "Filter: OFfffF");
         break;
     }
 
