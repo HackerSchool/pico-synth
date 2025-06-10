@@ -25,24 +25,24 @@ ADSREnvelope::ADSREnvelope(float a_in, float d_in, float s_in, float r_in,
 
 void ADSREnvelope::out() {
     // Note released - calculate release delta when starting release
-    if (trigger < 4.5f && state != ENV_RELEASE && state != ENV_IDLE) {
-        // In the release trigger section:
-        uint32_t release_samples = ((uint32_t)r * SAMPLE_RATE) >> 8;
-        if (release_samples > 0) {
-            release_delta =
-                current_level / release_samples; // This stays the same
-        } else {
-            release_delta = current_level;
-        }
+    // if (trigger < 4.5f && state != ENV_RELEASE && state != ENV_IDLE) {
+    //     // In the release trigger section:
+    //     // uint32_t release_samples = ((uint32_t)r * SAMPLE_RATE) >> 8;
+    //     // if (release_samples > 0) {
+    //     //     release_delta =
+    //     //         current_level / release_samples; // This stays the same
+    //     // } else {
+    //     //     release_delta = current_level;
+    //     // }
+    //
+    //     state = ENV_RELEASE;
+    // }
 
-        state = ENV_RELEASE;
-    }
-
-    int16_t current_delta = 0;
+    // int16_t current_delta = 0;
     switch (state) {
     case ENV_ATTACK:
-        current_delta = attack_delta; // Just addition!
-        if (current_level >= 32768) { // 1.0 in Q1.15
+        current_level += attack_delta; // Just addition!
+        if (current_level >= 32768) {  // 1.0 in Q1.15
             current_level = 32768;
             state = ENV_DECAY;
         }
@@ -50,32 +50,29 @@ void ADSREnvelope::out() {
         break;
 
     case ENV_DECAY:
-        current_delta = -decay_delta; // Just subtraction!
+        current_level -= decay_delta; // Just subtraction!
         if (current_level <= s) {     // Reached sustain level
             current_level = s;
-            state = ENV_SUSTAIN;
+            state = s ? ENV_SUSTAIN : ENV_IDLE;
         }
         // printf("ENV DECAY\n");
         break;
 
     case ENV_SUSTAIN:
         current_level = s; // Hold sustain level
-        current_delta = 0;
         // printf("ENV SUSTAIN\n");
         break;
 
     case ENV_RELEASE:
-        if (trigger > 4.5f) { // Retrigger during release
-            state = ENV_ATTACK;
-            // Keep current_level as-is for smooth transition
-            break;
-        }
-
+        // if (trigger > 4.5f) { // Retrigger during release
+        //     state = ENV_ATTACK;
+        //     // Keep current_level as-is for smooth transition
+        //     break;
+        // }
         if (current_level > release_delta) {
-            current_delta = -release_delta; // Just subtraction!
+            current_level -= release_delta;
         } else {
             current_level = 0;
-            current_delta = 0;
             state = ENV_IDLE;
         }
         // printf("ENV RELEASE\n");
@@ -95,10 +92,10 @@ void ADSREnvelope::out() {
         // Convert Q1.15 envelope to Q2.14 for multiplication
         // Check for overflow using the sign bit after addition
         // Check if addition would overflow by looking at signs
-        int32_t temp = current_level + current_delta;
-        current_level = temp & ~(temp >> 31); // Zero if negative
-        if (current_level > 32767)
-            current_level = 32767;
+        // int32_t temp = current_level + current_delta;
+        // current_level = temp & ~(temp >> 31); // Zero if negative
+        // if (current_level > 32767)
+        //     current_level = 32767;
 
         // int16_t scale_q2_14 = current_level >> 1; // Q1.15 -> Q2.14
 
@@ -109,24 +106,40 @@ void ADSREnvelope::out() {
 
 void ADSREnvelope::update_deltas() {
     // Attack: 0 to 1.0 over attack_time_samples
-    uint32_t attack_samples =
-        ((uint32_t)a * SAMPLE_RATE) >> 8; // Q8.8 to samples
-    if (attack_samples > 0) {
-        attack_delta =
-            32768 / attack_samples; // 1.0 in Q1.15 / samples = Q2.14 delta
-    }
+    // uint32_t attack_samples =
+    //     ((uint32_t)a * SAMPLE_RATE) >> 8; // Q8.8 to samples
+    // if (attack_samples > 0) {
+    //     attack_delta =
+    //         32768 / attack_samples; // 1.0 in Q1.15 / samples = Q2.14 delta
+    // }
+    //
+    // // Decay: 1.0 to sustain over decay_time_samples
+    // uint32_t decay_samples = ((uint32_t)d * SAMPLE_RATE) >> 8;
+    // if (decay_samples > 0) {
+    //     decay_delta = (32768 - s) / decay_samples; // (1.0 - sustain) /
+    //     samples
+    // }
 
-    // Decay: 1.0 to sustain over decay_time_samples
-    uint32_t decay_samples = ((uint32_t)d * SAMPLE_RATE) >> 8;
-    if (decay_samples > 0) {
-        decay_delta = (32768 - s) / decay_samples; // (1.0 - sustain) / samples
-    }
+    attack_delta = 1048;
+    decay_delta = 1048;
+    s = 20000;
+    release_delta = 1048;
 
     // Release delta calculated when release starts (since it depends on current
     // level)
 }
 
 void ADSREnvelope::set_trigger(float trig) { trigger = trig; }
+
+void ADSREnvelope::gate_on()
+{
+	 state = ENV_ATTACK;
+}
+
+void ADSREnvelope::gate_off()
+{
+	state = ENV_RELEASE;
+}
 
 void ADSREnvelope::set_ADSR(float a_in, float d_in, float s_in, float r_in) {
     a = float_to_q8_8(a_in);

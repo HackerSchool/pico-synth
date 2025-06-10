@@ -5,8 +5,12 @@
 #include <cstdint>
 #include "fixed_point.h"
 
-#define WAVE_TABLE_LEN 512
+#define WAVE_TABLE_LEN 2048
 #define FILTER_ORDER 33
+
+#define WAVE_SHIFT 11
+#define WAVE_LEN 2048
+#define WAVE_MAX 0x8000000
 
 
 enum WaveType { Sine, Square, Triangle, Sawtooth, Sinc};

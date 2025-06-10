@@ -5,6 +5,17 @@
 const int16_t Q15_MAX = 32767;
 const int16_t Q14_MAX = 16384;
 
+
+#define WAVE_SHIFT 11
+#define WAVE_LEN 2048
+#define WAVE_MAX 0x8000000
+
+
+const int wave_shift = WAVE_SHIFT;
+const int wave_len = WAVE_LEN;
+const int wave_max = WAVE_MAX;
+
+
 const char *wave_type_to_string(WaveType type) {
     switch (type) {
     case Sine:

@@ -18,6 +18,8 @@ class ADSREnvelope {
     void out();
     void set_trigger(float trig);
     void set_idle();
+    void gate_on();
+    void gate_off();
 
     void set_ADSR(float a_in, float d_in, float s_in, float r_in);
 

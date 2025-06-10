@@ -17,6 +17,7 @@ class Synth {
   public:
     Synth();
     void out();
+    void out_interp();
     std::array<int16_t, SAMPLES_PER_BUFFER> &get_output();
     void process_midi_packet(uint8_t packet[4]);
 

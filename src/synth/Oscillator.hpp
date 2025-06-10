@@ -19,6 +19,10 @@ class Oscillator {
     WaveType get_wave_type();
 
 
+    void out_interp();
+    void set_dco_step(uint8_t note);
+
+
   private:
     WaveType wave_type_;
     const std::array<int16_t, WAVE_TABLE_LEN> *wavetable_;
@@ -26,6 +30,10 @@ class Oscillator {
     q16_16_t pos = 0;           // Fixed-point position (16.16 format)
     q16_16_t step;          // Fixed-point step size (16.16 format)
     float freq;
+
+	uint32_t				dco_step_base;
+	uint32_t				dco_step;
+	uint32_t				dco_pos;
 };
 
 #endif // !OSCILLATOR_HPP

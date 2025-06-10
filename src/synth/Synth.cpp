@@ -2,8 +2,15 @@
 #include "Oscillator.hpp"
 #include "Wavetable.hpp"
 #include "config.hpp"
+#include "hardware/interp.h"
 #include <cstdint>
 #include <cstdio>
+
+
+
+const int wave_shift = WAVE_SHIFT;
+const int wave_len = WAVE_LEN;
+const int wave_max = WAVE_MAX;
 
 Synth::Synth() {
     // init the oscillators and envelopes
@@ -16,8 +23,17 @@ Synth::Synth() {
 
 void Synth::out() {
     output = {};
+
+    // set up the interpolator
+    interp_config cfg = interp_default_config();
+    interp_config_set_shift(&cfg, 15);
+    interp_config_set_mask(&cfg, 1, wave_shift);
+    interp_config_set_add_raw(&cfg, true);
+    interp_set_config(interp0, 0, &cfg);
+
     for (int i = 0; i < NUM_OSC; i++) {
-        oscillators[i].out();
+        // oscillators[i].out();
+        oscillators[i].out_interp();
         envelopes[i].out();
     }
     for (int i = 0; i < NUM_OSC; i++) {
@@ -115,11 +131,14 @@ void Synth::note_on(uint8_t note, uint8_t velocity) {
                 osc_midi_note[i] = note;
                 notes_playing_bitset.set(note);
 
-                float freq = midi_to_freq(note);
-                oscillators[i].set_freq(freq);
+                // float freq = midi_to_freq(note);
+                // oscillators[i].set_freq(freq);
+                //
+                oscillators[i].set_dco_step(note);
                 // oscillators[i].set_freq(261.626f);
-                envelopes[i].set_trigger(5.f);
-                envelopes[i].set_idle();
+                // envelopes[i].set_trigger(5.f);
+                envelopes[i].gate_on();
+                // envelopes[i].set_idle();
                 // printf("New Note: note=%d, velocity=%d\n", note, velocity);
                 break;
             }
@@ -132,7 +151,8 @@ void Synth::note_off(uint8_t note, uint8_t velocity) {
     // printf("I am in note off");
     for (int i = 0; i < NUM_OSC; i++) {
         if (osc_midi_note[i] == note && osc_playing[i]) {
-            envelopes[i].set_trigger(0.f);
+            // envelopes[i].set_trigger(0.f);
+            envelopes[i].gate_off();
             osc_playing[i] = false;
             notes_playing_bitset.reset(note);
             // printf("Note Off on Synth: note=%d, velocity=%d\n", note,
