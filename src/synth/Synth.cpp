@@ -117,6 +117,7 @@ void Synth::note_on(uint8_t note, uint8_t velocity) {
 
                 float freq = midi_to_freq(note);
                 oscillators[i].set_freq(freq);
+                // oscillators[i].set_freq(261.626f);
                 envelopes[i].set_trigger(5.f);
                 envelopes[i].set_idle();
                 // printf("New Note: note=%d, velocity=%d\n", note, velocity);

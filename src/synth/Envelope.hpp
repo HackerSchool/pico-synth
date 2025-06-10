@@ -19,16 +19,16 @@ class ADSREnvelope {
     void set_trigger(float trig);
     void set_idle();
 
-    void set_ADSR(float a_in, float d_in, float s_in,
-                                float r_in); 
+    void set_ADSR(float a_in, float d_in, float s_in, float r_in);
 
     std::array<int16_t, SAMPLES_PER_BUFFER> &get_output();
 
-    void increment_ADSR(uint8_t which, int32_t delta_q24);
+    void increment_ADSR(uint8_t which, int16_t delta_q15);
 
-    std::array<int32_t, 4> get_ADSR();
+    std::array<uint16_t, 4> get_ADSR();
 
     void get_ADSR_strings(char out[4][8]);
+    void update_deltas();
 
   private:
     enum EnvelopeState {
@@ -42,20 +42,23 @@ class ADSREnvelope {
     std::array<int16_t, SAMPLES_PER_BUFFER> *in_signal;
     std::array<int16_t, SAMPLES_PER_BUFFER> output;
 
-    // Use fixed-point arithmetic for envelope (8.24 format)
-    q8_24_t a, d, s, r; // Attack, Decay, Sustain, Release times in seconds
-    q8_24_t current_scale = 0;
-    q8_24_t release_start_level = 0.0f;
-    q8_24_t t = 0; // Time tracking for envelope phases
+    // ADR parameters in Q8.8 format (0-255.99 seconds max)
+    uint16_t a, d, r; // Attack, Decay, Release times
+    uint16_t s;       // Sustain level in Q1.15 format (0-0.999)
+
+    // Current envelope state
+    uint16_t current_level; // Q1.15 format (0-0.999)
+    uint16_t release_start_level;
+
+    // Pre-calculated deltas (updated when ADSR changes)
+    int16_t attack_delta;  // Q2.14 format
+    int16_t decay_delta;   // Q2.14 format
+    int16_t release_delta; // Q2.14 format
 
     float trigger;
     EnvelopeState state = ENV_IDLE;
-    float sample_delta = 1.0f / 44100.0f; // Buffer time increment
 
-    // Precompute constants
-    static constexpr q8_24_t FIXED_ONE = Q24_ONE; // 1.0 in 8.24 format
-    static constexpr uint32_t SAMPLE_DELTA = static_cast<uint32_t>(
-        1.0f / 44100.0f * FIXED_ONE); // Buffer time increment
+    static constexpr uint32_t SAMPLE_RATE = 44100;
 };
 
 #endif // !ENVELOPE_HPP

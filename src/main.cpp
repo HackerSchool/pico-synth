@@ -31,13 +31,15 @@
 #include "Wavetable.hpp"
 #include "i2s_init.hpp"
 
-
 uint vol = 100;
 
 // Double output buffer
-std::array<int16_t, SAMPLES_PER_BUFFER> out1 = {};
-std::array<int16_t, SAMPLES_PER_BUFFER> out2 = {};
-bool write_flag = 0;
+std::array<int16_t, SAMPLES_PER_BUFFER> out_a;
+std::array<int16_t, SAMPLES_PER_BUFFER> out_b;
+std::array<int16_t, SAMPLES_PER_BUFFER> *front = &out_a;
+std::array<int16_t, SAMPLES_PER_BUFFER> *back = &out_b;
+
+bool need_render = 0;
 bool buff = 0;
 
 void enter_bootsel_mode() {
@@ -112,7 +114,6 @@ int main() {
 
     hw.init();
 
-
     printf("About to construct Sequencer\n");
     Sequencer seq(synth, midi_handler);
     printf("Constructed Sequencer\n");
@@ -155,26 +156,21 @@ int main() {
                 enter_bootsel_mode();
             printf("Yo\n\r");
         }
-        if (write_flag) {
-            if (buff) {
-                synth.out();
-                out1 = synth.get_output();
-                write_flag = 0;
-            } else {
-                synth.out();
-                out1 = synth.get_output();
-                write_flag = 0;
-            }
+        if (need_render) {
+            std::swap(front, back);     // swap front and back buffer
+            synth.out();                // render into back buffer
+            *back = synth.get_output(); // or synth.out(&back)
+            need_render = 0;
         }
 
-        else {
-            // without this print the thing does not work,
-            // main loop runs too fast atm, no time for interrupt
-            // is what Im assuming
-            // thats a good thing at least
-            // printf("Not writing anything\n");
-            // __wfe(); // Wait for event (low power waiting)
-        }
+        // else {
+        //     // without this print the thing does not work,
+        //     // main loop runs too fast atm, no time for interrupt
+        //     // is what Im assuming
+        //     // thats a good thing at least
+        //     // printf("Not writing anything\n");
+        //     // __wfe(); // Wait for event (low power waiting)
+        // }
     }
 
     return 0;
@@ -182,23 +178,19 @@ int main() {
 
 void decode() {
     audio_buffer_t *buffer = take_audio_buffer(ap, false);
-    if (buffer == NULL) {
+    if (!buffer)
         return;
-    }
+
     int32_t *samples = (int32_t *)buffer->buffer->bytes;
-    std::array<int16_t, SAMPLES_PER_BUFFER> &out = (buff) ? out1 : out1;
     for (uint i = 0; i < buffer->max_sample_count; i++) {
-        int32_t value0 = (vol * out[i]) << 8u;
-        int32_t value1 = (vol * out[i]) << 8u;
-        // use 32bit full scale
-        samples[i * 2 + 0] = value0 + (value0 >> 16u); // L
-        samples[i * 2 + 1] = value1 + (value1 >> 16u); // R
+        int32_t v = (*front)[i] * vol << 8;
+        samples[i * 2 + 0] = v + (v >> 16); // L
+        samples[i * 2 + 1] = v + (v >> 16); // R
     }
-    buff = !buff;
-    write_flag = 1;
+
     buffer->sample_count = buffer->max_sample_count;
     give_audio_buffer(ap, buffer);
-    return;
+    need_render = 1; // Tell main loop to render next buffer
 }
 
 extern "C" {

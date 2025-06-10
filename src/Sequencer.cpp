@@ -14,7 +14,7 @@ void Sequencer::update() {
     
     // the step flag is set by a hardware timer!
     if (play_flag && step_flag) { 
-        printf("Step flag set yo!\n");
+        // printf("Step flag set yo!\n");
         play_step(step_current);
         step_current++;
         if (step_current >= SEQ_LEN) {

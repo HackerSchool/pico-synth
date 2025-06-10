@@ -24,6 +24,7 @@ const char *wave_type_to_string(WaveType type) {
 
 // This method allows to define the wavetable at compile time!
 // Sine Wavetable
+__attribute__((section(".data")))
 const std::array<int16_t, WAVE_TABLE_LEN> sine_wave_table{[]() {
     std::array<int16_t, WAVE_TABLE_LEN> table{};
     for (int i = 0; i < WAVE_TABLE_LEN; i++) {
@@ -33,6 +34,7 @@ const std::array<int16_t, WAVE_TABLE_LEN> sine_wave_table{[]() {
     return table;
 }()};
 
+__attribute__((section(".data")))
 const std::array<int16_t, WAVE_TABLE_LEN> cos_wave_table{[]() {
     std::array<int16_t, WAVE_TABLE_LEN> table{};
     for (int i = 0; i < WAVE_TABLE_LEN; i++) {
@@ -43,6 +45,7 @@ const std::array<int16_t, WAVE_TABLE_LEN> cos_wave_table{[]() {
 }()};
 
 // Sinc Wavetable N = 32
+__attribute__((section(".data")))
 const std::array<int16_t, WAVE_TABLE_LEN> sinc_table{[]() {
     std::array<int16_t, WAVE_TABLE_LEN> table{};
     int N = 32; // Window size
@@ -60,6 +63,7 @@ const std::array<int16_t, WAVE_TABLE_LEN> sinc_table{[]() {
 }()};
 
 // Square Wavetable
+__attribute__((section(".data")))
 const std::array<int16_t, WAVE_TABLE_LEN> square_wave_table{[]() {
     std::array<int16_t, WAVE_TABLE_LEN> table{};
     for (int i = 0; i < WAVE_TABLE_LEN; i++) {
@@ -69,6 +73,7 @@ const std::array<int16_t, WAVE_TABLE_LEN> square_wave_table{[]() {
 }()};
 
 // Triangle Wavetable
+__attribute__((section(".data")))
 const std::array<int16_t, WAVE_TABLE_LEN> triangle_wave_table{[]() {
     std::array<int16_t, WAVE_TABLE_LEN> table{};
     for (int i = 0; i < WAVE_TABLE_LEN; i++) {
@@ -84,6 +89,7 @@ const std::array<int16_t, WAVE_TABLE_LEN> triangle_wave_table{[]() {
 }()};
 
 // Sawtooth Wavetable
+__attribute__((section(".data")))
 const std::array<int16_t, WAVE_TABLE_LEN> sawtooth_wave_table{[]() {
     std::array<int16_t, WAVE_TABLE_LEN> table{};
     for (int i = 0; i < WAVE_TABLE_LEN; i++) {

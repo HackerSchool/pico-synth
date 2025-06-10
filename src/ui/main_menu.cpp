@@ -1,4 +1,6 @@
 #include "Ui.hpp"
+#include "fixed_point.h"
+#include <cstdint>
 
 
 void UiHandler::main_handle_encoders(UiHandler& self, Synth &synth, HardwareManager &hw) {
@@ -14,7 +16,7 @@ void UiHandler::main_handle_encoders(UiHandler& self, Synth &synth, HardwareMana
                 break;
 
             case 1: {
-                q8_24_t increment = q24_from_float(.1f);
+                int16_t increment = float_to_q1_15(.1f);
                 for (auto &env : synth.envelopes) {
                     env.increment_ADSR(self.current_adsr_param,
                                        delta > 0 ? increment : -increment);
