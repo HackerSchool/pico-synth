@@ -66,12 +66,18 @@ mkdir -p build && cd build
 ```sh
 cmake ..
 ```
-
+if using ninja on windows:
+```sh
+cmake -G "Ninja" ..
+```
 3. **Compile the Code**
 ```sh
 make -j$(nproc)
 ```
-
+if using ninja on windows:
+```sh
+ninja
+```
 ## 🔥 5. Flash to the Raspberry Pi Pico
 
 ### **Step 1: Put the Pico in Bootloader Mode**
