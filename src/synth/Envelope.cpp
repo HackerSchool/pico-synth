@@ -120,10 +120,10 @@ void ADSREnvelope::update_deltas() {
     //     samples
     // }
 
-    attack_delta = 1048;
-    decay_delta = 1048;
+    attack_delta = 512;
+    decay_delta = 512;
     s = 20000;
-    release_delta = 1048;
+    release_delta = 512;
 
     // Release delta calculated when release starts (since it depends on current
     // level)

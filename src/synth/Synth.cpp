@@ -15,14 +15,13 @@ const int wave_max = WAVE_MAX;
 Synth::Synth() {
     // init the oscillators and envelopes
     for (int i = 0; i < NUM_OSC; i++) {
-        oscillators[i] = Oscillator(Sawtooth, 440.f);
+        oscillators[i] = Oscillator(Sine, 440.f);
         envelopes[i] = ADSREnvelope(0.1f, 0.2f, 0.8f, .5f,
                                     oscillators[i].get_output(), 0.f);
     }
 }
 
-void Synth::out() {
-    output = {};
+void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
 
     // set up the interpolator
     interp_config cfg = interp_default_config();
@@ -41,25 +40,25 @@ void Synth::out() {
             envelopes[i].get_output();
         for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
             // divide by 8
-            output[k] += env_out_i[k] >> 3;
+            buffer[k] += env_out_i[k] >> 3;
         }
     }
 
     // low_pass.out(output.data(), output.size());
     // low_pass_cheb.out(output.data(), output.size());
 
-    // Apply the selected filter
-    switch (current_filter_type) {
-    case FILTER_LOW_PASS:
-        low_pass.out(output.data(), output.size());
-        break;
-    case FILTER_CHEBYSHEV:
-        low_pass_cheb.out(output.data(), output.size());
-        break;
-    default:
-        // No filtering
-        break;
-    }
+    // // Apply the selected filter
+    // switch (current_filter_type) {
+    // case FILTER_LOW_PASS:
+    //     low_pass.out(output.data(), output.size());
+    //     break;
+    // case FILTER_CHEBYSHEV:
+    //     low_pass_cheb.out(output.data(), output.size());
+    //     break;
+    // default:
+    //     // No filtering
+    //     break;
+    // }
 }
 
 std::array<int16_t, SAMPLES_PER_BUFFER> &Synth::get_output() { return output; }

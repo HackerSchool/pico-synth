@@ -60,7 +60,7 @@ class ADSREnvelope {
     float trigger;
     EnvelopeState state = ENV_IDLE;
 
-    static constexpr uint32_t SAMPLE_RATE = 44100;
+    // static constexpr uint32_t SAMPLE_RATE = 44100;
 };
 
 #endif // !ENVELOPE_HPP

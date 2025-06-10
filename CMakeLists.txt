@@ -29,11 +29,15 @@ set(CMAKE_CXX_STANDARD 17)
 set(FAMILY rp2040)
 set(BOARD pico_sdk)
 
+
+set(CONFIG_I2S_DATA_PIN 14)
+set(CONFIG_I2S_CLOCK_PIN_BASE 12)
+
 pico_sdk_init()
 
 # Add I2S Audio Libraries
-add_subdirectory(lib/pico_audio_i2s_32b)
-add_subdirectory(lib/pico_audio_i2s_32b/src/pico_audio_32b)
+# add_subdirectory(lib/pico_audio_i2s_32b)
+# add_subdirectory(lib/pico_audio_i2s_32b/src/pico_audio_32b)
 add_subdirectory(lib/fpm)
 # add_subdirectory(lib/pico-ssd1306)
 
@@ -59,7 +63,8 @@ target_compile_options(pico-synth PRIVATE
 )
 
 target_sources(${bin_name} PRIVATE 
-    src/i2s_init.cpp
+    # src/i2s_init.cpp
+    src/audio.c
     src/Sequencer.cpp
     src/synth/Wavetable.cpp
     src/synth/Oscillator.cpp
@@ -91,11 +96,13 @@ pico_enable_stdio_uart(${bin_name} 1)
 # Link necessary libraries
 target_link_libraries(${bin_name} PRIVATE
     pico_stdlib
-    pico_audio_32b
-    pico_audio_i2s_32b
+    # pico_audio_32b
+    # pico_audio_i2s_32b
+    pico_audio_i2s
     hardware_pio       # Required for quadrature encoder PIO
     hardware_irq       # Required for handling encoder interrupts
     hardware_i2c       # Required for i2c
+    hardware_interp       # Required for i2c
     pico_multicore     # If using Core 1 for processing
     tinyusb_device
     tinyusb_board

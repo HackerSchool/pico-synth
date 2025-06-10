@@ -23,13 +23,15 @@ const uint8_t MidiHandler::note_sequence[64] = {
 MidiHandler::MidiHandler(Synth &synth) : synth(synth) {}
 
 // Process incoming MIDI
-void MidiHandler::midi_task() {
+void MidiHandler::midi_task(queue_t &midi_queue) {
     uint8_t packet[4];
 
     while (tud_midi_available()) {
         tud_midi_packet_read(packet);
         synth.process_midi_packet(packet);
+        queue_add_blocking(&midi_queue, packet);
     }
+
 }
 
 void MidiHandler::midi_send_note(uint8_t note, uint8_t velocity, bool on) {

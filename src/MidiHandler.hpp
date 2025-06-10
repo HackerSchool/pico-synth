@@ -4,6 +4,7 @@
 // #include "Synth.hpp"
 #include "tusb.h"
 #include <cstdint>
+#include "pico/util/queue.h"
 
 class Synth; // Forward declaration
 
@@ -57,7 +58,7 @@ class MidiHandler {
   public:
     MidiHandler(Synth &synth);
 
-    void midi_task();
+    void midi_task(queue_t &midi_queue);
     void midi_send_note(uint8_t note, uint8_t velocity, bool on);
 
   private:
