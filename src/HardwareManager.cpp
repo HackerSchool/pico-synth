@@ -208,11 +208,16 @@ void HardwareManager::draw_wave_type(WaveType wave_type) {
     // printf("wave type: %s \n", wave_type_to_string(last_wave_type));
 }
 
-void HardwareManager::draw_adsr(int current_adsr_param) {
+void HardwareManager::draw_adsr(int current_adsr_param, uint8_t a, uint8_t d,
+                                uint8_t s, uint8_t r) {
     ssd1306_clear_square(&disp, 0, 36, 128, 16); // 2 lines tall
 
+    // Format values into strings with two digits (e.g., "85%")
     char values[4][8];
-    // synth.envelopes[0].get_ADSR_strings(values); // 2 decimal digits
+    snprintf(values[0], sizeof(values[0]), "%3d", a * 100 / 127); // A
+    snprintf(values[1], sizeof(values[1]), "%3d", d * 100 / 127); // D
+    snprintf(values[2], sizeof(values[2]), "%3d", s * 100 / 127); // S
+    snprintf(values[3], sizeof(values[3]), "%3d", r * 100 / 127); // R
 
     // Draw parameter strings starting at x=8
     char line1[24], line2[24];
@@ -223,27 +228,29 @@ void HardwareManager::draw_adsr(int current_adsr_param) {
 
     // Draw arrow at one of four fixed positions based on current_adsr_param
     int arrow_x, arrow_y;
-
     switch (current_adsr_param) {
-    case 0: // A
+    case 0:
         arrow_x = 0;
         arrow_y = 36;
-        break;
-    case 1: // D
+        break; // A
+    case 1:
         arrow_x = 52;
         arrow_y = 36;
-        break;
-    case 2: // S
+        break; // D
+    case 2:
         arrow_x = 0;
         arrow_y = 44;
-        break;
-    case 3: // R
+        break; // S
+    case 3:
         arrow_x = 52;
         arrow_y = 44;
-        break;
+        break; // R
+    default:
+        arrow_x = 0;
+        arrow_y = 36;
+        break; // fallback
     }
 
-    // Draw the arrow character
     ssd1306_draw_char(&disp, arrow_x, arrow_y, 1, '>');
 }
 

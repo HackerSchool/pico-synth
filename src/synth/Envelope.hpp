@@ -30,6 +30,10 @@ class ADSREnvelope {
     void get_ADSR_strings(char out[4][8]);
     void update_deltas();
 
+    // uint8_t parameters to comply with 7 bit MIDI
+    uint8_t a, d, r; // Attack, Decay, Release times
+    uint16_t s;
+
   private:
     enum EnvelopeState {
         ENV_ATTACK,
@@ -41,10 +45,6 @@ class ADSREnvelope {
 
     std::array<int16_t, SAMPLES_PER_BUFFER> *in_signal;
     std::array<int16_t, SAMPLES_PER_BUFFER> output;
-
-    //uint8_t parameters to comply with 7 bit MIDI
-    uint8_t a, d, r; // Attack, Decay, Release times
-    uint16_t s;
 
     // Current envelope state
     uint16_t current_level; // Q1.15 format (0-0.999)

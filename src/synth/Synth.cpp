@@ -10,15 +10,13 @@ const int wave_shift = WAVE_SHIFT;
 const int wave_len = WAVE_LEN;
 const int wave_max = WAVE_MAX;
 
-
-//TODO: make an exponential lookup table for ADSR for increased perception!
+// TODO: make an exponential lookup table for ADSR for increased perception!
 
 Synth::Synth() {
     // init the oscillators and envelopes
     for (int i = 0; i < NUM_OSC; i++) {
         oscillators[i] = Oscillator(Sine, 440.f);
-        envelopes[i] = ADSREnvelope(1, 1, 100, 1,
-                                    oscillators[i].get_output());
+        envelopes[i] = ADSREnvelope(1, 1, 100, 1, oscillators[i].get_output());
     }
 }
 
@@ -94,9 +92,30 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
         note_off(note, velocity);
         break;
 
-    case 0xB0: // Control Change
-        printf("Control Change: channel=%d, controller=%d, value = % d\n",
-               channel, note, velocity);
+    case 0xB0: { // Control Change
+        switch (note) {
+        case 73: // Attack
+            for (auto &env : envelopes)
+                env.a = velocity;
+            break;
+
+        case 75: // Decay
+            for (auto &env : envelopes)
+                env.d = velocity;
+            break;
+
+        case 70: // Sustain
+            for (auto &env : envelopes)
+                env.s = velocity << 8;
+            break;
+
+        case 72: // Release
+            for (auto &env : envelopes)
+                env.r = velocity;
+            break;
+        }
+        break;
+    }
     }
 }
 

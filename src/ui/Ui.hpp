@@ -67,6 +67,8 @@ class UiHandler {
 
     // shit I need for the main state
     int current_adsr_param = 0; // 0=A, 1=D, 2=S, 3=R
+    uint8_t adsr[4] = {64, 64, 64,
+                       64}; // Attack, Decay, Sustain, Release (MIDI 7-bit)
     std::bitset<128> last_note_state;
     uint16_t prev_switches = 0;
     WaveType last_wave_type = static_cast<WaveType>(-1);

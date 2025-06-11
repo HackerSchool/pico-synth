@@ -1,10 +1,12 @@
 #include "HardwareManager.hpp"
+#include "MidiHandler.hpp"
 #include "Ui.hpp"
 #include "fixed_point.h"
 #include <cstdint>
 
 void UiHandler::main_handle_encoders(UiHandler &self) {
     HardwareManager &hw = self.hw;
+    MidiHandler &midi = self.midi;
 
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         Encoder *enc = &hw.encoders[i];
@@ -18,12 +20,20 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
                 break;
 
             case 1: {
-                // int16_t increment = float_to_q1_15(.1f);
-                // for (auto &env : synth.envelopes) {
-                //     env.increment_ADSR(self.current_adsr_param,
-                //                        delta > 0 ? increment : -increment);
-                // }
-                // TODO: envelope midi
+                // Adjust currently selected ADSR param
+                int param = self.current_adsr_param; // 0=A, 1=D, 2=S, 3=R
+                int16_t value = self.adsr[param] + (delta > 0 ? 1 : -1);
+                if (value < 0)
+                    value = 0;
+                if (value > 127)
+                    value = 127;
+                self.adsr[param] = value;
+
+                const uint8_t cc_map[4] = {73, 75, 70,
+                                           72}; // MIDI CCs for A, D, S, R
+                uint8_t packet[4] = {0x0B, 0xB0, cc_map[param],
+                                     static_cast<uint8_t>(value)};
+                midi.midi_receive_note(packet);
                 self.adsr_dirty = true;
                 break;
             }
@@ -87,7 +97,8 @@ void UiHandler::main_update_display(UiHandler &self) {
     // TODO: get synth state on the UI
 
     if (self.adsr_dirty) {
-        hw.draw_adsr(self.current_adsr_param); // new function below
+        hw.draw_adsr(self.current_adsr_param, self.adsr[0], self.adsr[1],
+                     self.adsr[2], self.adsr[3]);
         changed = true;
         self.adsr_dirty = false;
     }

@@ -17,45 +17,45 @@ ADSREnvelope::ADSREnvelope(uint8_t a_in, uint8_t d_in, uint8_t s_in,
 
 void ADSREnvelope::out() {
 
-    for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
-        switch (state) {
-        case ENV_ATTACK:
-            current_level += a;           // Just addition!
-            if (current_level >= 32768) { // 1.0 in Q1.15
-                current_level = 32768;
-                state = ENV_DECAY;
-            }
-            // printf("ENV ATTACK\n");
-            break;
-
-        case ENV_DECAY:
-            current_level -= d;       // Just subtraction!
-            if (current_level <= s) { // Reached sustain level
-                current_level = s;
-                state = s ? ENV_SUSTAIN : ENV_IDLE;
-            }
-            // printf("ENV DECAY\n");
-            break;
-
-        case ENV_SUSTAIN:
-            current_level = s; // Hold sustain level
-            // printf("ENV SUSTAIN\n");
-            break;
-
-        case ENV_RELEASE:
-            if (current_level > r) {
-                current_level -= r;
-            } else {
-                current_level = 0;
-                state = ENV_IDLE;
-            }
-            break;
-
-        case ENV_IDLE:
-            current_level = 0;
-            break;
+    switch (state) {
+    case ENV_ATTACK:
+        current_level += (a << 6);    // Just addition!
+        if (current_level >= 32768) { // 1.0 in Q1.15
+            current_level = 32768;
+            state = ENV_DECAY;
         }
+        // printf("ENV ATTACK\n");
+        break;
 
+    case ENV_DECAY:
+        current_level -= (d << 5); // Just subtraction!
+        if (current_level <= s) {  // Reached sustain level
+            current_level = s;
+            state = s ? ENV_SUSTAIN : ENV_IDLE;
+        }
+        // printf("ENV DECAY\n");
+        break;
+
+    case ENV_SUSTAIN:
+        current_level = s; // Hold sustain level
+        // printf("ENV SUSTAIN\n");
+        break;
+
+    case ENV_RELEASE:
+        if (current_level > (r << 5)) {
+            current_level -= (r << 5);
+        } else {
+            current_level = 0;
+            state = ENV_IDLE;
+        }
+        break;
+
+    case ENV_IDLE:
+        current_level = 0;
+        break;
+    }
+
+    for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
         // Apply envelope to signal
         output[i] = ((*in_signal)[i] * current_level) >> 15;
     }
