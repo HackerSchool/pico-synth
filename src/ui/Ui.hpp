@@ -3,8 +3,8 @@
 
 #include "HardwareManager.hpp"
 #include "MidiHandler.hpp"
-#include "Synth.hpp"
 #include "Sequencer.hpp"
+#include "Synth.hpp"
 #include <cstdint>
 
 typedef enum UiState {
@@ -16,7 +16,7 @@ typedef enum UiState {
 
 class UiHandler;
 
-typedef void (*EncoderHandler)(UiHandler &, Synth &, HardwareManager &);
+typedef void (*EncoderHandler)(UiHandler &);
 typedef void (*SwitchHandler)(UiHandler &);
 typedef void (*DisplayHandler)(UiHandler &);
 
@@ -29,29 +29,25 @@ typedef struct {
 class UiHandler {
 
   public:
-    UiHandler(Synth &synth_ref, HardwareManager &hw, MidiHandler &midi_handler, Sequencer &seq);
+    UiHandler(HardwareManager &hw, MidiHandler &midi_handler, Sequencer &seq);
 
     // void init();
     void update(); // called every loop
     //
     // main state
-    static void main_handle_encoders(UiHandler &self, Synth &synth,
-                                     HardwareManager &hw);
+    static void main_handle_encoders(UiHandler &self);
     static void main_handle_switches(UiHandler &self);
     static void main_update_display(UiHandler &self);
 
     // midi state
-    static void midi_handle_encoders(UiHandler &self, Synth &synth,
-                                     HardwareManager &hw);
+    static void midi_handle_encoders(UiHandler &self);
     static void midi_update_display(UiHandler &self);
 
     // sequencer state
-    static void sequencer_handle_encoders(UiHandler &self, Synth &synth,
-                                   HardwareManager &hw);
+    static void sequencer_handle_encoders(UiHandler &self);
     static void sequencer_update_display(UiHandler &self);
 
   private:
-    Synth &synth;
     HardwareManager &hw;
     MidiHandler &midi;
     Sequencer &seq;

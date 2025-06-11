@@ -11,17 +11,15 @@
 class ADSREnvelope {
   public:
     ADSREnvelope(); // Default Constructor
-    ADSREnvelope(float a, float d, float s, float r,
-                 std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal,
-                 float trigger);
+    ADSREnvelope(uint8_t a, uint8_t d, uint8_t s, uint8_t r,
+                 std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal);
 
     void out();
-    void set_trigger(float trig);
     void set_idle();
     void gate_on();
     void gate_off();
 
-    void set_ADSR(float a_in, float d_in, float s_in, float r_in);
+    void set_ADSR(uint8_t a_in, uint8_t d_in, uint8_t s_in, uint8_t r_in);
 
     std::array<int16_t, SAMPLES_PER_BUFFER> &get_output();
 
@@ -44,9 +42,9 @@ class ADSREnvelope {
     std::array<int16_t, SAMPLES_PER_BUFFER> *in_signal;
     std::array<int16_t, SAMPLES_PER_BUFFER> output;
 
-    // ADR parameters in Q8.8 format (0-255.99 seconds max)
-    uint16_t a, d, r; // Attack, Decay, Release times
-    uint16_t s;       // Sustain level in Q1.15 format (0-0.999)
+    //uint8_t parameters to comply with 7 bit MIDI
+    uint8_t a, d, r; // Attack, Decay, Release times
+    uint16_t s;
 
     // Current envelope state
     uint16_t current_level; // Q1.15 format (0-0.999)
@@ -60,7 +58,7 @@ class ADSREnvelope {
     float trigger;
     EnvelopeState state = ENV_IDLE;
 
-    static constexpr uint32_t SAMPLE_RATE = 44100;
+    // static constexpr uint32_t SAMPLE_RATE = 44100;
 };
 
 #endif // !ENVELOPE_HPP

@@ -6,9 +6,6 @@ const int16_t Q15_MAX = 32767;
 const int16_t Q14_MAX = 16384;
 
 
-#define WAVE_SHIFT 11
-#define WAVE_LEN 2048
-#define WAVE_MAX 0x8000000
 
 
 const int wave_shift = WAVE_SHIFT;

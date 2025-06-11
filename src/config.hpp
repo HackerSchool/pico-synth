@@ -2,5 +2,6 @@
 #define CONFIG_HPP
 
 #define SAMPLES_PER_BUFFER 256
+#define SAMPLE_RATE 44100
 
 #endif // !CONFIG_HPP

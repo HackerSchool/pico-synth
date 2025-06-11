@@ -6,23 +6,23 @@
 #include <cstdint>
 #include <cstdio>
 
-
-
 const int wave_shift = WAVE_SHIFT;
 const int wave_len = WAVE_LEN;
 const int wave_max = WAVE_MAX;
 
+
+//TODO: make an exponential lookup table for ADSR for increased perception!
+
 Synth::Synth() {
     // init the oscillators and envelopes
     for (int i = 0; i < NUM_OSC; i++) {
-        oscillators[i] = Oscillator(Sawtooth, 440.f);
-        envelopes[i] = ADSREnvelope(0.1f, 0.2f, 0.8f, .5f,
-                                    oscillators[i].get_output(), 0.f);
+        oscillators[i] = Oscillator(Sine, 440.f);
+        envelopes[i] = ADSREnvelope(1, 1, 100, 1,
+                                    oscillators[i].get_output());
     }
 }
 
-void Synth::out() {
-    output = {};
+void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
 
     // set up the interpolator
     interp_config cfg = interp_default_config();
@@ -41,32 +41,32 @@ void Synth::out() {
             envelopes[i].get_output();
         for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
             // divide by 8
-            output[k] += env_out_i[k] >> 3;
+            buffer[k] += env_out_i[k] >> 3;
         }
     }
 
     // low_pass.out(output.data(), output.size());
     // low_pass_cheb.out(output.data(), output.size());
 
-    // Apply the selected filter
-    switch (current_filter_type) {
-    case FILTER_LOW_PASS:
-        low_pass.out(output.data(), output.size());
-        break;
-    case FILTER_CHEBYSHEV:
-        low_pass_cheb.out(output.data(), output.size());
-        break;
-    default:
-        // No filtering
-        break;
-    }
+    // // Apply the selected filter
+    // switch (current_filter_type) {
+    // case FILTER_LOW_PASS:
+    //     low_pass.out(output.data(), output.size());
+    //     break;
+    // case FILTER_CHEBYSHEV:
+    //     low_pass_cheb.out(output.data(), output.size());
+    //     break;
+    // default:
+    //     // No filtering
+    //     break;
+    // }
 }
 
 std::array<int16_t, SAMPLES_PER_BUFFER> &Synth::get_output() { return output; }
 
 void Synth::process_midi_packet(uint8_t packet[4]) {
     uint8_t msg_type = packet[1] & 0xF0;
-    // uint8_t channel = packet[1] & 0x0F;
+    uint8_t channel = packet[1] & 0x0F;
     uint8_t note = packet[2];
     uint8_t velocity = packet[3];
 
@@ -77,7 +77,7 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
             // printf("Note On: channel=%d, note=%d, velocity=%d\n", channel,
             // note,
             //        velocity);
-            note_on(note, velocity);
+            note_on(channel, note, velocity);
         } else {
             // Note on with velocity 0 is equivalent to Note Off
             // printf("Note Off (via Note On): channel=%d, note=%d\n", channel,
@@ -95,23 +95,16 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
         break;
 
     case 0xB0: // Control Change
-        // printf("Control Change: channel=%d, controller=%d, value = % d\n
-        // ",channel channel, note, velocity); Handle control change message
-        if (note == 0x02) {
-            // float fc = 200.f + (float)velocity / 127.f * 9000.f;
-            // printf("fc = %f\n", fc);
-            // low_pass.set_cutoff_freq(fc);
-            // low_pass_cheb.set_cutoff_freq(fc, 0.5f);
-        }
-        // For example: set_controller(note, velocity);
-        //
-        break;
-
-        // Add other MIDI message types as needed
+        printf("Control Change: channel=%d, controller=%d, value = % d\n",
+               channel, note, velocity);
     }
 }
 
-void Synth::note_on(uint8_t note, uint8_t velocity) {
+const WaveType channel_wave_map[16] = {
+    Sine,     Square, Triangle, Sawtooth, Sinc,     Sine,     Square, Triangle,
+    Sawtooth, Sinc,   Sine,     Square,   Triangle, Sawtooth, Sinc,   Sine};
+
+void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
     // Check if note is playing
     int osc_index = -1;
     for (int i = 0; i < NUM_OSC; i++) {
@@ -132,7 +125,9 @@ void Synth::note_on(uint8_t note, uint8_t velocity) {
                 notes_playing_bitset.set(note);
 
                 // float freq = midi_to_freq(note);
-                // oscillators[i].set_freq(freq);
+                // oscillators[i].set_freq(freq)
+                WaveType wt = channel_wave_map[channel];
+                oscillators[i].set_wavetable(wt);
                 //
                 oscillators[i].set_dco_step(note);
                 // oscillators[i].set_freq(261.626f);

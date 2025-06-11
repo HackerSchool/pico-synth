@@ -16,14 +16,14 @@
 class Synth {
   public:
     Synth();
-    void out();
+    void out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer);
     void out_interp();
     std::array<int16_t, SAMPLES_PER_BUFFER> &get_output();
     void process_midi_packet(uint8_t packet[4]);
 
     void cycle_wave_type(int delta);
 
-    void note_on(uint8_t note, uint8_t velocity);
+    void note_on(uint8_t channel, uint8_t note, uint8_t velocity);
     void note_off(uint8_t note, uint8_t velocity);
     const char *get_notes_playing_names();
     std::bitset<128> get_notes_bitmask() const { return notes_playing_bitset; }
@@ -39,7 +39,7 @@ class Synth {
     void set_filter_cutoff(float cutoff, float q = 0.5f);
 
     float get_filter_cutoff();
-    FilterType current_filter_type = FILTER_CHEBYSHEV; // Default to Chebyshev
+    FilterType current_filter_type = FILTER_OFF; // Default to Chebyshev
 
   private:
     std::array<int16_t, SAMPLES_PER_BUFFER> output = {};

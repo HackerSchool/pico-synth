@@ -1,14 +1,15 @@
+#include "HardwareManager.hpp"
 #include "Sequencer.hpp"
 #include "Ui.hpp"
 
+void UiHandler::sequencer_handle_encoders(UiHandler &self) {
 
-void UiHandler::sequencer_handle_encoders(UiHandler& self, Synth &synth, HardwareManager &hw) {
-    
-    Sequencer& sequencer = self.seq;
+    HardwareManager &hw = self.hw;
+    Sequencer &sequencer = self.seq;
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         Encoder *enc = &hw.encoders[i];
         int32_t delta = enc->delta;
-        
+
         // Handle encoder rotations
         if (delta != 0 && abs(delta) > 1) {
             switch (i) {
@@ -16,9 +17,11 @@ void UiHandler::sequencer_handle_encoders(UiHandler& self, Synth &synth, Hardwar
                 // Tempo control (encoder 0)
                 if (delta > 0) {
                     self.display_tempo += 5;
-                    if (self.display_tempo > 200) self.display_tempo = 200;
+                    if (self.display_tempo > 200)
+                        self.display_tempo = 200;
                 } else {
-                    if (self.display_tempo > 5) self.display_tempo -= 5;
+                    if (self.display_tempo > 5)
+                        self.display_tempo -= 5;
                 }
                 sequencer.set_tempo(self.display_tempo);
                 self.sequencer_settings_dirty = true;
@@ -32,7 +35,7 @@ void UiHandler::sequencer_handle_encoders(UiHandler& self, Synth &synth, Hardwar
                 break;
             }
         }
-        
+
         // Handle button presses
         if (!enc->button_state && enc->button_edge) {
             switch (i) {
@@ -69,17 +72,18 @@ void UiHandler::sequencer_handle_encoders(UiHandler& self, Synth &synth, Hardwar
 }
 
 void UiHandler::sequencer_update_display(UiHandler &self) {
-    Sequencer &sequencer =self.seq;
+    Sequencer &sequencer = self.seq;
     HardwareManager &hw = self.hw;
-    
-   // Check if step has changed
+
+    // Check if step has changed
     uint8_t current_step = sequencer.get_current_step();
     bool step_changed = (current_step != self.display_current_step);
     self.display_current_step = current_step;
-    
+
     // Update display if settings changed OR step changed
     if (self.sequencer_settings_dirty || step_changed) {
-        hw.draw_sequencer_settings(self.sequencer_playing, self.display_tempo, self.display_current_step);
+        hw.draw_sequencer_settings(self.sequencer_playing, self.display_tempo,
+                                   self.display_current_step);
         hw.display_show();
         self.sequencer_settings_dirty = false;
     }

@@ -5,7 +5,7 @@
 #include "Wavetable.hpp"
 #include "hardware/i2c.h"
 #include "hardware/pio.h"
-#include "i2s_init.hpp"
+// #include "i2s_init.hpp"
 #include "quadrature_encoder.pio.h"
 #include "ssd1306.h"
 #include "tusb.h"
@@ -56,7 +56,7 @@ KeyChanges compute_key_changes(uint16_t prev_state, uint16_t curr_state);
 
 class HardwareManager {
   public:
-    HardwareManager(Synth &synth_ref);
+    HardwareManager();
 
     void init();
     void update();      // called every loop
@@ -116,7 +116,7 @@ class HardwareManager {
     void display_show();
 
   private:
-    Synth &synth;
+    // Synth &synth;
 
     std::bitset<128> last_note_state;
     WaveType last_wave_type = static_cast<WaveType>(-1);

@@ -8,7 +8,7 @@ const int wave_shift = WAVE_SHIFT;
 const int wave_len = WAVE_LEN;
 const int wave_max = WAVE_MAX;
 
-constexpr float SAMPLE_RATE = 44100.0f;
+// constexpr float SAMPLE_RATE = 44100.0f;
 constexpr float MAGIC_NUMBER = 1.5625f; // your overclock factor
 
 const float midi_frequencies[128] = {

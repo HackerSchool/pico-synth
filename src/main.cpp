@@ -2,55 +2,38 @@
 #include <pico/types.h>
 #include <stdio.h>
 
+#include "pico/audio.h"
 #include "pico/bootrom.h"
+#include "pico/multicore.h"
+#include "pico/util/queue.h"
 
-#include "config.hpp"
 #include "hardware/clocks.h"
-#include "hardware/pio.h"
 #include "hardware/pll.h"
 #include "hardware/structs/clocks.h"
 
-#include "pico/audio.h"
-
 #include "fixed_point.h"
 #include "tusb.h"
-// #include "tusb_config.h"
-//
-#include "ssd1306.h"
-#include <fpm/fixed.hpp> // For fpm::fixed_16_16
 
-#include "quadrature_encoder.pio.h"
-
-#include "Envelope.hpp"
 #include "HardwareManager.hpp"
 #include "MidiHandler.hpp"
-#include "Oscillator.hpp"
 #include "Sequencer.hpp"
 #include "Synth.hpp"
 #include "Ui.hpp"
 #include "Wavetable.hpp"
-#include "i2s_init.hpp"
+#include "audio.h"
+#include "config.hpp"
 
-uint vol = 100;
+static audio_buffer_pool *ap = nullptr;
 
-// Double output buffer
-std::array<int16_t, SAMPLES_PER_BUFFER> out_a;
-std::array<int16_t, SAMPLES_PER_BUFFER> out_b;
-std::array<int16_t, SAMPLES_PER_BUFFER> *front = &out_a;
-std::array<int16_t, SAMPLES_PER_BUFFER> *back = &out_b;
+static queue_t midi_queue;
 
-bool need_render = 0;
-bool buff = 0;
+Synth synth_core1 = Synth();
 
 void enter_bootsel_mode() {
     reset_usb_boot(0, 0); // Jump to BOOTSEL (UF2) mode
 }
 
 void setup_gpios(void) {
-    // Enable less noise in audio output
-    gpio_init(PIN_DCDC_PSM_CTRL);
-    gpio_set_dir(PIN_DCDC_PSM_CTRL, GPIO_OUT);
-    gpio_put(PIN_DCDC_PSM_CTRL, 1);
 
     i2c_init(i2c1, 400000);
     gpio_set_function(26, GPIO_FUNC_I2C);
@@ -63,6 +46,41 @@ void setup_gpios(void) {
     gpio_set_function(21, GPIO_FUNC_I2C); // SCL
     gpio_pull_up(20);
     gpio_pull_up(21);
+}
+
+std::array<int16_t, SAMPLES_PER_BUFFER> output;
+
+void audio_task(void) {
+
+    // clear accumulation buffer
+    output.fill(0);
+    synth_core1.out(output); // render into back buffer
+    //
+    // This motherfucker needs to be blocking!
+    audio_buffer_t *buffer = take_audio_buffer(ap, true);
+    if (!buffer)
+        return;
+
+    int16_t *samples = (int16_t *)buffer->buffer->bytes;
+    for (uint i = 0; i < buffer->max_sample_count; i++) {
+        samples[i * 2 + 0] = output[i];
+        samples[i * 2 + 1] = output[i];
+    }
+
+    buffer->sample_count = buffer->max_sample_count;
+    give_audio_buffer(ap, buffer);
+}
+
+void audio_loop(void) {
+
+    while (true) {
+        uint8_t msg[4];
+        while (queue_try_remove(&midi_queue, msg)) {
+            synth_core1.process_midi_packet(msg);
+            printf("Yo, on core 1, got a package\n");
+        }
+        audio_task();
+    }
 }
 
 int main() {
@@ -85,40 +103,24 @@ int main() {
     tusb_init();
 
     // Initialize I2S audio output
-    ap = i2s_audio_init(44100);
+    ap = audio_init();
 
     setup_gpios();
 
-    // const char *words[] = {"SSD1306", "DISPLAY", "DRIVER"};
-
-    // ssd1306_t disp;
-    //
-    // disp.external_vcc = false;
-    // ssd1306_init(&disp, 128, 64, 0x3C, i2c1);
-    //
-    // // ssd1306_hflip(&disp, 1);
-    // ssd1306_rotate(&disp, 1);
-    // ssd1306_clear(&disp);
-
     Synth synth = Synth();
 
-    MidiHandler midi_handler = MidiHandler(synth);
+    MidiHandler midi_handler = MidiHandler(midi_queue);
 
-    // ssd1306_draw_string(&disp, 8, 24, 1, words[0]);
-    // ssd1306_show(&disp);
-
-    // uint16_t prev_state = 0;
-
-    // static WaveType last_wave_type = static_cast<WaveType>(-1);
-    HardwareManager hw = HardwareManager(synth);
+    HardwareManager hw = HardwareManager();
 
     hw.init();
 
-    printf("About to construct Sequencer\n");
-    Sequencer seq(synth, midi_handler);
-    printf("Constructed Sequencer\n");
+    Sequencer seq(midi_handler);
 
-    UiHandler ui = UiHandler(synth, hw, midi_handler, seq);
+    UiHandler ui = UiHandler(hw, midi_handler, seq);
+
+    queue_init(&midi_queue, 4, 64);
+    multicore_launch_core1(audio_loop);
 
     while (true) {
         // Handle USB tasks
@@ -130,16 +132,9 @@ int main() {
         hw.update();
         ui.update();
         seq.update();
-        // prev_state = curr_state;
 
         int c = getchar_timeout_us(0);
         if (c >= 0) {
-            if (c == '-' && vol)
-                vol--;
-            if ((c == '=' || c == '+') && vol < 256)
-                vol++;
-            // if (c == 's')
-            // env1.set_trigger(5.0);
             if (c == 'p') {
 
                 // env1.set_trigger(0.0);
@@ -156,51 +151,7 @@ int main() {
                 enter_bootsel_mode();
             printf("Yo\n\r");
         }
-        if (need_render) {
-            std::swap(front, back);     // swap front and back buffer
-            synth.out();                // render into back buffer
-            *back = synth.get_output(); // or synth.out(&back)
-            need_render = 0;
-        }
-
-        // else {
-        //     // without this print the thing does not work,
-        //     // main loop runs too fast atm, no time for interrupt
-        //     // is what Im assuming
-        //     // thats a good thing at least
-        //     // printf("Not writing anything\n");
-        //     // __wfe(); // Wait for event (low power waiting)
-        // }
     }
 
     return 0;
-}
-
-void decode() {
-    audio_buffer_t *buffer = take_audio_buffer(ap, false);
-    if (!buffer)
-        return;
-
-    int32_t *samples = (int32_t *)buffer->buffer->bytes;
-    for (uint i = 0; i < buffer->max_sample_count; i++) {
-        int32_t v = (*front)[i] * vol << 8;
-        samples[i * 2 + 0] = v + (v >> 16); // L
-        samples[i * 2 + 1] = v + (v >> 16); // R
-    }
-
-    buffer->sample_count = buffer->max_sample_count;
-    give_audio_buffer(ap, buffer);
-    need_render = 1; // Tell main loop to render next buffer
-}
-
-extern "C" {
-// callback from:
-//   void __isr __time_critical_func(audio_i2s_dma_irq_handler)()
-//   defined at my_pico_audio_i2s/audio_i2s.c
-//   where i2s_callback_func() is declared with __attribute__((weak))
-void i2s_callback_func() {
-    if (decode_flg) {
-        decode();
-    }
-}
 }
