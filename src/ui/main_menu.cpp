@@ -15,8 +15,10 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
         if (delta != 0 && abs(delta) > 1) {
             switch (i) {
             case 0:
-                // synth.cycle_wave_type(delta > 0 ? 1 : -1);
-                // TODO: cycle wave type
+                self.midi_channel =
+                    (self.midi_channel + (delta > 0 ? 1 : 15)) & 0x0F;
+
+                self.channel_dirty = true;
                 break;
 
             case 1: {
@@ -88,12 +90,10 @@ void UiHandler::main_update_display(UiHandler &self) {
     //     changed = true;
     // }
     //
-    // WaveType current = synth.oscillators[0].get_wave_type();
-    // if (current != self.last_wave_type) {
-    //     self.last_wave_type = current;
-    //     hw.draw_wave_type(current);
-    //     changed = true;
-    // }
+    if (self.channel_dirty) {
+        hw.draw_wave_type(self.midi_channel);
+        changed = true;
+    }
     // TODO: get synth state on the UI
 
     if (self.adsr_dirty) {

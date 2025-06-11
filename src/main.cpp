@@ -77,7 +77,7 @@ void audio_loop(void) {
         uint8_t msg[4];
         while (queue_try_remove(&midi_queue, msg)) {
             synth_core1.process_midi_packet(msg);
-            printf("Yo, on core 1, got a package\n");
+            // printf("Yo, on core 1, got a package\n");
         }
         audio_task();
     }

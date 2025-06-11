@@ -11,7 +11,7 @@
 #include <bitset>
 #include <cstdint>
 
-#define NUM_OSC 8
+#define NUM_OSC 32
 
 class Synth {
   public:
@@ -33,6 +33,9 @@ class Synth {
 
     std::array<Oscillator, NUM_OSC> oscillators;
     std::array<ADSREnvelope, NUM_OSC> envelopes;
+    bool osc_playing[NUM_OSC] = {};
+    uint8_t osc_midi_note[NUM_OSC] = {};
+    bool osc_steal[NUM_OSC] = {};
 
     void cycle_filter_type();
 
@@ -45,9 +48,6 @@ class Synth {
     std::array<int16_t, SAMPLES_PER_BUFFER> output = {};
 
     std::bitset<128> notes_playing_bitset;
-
-    uint8_t osc_midi_note[NUM_OSC] = {};
-    bool osc_playing[NUM_OSC] = {};
 };
 
 #endif // !SYNTH_HPP

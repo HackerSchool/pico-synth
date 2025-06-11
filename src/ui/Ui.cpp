@@ -33,7 +33,7 @@ void UiHandler::main_handle_switches(UiHandler &self) {
                 if (self.switches_in) {
                     uint8_t packet[4];
                     packet[0] = 0x09; // CIN = Note On, Cable 0
-                    packet[1] = 0x90; // Status
+                    packet[1] = 0x90 | (self.midi_channel & 0x0F); // Status
                     packet[2] = note;
                     packet[3] = 0x7F; // Velocity
                     midi.midi_receive_note(packet);
@@ -48,7 +48,7 @@ void UiHandler::main_handle_switches(UiHandler &self) {
                 if (self.switches_in) {
                     uint8_t packet[4];
                     packet[0] = 0x08; // CIN = Note Off, Cable 0
-                    packet[1] = 0x80; // Status
+                    packet[1] = 0x80 | (self.midi_channel & 0x0F);
                     packet[2] = note;
                     packet[3] = 0x7F; // Velocity
                     midi.midi_receive_note(packet);

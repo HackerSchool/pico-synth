@@ -74,6 +74,8 @@ class UiHandler {
     WaveType last_wave_type = static_cast<WaveType>(-1);
     bool adsr_dirty = 0;
     bool filter_dirty = 0;
+    bool channel_dirty = 0;
+    uint8_t midi_channel = 1;
 
     // midi state
     bool midi_in = false;             // midi into pico synth

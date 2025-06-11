@@ -34,7 +34,6 @@ class ADSREnvelope {
     uint8_t a, d, r; // Attack, Decay, Release times
     uint16_t s;
 
-  private:
     enum EnvelopeState {
         ENV_ATTACK,
         ENV_DECAY,
@@ -43,6 +42,9 @@ class ADSREnvelope {
         ENV_IDLE
     };
 
+    EnvelopeState state = ENV_IDLE;
+
+  private:
     std::array<int16_t, SAMPLES_PER_BUFFER> *in_signal;
     std::array<int16_t, SAMPLES_PER_BUFFER> output;
 
@@ -56,7 +58,6 @@ class ADSREnvelope {
     int16_t release_delta; // Q2.14 format
 
     float trigger;
-    EnvelopeState state = ENV_IDLE;
 
     // static constexpr uint32_t SAMPLE_RATE = 44100;
 };

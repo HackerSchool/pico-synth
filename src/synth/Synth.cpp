@@ -1,4 +1,5 @@
 #include "Synth.hpp"
+#include "Envelope.hpp"
 #include "Oscillator.hpp"
 #include "Wavetable.hpp"
 #include "config.hpp"
@@ -21,6 +22,14 @@ Synth::Synth() {
 }
 
 void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
+
+    // cleanup oscillators
+    for (int i = 0; i < NUM_OSC; i++) {
+        if (osc_playing[i] and envelopes[i].state == ADSREnvelope::ENV_IDLE) {
+            osc_playing[i] = false;
+            osc_steal[i] = false;
+        }
+    }
 
     // set up the interpolator
     interp_config cfg = interp_default_config();
@@ -127,9 +136,9 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
     // Check if note is playing
     int osc_index = -1;
     for (int i = 0; i < NUM_OSC; i++) {
-        if (osc_midi_note[i] == note && osc_playing[i]) {
-            // printf("Note already playing: note=%d, velocity=%d\n", note,
-            // velocity);
+        if (osc_midi_note[i] == note && osc_playing[i] && !osc_steal[i]) {
+            printf("Note already playing: note=%d, velocity=%d\n", note,
+                   velocity);
             osc_index = i;
             break;
         }
@@ -153,7 +162,7 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
                 // envelopes[i].set_trigger(5.f);
                 envelopes[i].gate_on();
                 // envelopes[i].set_idle();
-                // printf("New Note: note=%d, velocity=%d\n", note, velocity);
+                printf("New Note: note=%d, velocity=%d\n", note, velocity);
                 break;
             }
         }
@@ -164,13 +173,13 @@ void Synth::note_off(uint8_t note, uint8_t velocity) {
     // Check if note is playing
     // printf("I am in note off");
     for (int i = 0; i < NUM_OSC; i++) {
-        if (osc_midi_note[i] == note && osc_playing[i]) {
+        if (osc_midi_note[i] == note && osc_playing[i] && !osc_steal[i]) {
             // envelopes[i].set_trigger(0.f);
             envelopes[i].gate_off();
-            osc_playing[i] = false;
+            // osc_playing[i] = false;
+            osc_steal[i] = true;
             notes_playing_bitset.reset(note);
-            // printf("Note Off on Synth: note=%d, velocity=%d\n", note,
-            // velocity);
+            printf("Note Off on Synth: note=%d, velocity=%d\n", note, velocity);
             break;
         }
     }

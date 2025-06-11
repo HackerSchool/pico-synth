@@ -201,11 +201,12 @@ void HardwareManager::draw_notes() {
     // ssd1306_draw_string(&disp, 8, 24, 1, synth.get_notes_playing_names());
 }
 
-void HardwareManager::draw_wave_type(WaveType wave_type) {
+void HardwareManager::draw_wave_type(uint8_t midi_channel) {
+    char buf[4]; // Enough for "16\0"
     ssd1306_clear_square(&disp, 56, 0, 64, 8);
-    ssd1306_draw_string(&disp, 8, 0, 1, "Wave:");
-    ssd1306_draw_string(&disp, 56, 0, 1, wave_type_to_string(wave_type));
-    // printf("wave type: %s \n", wave_type_to_string(last_wave_type));
+    ssd1306_draw_string(&disp, 8, 0, 1, "Chan:");
+    sprintf(buf, "%d", midi_channel + 1); // Display channels as 1–16
+    ssd1306_draw_string(&disp, 56, 0, 1, buf);
 }
 
 void HardwareManager::draw_adsr(int current_adsr_param, uint8_t a, uint8_t d,
