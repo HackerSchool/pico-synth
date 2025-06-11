@@ -38,7 +38,7 @@ pico_sdk_init()
 # Add I2S Audio Libraries
 # add_subdirectory(lib/pico_audio_i2s_32b)
 # add_subdirectory(lib/pico_audio_i2s_32b/src/pico_audio_32b)
-add_subdirectory(lib/fpm)
+# add_subdirectory(lib/fpm)
 # add_subdirectory(lib/pico-ssd1306)
 
 set(bin_name ${PROJECT_NAME})
@@ -106,7 +106,6 @@ target_link_libraries(${bin_name} PRIVATE
     pico_multicore     # If using Core 1 for processing
     tinyusb_device
     tinyusb_board
-    fpm
 )
 
 
