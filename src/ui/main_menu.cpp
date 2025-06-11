@@ -3,6 +3,72 @@
 #include "Ui.hpp"
 #include "fixed_point.h"
 #include <cstdint>
+#include <cstdio>
+
+const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
+                             66, 68, 70, -1, 67, 69, 71, 72};
+
+void UiHandler::main_handle_switches(UiHandler &self) {
+
+    MidiHandler &midi = self.midi;
+
+    uint16_t curr = self.hw.curr_switches;
+    KeyChanges changes = compute_key_changes(self.prev_switches, curr);
+    update_leds_from_keys(i2c1, self.prev_switches, curr);
+
+    for (int i = 0; i < 16; ++i) {
+        if ((changes.note_on_mask >> i) & 1) {
+            uint8_t note = key_to_midi[i];
+            if (note != 255) {
+                if (self.switches_in) {
+                    uint8_t packet[4];
+                    packet[0] = 0x09; // CIN = Note On, Cable 0
+                    packet[1] = 0x90 | (self.midi_channel & 0x0F); // Status
+                    packet[2] = note + 12 * self.octave;
+                    packet[3] = 0x7F; // Velocity
+                    midi.midi_receive_note(packet);
+                }
+                if (self.midi_out)
+                    midi.midi_send_note(note, 127, true);
+            } else {
+                printf("Change Octave button: %d", i);
+                switch (i) {
+                case 0:
+                    if (self.octave > -5) {
+                        self.octave--;
+                        self.channel_dirty = true;
+                    }
+                    break;
+                case 11:
+                    if (self.octave < 4) {
+                        self.octave++;
+                        self.channel_dirty = true;
+                    }
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+        if ((changes.note_off_mask >> i) & 1) {
+            uint8_t note = key_to_midi[i];
+            if (note != 255) {
+                if (self.switches_in) {
+                    uint8_t packet[4];
+                    packet[0] = 0x08; // CIN = Note Off, Cable 0
+                    packet[1] = 0x80 | (self.midi_channel & 0x0F);
+                    packet[2] = note + 12 * self.octave;
+                    packet[3] = 0x7F; // Velocity
+                    midi.midi_receive_note(packet);
+                }
+                if (self.midi_out)
+                    midi.midi_send_note(note, 0, false);
+            }
+        }
+    }
+
+    self.prev_switches = curr;
+}
 
 void UiHandler::main_handle_encoders(UiHandler &self) {
     HardwareManager &hw = self.hw;
@@ -91,7 +157,7 @@ void UiHandler::main_update_display(UiHandler &self) {
     // }
     //
     if (self.channel_dirty) {
-        hw.draw_wave_type(self.midi_channel);
+        hw.draw_wave_type(self.midi_channel, self.octave);
         changed = true;
     }
     // TODO: get synth state on the UI

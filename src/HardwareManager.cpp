@@ -201,12 +201,18 @@ void HardwareManager::draw_notes() {
     // ssd1306_draw_string(&disp, 8, 24, 1, synth.get_notes_playing_names());
 }
 
-void HardwareManager::draw_wave_type(uint8_t midi_channel) {
-    char buf[4]; // Enough for "16\0"
-    ssd1306_clear_square(&disp, 56, 0, 64, 8);
+void HardwareManager::draw_wave_type(uint8_t midi_channel, int8_t octave) {
+    char buf[8]; // Enough for "16 Oct:+4\0"
+    ssd1306_clear_square(&disp, 40, 0, 72, 8);
+    
     ssd1306_draw_string(&disp, 8, 0, 1, "Chan:");
     sprintf(buf, "%d", midi_channel + 1); // Display channels as 1–16
-    ssd1306_draw_string(&disp, 56, 0, 1, buf);
+    ssd1306_draw_string(&disp, 40, 0, 1, buf);
+
+    // Calculate displayed octave
+    int8_t display_octave = octave + 4;
+    sprintf(buf, "Oc:%+d", display_octave);
+    ssd1306_draw_string(&disp, 72, 0, 1, buf); // Draw after channel number
 }
 
 void HardwareManager::draw_adsr(int current_adsr_param, uint8_t a, uint8_t d,

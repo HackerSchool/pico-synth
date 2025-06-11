@@ -76,6 +76,7 @@ class UiHandler {
     bool filter_dirty = 0;
     bool channel_dirty = 0;
     uint8_t midi_channel = 1;
+    int8_t octave = 0;
 
     // midi state
     bool midi_in = false;             // midi into pico synth

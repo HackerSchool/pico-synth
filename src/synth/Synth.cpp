@@ -48,17 +48,17 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
             envelopes[i].get_output();
         for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
             // divide by 8
-            buffer[k] += env_out_i[k] >> 3;
+            buffer[k] += env_out_i[k] >> 4;
         }
     }
 
-    // low_pass.out(output.data(), output.size());
-    // low_pass_cheb.out(output.data(), output.size());
+    // low_pass.out(buffer.data(), buffer.size());
+    // low_pass_cheb.out(buffer.data(), buffer.size());
 
     // // Apply the selected filter
     // switch (current_filter_type) {
     // case FILTER_LOW_PASS:
-    //     low_pass.out(output.data(), output.size());
+    // low_pass.out(buffer.data(), buffer.size());
     //     break;
     // case FILTER_CHEBYSHEV:
     //     low_pass_cheb.out(output.data(), output.size());
