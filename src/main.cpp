@@ -117,7 +117,7 @@ int main() {
 
     Sequencer seq(midi_handler);
 
-    UiHandler ui = UiHandler(synth, hw, midi_handler, seq);
+    UiHandler ui = UiHandler(hw, midi_handler, seq);
 
     queue_init(&midi_queue, 4, 64);
     multicore_launch_core1(audio_loop);

@@ -1,11 +1,12 @@
+#include "HardwareManager.hpp"
 #include "Ui.hpp"
 
-
-void UiHandler::midi_handle_encoders(UiHandler& self, Synth &synth, HardwareManager &hw) {
+void UiHandler::midi_handle_encoders(UiHandler &self) {
+    HardwareManager &hw = self.hw;
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         Encoder *enc = &hw.encoders[i];
         int32_t delta = enc->delta;
-        
+
         // Handle encoder rotations (if needed for future features)
         if (delta != 0 && abs(delta) > 1) {
             switch (i) {
@@ -20,7 +21,7 @@ void UiHandler::midi_handle_encoders(UiHandler& self, Synth &synth, HardwareMana
                 break;
             }
         }
-        
+
         // Handle button presses for toggling flags
         if (!enc->button_state && enc->button_edge) {
             switch (i) {
@@ -51,10 +52,10 @@ void UiHandler::midi_handle_encoders(UiHandler& self, Synth &synth, HardwareMana
 
 void UiHandler::midi_update_display(UiHandler &self) {
     HardwareManager &hw = self.hw;
-    
+
     if (self.midi_settings_dirty) {
-        hw.draw_midi_settings(self.midi_out, self.midi_in, self.switches_in, 
-                             self.sequencer_in, self.sequencer_out);
+        hw.draw_midi_settings(self.midi_out, self.midi_in, self.switches_in,
+                              self.sequencer_in, self.sequencer_out);
         hw.display_show();
         self.midi_settings_dirty = false;
     }
