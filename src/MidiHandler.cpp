@@ -22,7 +22,15 @@ void MidiHandler::midi_task() {
         tud_midi_packet_read(packet);
         queue_add_blocking(&midi_queue, packet);
     }
+}
 
+void MidiHandler::midi_receive_note(uint8_t *packet) {
+    if (!packet) {
+        // Optionally: log an error or assert
+        printf("Error: null MIDI packet received\n");
+        return;
+    }
+    queue_add_blocking(&midi_queue, packet);
 }
 
 void MidiHandler::midi_send_note(uint8_t note, uint8_t velocity, bool on) {

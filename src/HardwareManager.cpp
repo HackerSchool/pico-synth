@@ -13,7 +13,6 @@ const uint8_t ROW_PINS[4] = {2, 3, 5, 7};
 
 uint8_t LED_MAP[16] = {1, 3, 4, 7, 0, 2, 5, 6, 0, 2, 4, 6, 1, 3, 5, 7};
 
-
 // Initialize a quadrature encoder PIO state machine
 void init_encoder(Encoder *enc) {
     PIO pio = enc->pio;
@@ -120,7 +119,7 @@ KeyChanges compute_key_changes(uint16_t prev_state, uint16_t curr_state) {
     return changes;
 }
 
-HardwareManager::HardwareManager(Synth &synth_ref) : synth(synth_ref) {}
+HardwareManager::HardwareManager() {}
 
 void HardwareManager::init() {
 
@@ -172,7 +171,6 @@ void HardwareManager::poll_encoders() {
     }
 }
 
-
 void HardwareManager::poll_keypad() {
     curr_switches = scan_key_state(i2c0);
     // KeyChanges changes = compute_key_changes(prev_keys, curr);
@@ -198,10 +196,9 @@ void HardwareManager::update_leds(uint16_t prev, uint16_t curr) {
     update_leds_from_keys(i2c1, prev, curr); // use your existing helper
 }
 
-
 void HardwareManager::draw_notes() {
     ssd1306_clear_square(&disp, 8, 24, 120, 8);
-    ssd1306_draw_string(&disp, 8, 24, 1, synth.get_notes_playing_names());
+    // ssd1306_draw_string(&disp, 8, 24, 1, synth.get_notes_playing_names());
 }
 
 void HardwareManager::draw_wave_type(WaveType wave_type) {
@@ -215,7 +212,7 @@ void HardwareManager::draw_adsr(int current_adsr_param) {
     ssd1306_clear_square(&disp, 0, 36, 128, 16); // 2 lines tall
 
     char values[4][8];
-    synth.envelopes[0].get_ADSR_strings(values); // 2 decimal digits
+    // synth.envelopes[0].get_ADSR_strings(values); // 2 decimal digits
 
     // Draw parameter strings starting at x=8
     char line1[24], line2[24];
@@ -251,88 +248,89 @@ void HardwareManager::draw_adsr(int current_adsr_param) {
 }
 
 void HardwareManager::draw_filter() {
-    char fc_value[32];
+    // char fc_value[32];
 
     // Display different information based on filter type
-    switch (synth.current_filter_type) {
-    case FILTER_LOW_PASS:
-        snprintf(fc_value, sizeof(fc_value), "LP: %.1f Hz",
-                 synth.get_filter_cutoff());
-        break;
-    case FILTER_CHEBYSHEV:
-        snprintf(fc_value, sizeof(fc_value), "Cheb: %.1f Hz",
-                 synth.get_filter_cutoff());
-        break;
-    default: // off
-        snprintf(fc_value, sizeof(fc_value), "Filter: OFF");
-        break;
-    }
+    // switch (synth.current_filter_type) {
+    // case FILTER_LOW_PASS:
+    //     snprintf(fc_value, sizeof(fc_value), "LP: %.1f Hz",
+    //              synth.get_filter_cutoff());
+    //     break;
+    // case FILTER_CHEBYSHEV:
+    //     snprintf(fc_value, sizeof(fc_value), "Cheb: %.1f Hz",
+    //              synth.get_filter_cutoff());
+    //     break;
+    // default: // off
+    //     snprintf(fc_value, sizeof(fc_value), "Filter: OFF");
+    //     break;
+    // }
 
     ssd1306_clear_square(&disp, 0, 8, 128, 8); // Clear the entire line
-    ssd1306_draw_string(&disp, 8, 8, 1, fc_value);
+    // ssd1306_draw_string(&disp, 8, 8, 1, fc_value);
 }
 
+void HardwareManager::display_show() { ssd1306_show(&disp); }
 
-void HardwareManager::display_show() {
-    ssd1306_show(&disp);
-}
-
-void HardwareManager::draw_midi_settings(bool midi_out, bool midi_in, bool switches_in, 
-                                        bool sequencer_in, bool sequencer_out) {
+void HardwareManager::draw_midi_settings(bool midi_out, bool midi_in,
+                                         bool switches_in, bool sequencer_in,
+                                         bool sequencer_out) {
     // Clear the display area for MIDI settings
     ssd1306_clear_square(&disp, 0, 0, 128, 64);
-    
+
     // Title
     ssd1306_draw_string(&disp, 8, 0, 1, "MIDI Settings");
-    
+
     // Draw each setting with ON/OFF status
     char line1[20], line2[20], line3[20], line4[20], line5[20];
-    
+
     snprintf(line1, sizeof(line1), "MIDI Out: %s", midi_out ? "ON" : "OFF");
-    snprintf(line2, sizeof(line2), "MIDI In:  %s", midi_in ? "ON" : "OFF");  
+    snprintf(line2, sizeof(line2), "MIDI In:  %s", midi_in ? "ON" : "OFF");
     snprintf(line3, sizeof(line3), "Switches: %s", switches_in ? "ON" : "OFF");
     snprintf(line4, sizeof(line4), "Seq In:   %s", sequencer_in ? "ON" : "OFF");
-    snprintf(line5, sizeof(line5), "Seq Out:  %s", sequencer_out ? "ON" : "OFF");
-    
+    snprintf(line5, sizeof(line5), "Seq Out:  %s",
+             sequencer_out ? "ON" : "OFF");
+
     ssd1306_draw_string(&disp, 8, 12, 1, line1);
     ssd1306_draw_string(&disp, 8, 20, 1, line2);
     ssd1306_draw_string(&disp, 8, 28, 1, line3);
     ssd1306_draw_string(&disp, 8, 36, 1, line4);
     ssd1306_draw_string(&disp, 8, 44, 1, line5);
-    
+
     // Instructions at bottom
     ssd1306_draw_string(&disp, 8, 56, 1, "Btn4: Back");
 }
 
 // Implementation in HardwareManager
-void HardwareManager::draw_sequencer_settings(bool playing, uint32_t tempo, uint8_t current_step) {
+void HardwareManager::draw_sequencer_settings(bool playing, uint32_t tempo,
+                                              uint8_t current_step) {
     // Clear the display area
     ssd1306_clear_square(&disp, 0, 0, 128, 64);
-    
+
     // Title
     ssd1306_draw_string(&disp, 8, 0, 1, "Sequencer");
-    
+
     // Play/Pause status
     char status_line[20];
-    snprintf(status_line, sizeof(status_line), "Status: %s", playing ? "PLAYING" : "PAUSED");
+    snprintf(status_line, sizeof(status_line), "Status: %s",
+             playing ? "PLAYING" : "PAUSED");
     ssd1306_draw_string(&disp, 8, 12, 1, status_line);
-    
+
     // Tempo display
     char tempo_line[20];
     snprintf(tempo_line, sizeof(tempo_line), "Tempo: %ld BPM", tempo);
     ssd1306_draw_string(&disp, 8, 20, 1, tempo_line);
-    
+
     // Current step display
     char step_line[20];
     snprintf(step_line, sizeof(step_line), "Step: %d/16", current_step + 1);
     ssd1306_draw_string(&disp, 8, 28, 1, step_line);
-    
+
     // Visual step indicator (dots or bars)
     const int step_width = 6;
     const int step_spacing = 7;
     const int start_x = 8;
     const int start_y = 38;
-    
+
     for (int i = 0; i < 16; i++) {
         int x = start_x + (i * step_spacing);
         if (i == current_step) {
@@ -341,12 +339,14 @@ void HardwareManager::draw_sequencer_settings(bool playing, uint32_t tempo, uint
         } else {
             // Other steps - empty rectangle
             ssd1306_draw_line(&disp, x, start_y, x + step_width, start_y);
-            ssd1306_draw_line(&disp, x, start_y + 6, x + step_width, start_y + 6);
+            ssd1306_draw_line(&disp, x, start_y + 6, x + step_width,
+                              start_y + 6);
             ssd1306_draw_line(&disp, x, start_y, x, start_y + 6);
-            ssd1306_draw_line(&disp, x + step_width, start_y, x + step_width, start_y + 6);
+            ssd1306_draw_line(&disp, x + step_width, start_y, x + step_width,
+                              start_y + 6);
         }
     }
-    
+
     // Instructions at bottom
     ssd1306_draw_string(&disp, 8, 48, 1, "E1: Tempo E1btn: Play");
     ssd1306_draw_string(&disp, 8, 56, 1, "E2btn: Reset E4: Back");

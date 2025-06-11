@@ -111,11 +111,11 @@ int main() {
 
     MidiHandler midi_handler = MidiHandler(midi_queue);
 
-    HardwareManager hw = HardwareManager(synth);
+    HardwareManager hw = HardwareManager();
 
     hw.init();
 
-    Sequencer seq(synth, midi_handler);
+    Sequencer seq(midi_handler);
 
     UiHandler ui = UiHandler(synth, hw, midi_handler, seq);
 

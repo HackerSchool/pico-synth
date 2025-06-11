@@ -1,23 +1,25 @@
 #ifndef STEP_SEQUENCER
 #define STEP_SEQUENCER
 
-#include "hardware/structs/systick.h"
-#include "hardware/timer.h"
 #include "MidiHandler.hpp"
 #include "Synth.hpp"
 #include "config.hpp"
+#include "hardware/structs/systick.h"
+#include "hardware/timer.h"
 #include "tusb.h"
 #include <cstdint>
 
 #define SEQ_LEN 16
+#define UNASSIGNED 200
+#define NOTES_PER_STEP 8
 
 typedef struct {
-    uint8_t notes[8]; // we use 200 as unassigned value
+    uint8_t notes[NOTES_PER_STEP]; // we use 200 as unassigned value
 } StepInfo;
 
 class Sequencer {
   public:
-    Sequencer(Synth &synth, MidiHandler &midi);
+    Sequencer(MidiHandler &midi);
 
     void initialize_pattern();
     void update();
@@ -44,7 +46,6 @@ class Sequencer {
     static int64_t alarm_callback(alarm_id_t id, void *user_data);
 
   private:
-    Synth &synth;
     MidiHandler &midi;
 
     StepInfo step_info[SEQ_LEN];
