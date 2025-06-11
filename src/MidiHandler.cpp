@@ -8,27 +8,18 @@
 
 // Convert MIDI note to frequency (global function)
 float midi_to_freq(uint8_t midi_note) {
-    // printf("note: %f\n", midi_frequencies[midi_note]);
     return (midi_note <= MIDI_MAX) ? midi_frequencies[midi_note] : 0.0f;
 }
 
-// Example note sequence
-const uint8_t MidiHandler::note_sequence[64] = {
-    74, 78, 81, 86,  90, 93, 98, 102, 57, 61,  66, 69, 73, 78, 81, 85,
-    88, 92, 97, 100, 97, 92, 88, 85,  81, 78,  74, 69, 66, 62, 57, 62,
-    66, 69, 74, 78,  81, 86, 90, 93,  97, 102, 97, 93, 90, 85, 81, 78,
-    73, 68, 64, 61,  56, 61, 64, 68,  74, 78,  81, 86, 90, 93, 98, 102};
-
 // Constructor
-MidiHandler::MidiHandler(Synth &synth) : synth(synth) {}
+MidiHandler::MidiHandler(queue_t &midi_queue) : midi_queue(midi_queue) {}
 
 // Process incoming MIDI
-void MidiHandler::midi_task(queue_t &midi_queue) {
+void MidiHandler::midi_task() {
     uint8_t packet[4];
 
     while (tud_midi_available()) {
         tud_midi_packet_read(packet);
-        synth.process_midi_packet(packet);
         queue_add_blocking(&midi_queue, packet);
     }
 

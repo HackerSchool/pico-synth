@@ -109,7 +109,7 @@ int main() {
 
     Synth synth = Synth();
 
-    MidiHandler midi_handler = MidiHandler(synth);
+    MidiHandler midi_handler = MidiHandler(midi_queue);
 
     HardwareManager hw = HardwareManager(synth);
 
@@ -127,7 +127,7 @@ int main() {
         tud_task();
 
         // Handle MIDI messages
-        midi_handler.midi_task(midi_queue);
+        midi_handler.midi_task();
 
         hw.update();
         ui.update();

@@ -56,16 +56,13 @@ float midi_to_freq(uint8_t midi_note);
 
 class MidiHandler {
   public:
-    MidiHandler(Synth &synth);
+    MidiHandler(queue_t &midi_queue);
 
-    void midi_task(queue_t &midi_queue);
+    void midi_task();
     void midi_send_note(uint8_t note, uint8_t velocity, bool on);
 
   private:
-    Synth &synth;
-    uint32_t note_pos = 0;
-
-    static const uint8_t note_sequence[64]; // Define in .cpp
+    queue_t &midi_queue;
 };
 
 #endif // MIDI_HANDLER_HPP
