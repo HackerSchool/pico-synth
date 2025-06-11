@@ -7,97 +7,54 @@
 #define FRAC_BITS 24
 
 ADSREnvelope::ADSREnvelope()
-    : a(1.0), d(1.0), s(1.0), r(1.0), in_signal(nullptr), trigger(0.f),
-      state(ENV_IDLE) {} // Default constructor
+    : a(64), d(64), s(64), r(64), in_signal(nullptr), state(ENV_IDLE) {
+} // Default constructor
 
-ADSREnvelope::ADSREnvelope(float a_in, float d_in, float s_in, float r_in,
-                           std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal,
-                           float trigger)
-    : in_signal(&in_signal), trigger(trigger) {
-    a = float_to_q8_8(a_in);
-    d = float_to_q8_8(d_in);
-    s = float_to_q1_15(s_in);
-    r = float_to_q8_8(r_in);
-
-    // Recalculate deltas
-    update_deltas();
-}
+ADSREnvelope::ADSREnvelope(uint8_t a_in, uint8_t d_in, uint8_t s_in,
+                           uint8_t r_in,
+                           std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal)
+    : a(a_in), d(d_in), s(s_in << 8), r(r_in), in_signal(&in_signal) {}
 
 void ADSREnvelope::out() {
-    // Note released - calculate release delta when starting release
-    // if (trigger < 4.5f && state != ENV_RELEASE && state != ENV_IDLE) {
-    //     // In the release trigger section:
-    //     // uint32_t release_samples = ((uint32_t)r * SAMPLE_RATE) >> 8;
-    //     // if (release_samples > 0) {
-    //     //     release_delta =
-    //     //         current_level / release_samples; // This stays the same
-    //     // } else {
-    //     //     release_delta = current_level;
-    //     // }
-    //
-    //     state = ENV_RELEASE;
-    // }
-
-    // int16_t current_delta = 0;
-    switch (state) {
-    case ENV_ATTACK:
-        current_level += attack_delta; // Just addition!
-        if (current_level >= 32768) {  // 1.0 in Q1.15
-            current_level = 32768;
-            state = ENV_DECAY;
-        }
-        // printf("ENV ATTACK\n");
-        break;
-
-    case ENV_DECAY:
-        current_level -= decay_delta; // Just subtraction!
-        if (current_level <= s) {     // Reached sustain level
-            current_level = s;
-            state = s ? ENV_SUSTAIN : ENV_IDLE;
-        }
-        // printf("ENV DECAY\n");
-        break;
-
-    case ENV_SUSTAIN:
-        current_level = s; // Hold sustain level
-        // printf("ENV SUSTAIN\n");
-        break;
-
-    case ENV_RELEASE:
-        // if (trigger > 4.5f) { // Retrigger during release
-        //     state = ENV_ATTACK;
-        //     // Keep current_level as-is for smooth transition
-        //     break;
-        // }
-        if (current_level > release_delta) {
-            current_level -= release_delta;
-        } else {
-            current_level = 0;
-            state = ENV_IDLE;
-        }
-        // printf("ENV RELEASE\n");
-        break;
-
-    case ENV_IDLE:
-        if (trigger > 4.5f) {
-            current_level = 0; // Start from 0
-            state = ENV_ATTACK;
-        }
-        // printf("ENV IDLE\n");
-        current_level = 0;
-        break;
-    }
 
     for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
-        // Convert Q1.15 envelope to Q2.14 for multiplication
-        // Check for overflow using the sign bit after addition
-        // Check if addition would overflow by looking at signs
-        // int32_t temp = current_level + current_delta;
-        // current_level = temp & ~(temp >> 31); // Zero if negative
-        // if (current_level > 32767)
-        //     current_level = 32767;
+        switch (state) {
+        case ENV_ATTACK:
+            current_level += a;           // Just addition!
+            if (current_level >= 32768) { // 1.0 in Q1.15
+                current_level = 32768;
+                state = ENV_DECAY;
+            }
+            // printf("ENV ATTACK\n");
+            break;
 
-        // int16_t scale_q2_14 = current_level >> 1; // Q1.15 -> Q2.14
+        case ENV_DECAY:
+            current_level -= d;       // Just subtraction!
+            if (current_level <= s) { // Reached sustain level
+                current_level = s;
+                state = s ? ENV_SUSTAIN : ENV_IDLE;
+            }
+            // printf("ENV DECAY\n");
+            break;
+
+        case ENV_SUSTAIN:
+            current_level = s; // Hold sustain level
+            // printf("ENV SUSTAIN\n");
+            break;
+
+        case ENV_RELEASE:
+            if (current_level > r) {
+                current_level -= r;
+            } else {
+                current_level = 0;
+                state = ENV_IDLE;
+            }
+            break;
+
+        case ENV_IDLE:
+            current_level = 0;
+            break;
+        }
 
         // Apply envelope to signal
         output[i] = ((*in_signal)[i] * current_level) >> 15;
@@ -129,26 +86,19 @@ void ADSREnvelope::update_deltas() {
     // level)
 }
 
-void ADSREnvelope::set_trigger(float trig) { trigger = trig; }
-
-void ADSREnvelope::gate_on()
-{
-	 state = ENV_ATTACK;
+void ADSREnvelope::gate_on() {
+    current_level = 0;
+    state = ENV_ATTACK;
 }
 
-void ADSREnvelope::gate_off()
-{
-	state = ENV_RELEASE;
-}
+void ADSREnvelope::gate_off() { state = ENV_RELEASE; }
 
-void ADSREnvelope::set_ADSR(float a_in, float d_in, float s_in, float r_in) {
-    a = float_to_q8_8(a_in);
-    d = float_to_q8_8(d_in);
-    s = float_to_q1_15(s_in);
-    r = float_to_q8_8(r_in);
-
-    // Recalculate deltas
-    update_deltas();
+void ADSREnvelope::set_ADSR(uint8_t a_in, uint8_t d_in, uint8_t s_in,
+                            uint8_t r_in) {
+    a = a_in;
+    d = d_in;
+    s = s_in;
+    r = r_in;
 }
 
 void ADSREnvelope::increment_ADSR(uint8_t which, int16_t delta_q15) {

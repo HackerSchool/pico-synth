@@ -23,7 +23,7 @@ class Synth {
 
     void cycle_wave_type(int delta);
 
-    void note_on(uint8_t note, uint8_t velocity);
+    void note_on(uint8_t channel, uint8_t note, uint8_t velocity);
     void note_off(uint8_t note, uint8_t velocity);
     const char *get_notes_playing_names();
     std::bitset<128> get_notes_bitmask() const { return notes_playing_bitset; }
