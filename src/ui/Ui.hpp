@@ -11,6 +11,7 @@ typedef enum UiState {
     UI_STATE_MAIN,
     UI_STATE_MIDI_SETTINGS,
     UI_STATE_SEQUENCER,
+    UI_STATE_SEQUENCER_EDIT,
     UI_STATE_COUNT // helpful for bounds checking
 } UiState;
 
@@ -47,6 +48,12 @@ class UiHandler {
     static void sequencer_handle_encoders(UiHandler &self);
     static void sequencer_update_display(UiHandler &self);
 
+    // sequencer edit state
+    static void sequencer_note_edit_handle_switches(UiHandler &self);
+    static void sequencer_note_edit_handle_encoders(UiHandler &self);
+    static void sequencer_note_edit_update_display(UiHandler &self);
+    void sequencer_note_edit_enter(UiHandler &self);
+
   private:
     HardwareManager &hw;
     MidiHandler &midi;
@@ -63,7 +70,11 @@ class UiHandler {
                                     .handle_display = midi_update_display},
         [UI_STATE_SEQUENCER] = {.handle_encoders = sequencer_handle_encoders,
                                 .handle_switches = main_handle_switches,
-                                .handle_display = sequencer_update_display}};
+                                .handle_display = sequencer_update_display},
+        [UI_STATE_SEQUENCER_EDIT] = {
+            .handle_encoders = sequencer_note_edit_handle_encoders,
+            .handle_switches = sequencer_note_edit_handle_switches,
+            .handle_display = sequencer_note_edit_update_display}};
 
     // shit I need for the main state
     int current_adsr_param = 0; // 0=A, 1=D, 2=S, 3=R
@@ -92,6 +103,11 @@ class UiHandler {
     bool sequencer_playing = false;
     uint32_t display_tempo = 120;
     uint8_t display_current_step = 0;
+
+    // sequencer edit state
+    uint8_t current_sequencer_step = 0;
+    bool auto_stepping_enabled = false;
+    bool sequencer_dirty = true;
 };
 
 #endif // !UI_STATE_HPP

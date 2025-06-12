@@ -114,6 +114,12 @@ class HardwareManager {
 
     void draw_sequencer_settings(bool playing, uint32_t tempo,
                                  uint8_t current_step);
+
+    void draw_sequencer_note_edit(uint8_t current_step, uint8_t midi_channel,
+                                  bool auto_stepping_enabled, bool is_playing,
+                                  uint8_t *step_notes, uint8_t *step_channels);
+
+
     void display_show();
 
   private:

@@ -162,7 +162,7 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
                 // envelopes[i].set_trigger(5.f);
                 envelopes[i].gate_on();
                 // envelopes[i].set_idle();
-                printf("New Note: note=%d, velocity=%d\n", note, velocity);
+                // printf("New Note: note=%d, velocity=%d\n", note, velocity);
                 break;
             }
         }
@@ -179,7 +179,7 @@ void Synth::note_off(uint8_t note, uint8_t velocity) {
             // osc_playing[i] = false;
             osc_steal[i] = true;
             notes_playing_bitset.reset(note);
-            printf("Note Off on Synth: note=%d, velocity=%d\n", note, velocity);
+            // printf("Note Off on Synth: note=%d, velocity=%d\n", note, velocity);
             break;
         }
     }

@@ -39,22 +39,22 @@ int64_t Sequencer::alarm_callback(alarm_id_t id, void *user_data) {
 }
 
 void Sequencer::initialize_pattern() {
-    const uint8_t arp_notes[] = {60, 64, 67,
-                                 72}; // C major arpeggio: C4, E4, G4, C5
+    // const uint8_t arp_notes[] = {60, 64, 67,
+    //                              72}; // C major arpeggio: C4, E4, G4, C5
 
     for (uint8_t step = 0; step < SEQ_LEN; step++) {
         for (uint8_t i = 0; i < 8; ++i) {
             step_info[step].notes[i] = UNASSIGNED;
-            step_info[step].channel[i] = 3;
+            step_info[step].channel[i] = 1;
         }
 
-        // Use one note per step from arpeggio, cycling through it
-        step_info[step].notes[0] = arp_notes[step % 4] - 12;
-
-        // For a fancier feel, add a high octave every 4 steps
-        if (step % 4 == 0) {
-            step_info[step].notes[1] = arp_notes[step % 4] + 24;
-        }
+        // // Use one note per step from arpeggio, cycling through it
+        // step_info[step].notes[0] = arp_notes[step % 4] - 12;
+        //
+        // // For a fancier feel, add a high octave every 4 steps
+        // if (step % 4 == 0) {
+        //     step_info[step].notes[1] = arp_notes[step % 4] + 24;
+        // }
     }
 }
 
@@ -102,7 +102,7 @@ void Sequencer::play_step(uint8_t step) {
 
     for (int note_id = 0; note_id < NOTES_PER_STEP; note_id++) {
         uint8_t note = step_info[step].notes[note_id];
-        uint8_t channel = step_info[prev_step].channel[note_id];
+        uint8_t channel = step_info[step].channel[note_id];
         if (note != UNASSIGNED) {
             uint8_t packet[4];
             packet[0] = 0x09;                    // CIN = Note On, Cable 0
@@ -115,6 +115,34 @@ void Sequencer::play_step(uint8_t step) {
 }
 void Sequencer::add_note_to_step(uint8_t step, uint8_t note) {}
 void Sequencer::remove_note_from_step(uint8_t step, uint8_t note) {}
+
+void Sequencer::toggle_note_step(uint8_t step_, uint8_t note_,
+                                 uint8_t channel_) {
+
+    bool note_already_in = false;
+    printf("Note: %d step: %d channel %d\n", note_, step_, channel_);
+    // see if the note is already in the step, in which case we take it out
+    for (int note_id = 0; note_id < NOTES_PER_STEP; note_id++) {
+        uint8_t note = step_info[step_].notes[note_id];
+        uint8_t channel = step_info[step_].channel[note_id];
+        if (note == note_ && channel == channel_) {
+            step_info[step_].notes[note_id] = UNASSIGNED;
+            step_info[step_].channel[note_id] = 0;
+            note_already_in = true;
+        }
+    }
+    if (!note_already_in) {
+
+        for (int note_id = 0; note_id < NOTES_PER_STEP; note_id++) {
+            uint8_t note = step_info[step_].notes[note_id];
+            if (note == UNASSIGNED) {
+                step_info[step_].notes[note_id] = note_;
+                step_info[step_].channel[note_id] = channel_;
+                break;
+            }
+        }
+    }
+}
 
 void Sequencer::set_tempo(uint32_t new_tempo) {
     tempo = new_tempo;
@@ -130,3 +158,33 @@ void Sequencer::get_tempo() {}
 void Sequencer::get_swing() {}
 
 uint8_t Sequencer::get_current_step() { return step_current; }
+
+// Helper function to check if sequencer is playing
+bool Sequencer::is_playing() { return play_flag; }
+
+// Get array of notes for a specific step
+uint8_t *Sequencer::get_step_notes(uint8_t step) {
+    if (step >= SEQ_LEN)
+        return nullptr;
+    return step_info[step].notes;
+}
+
+// Get array of channels for a specific step
+uint8_t *Sequencer::get_step_channels(uint8_t step) {
+    if (step >= SEQ_LEN)
+        return nullptr;
+    return step_info[step].channel;
+}
+
+// Count how many notes are active on a step
+uint8_t Sequencer::count_notes_on_step(uint8_t step) {
+    if (step >= SEQ_LEN)
+        return 0;
+    uint8_t count = 0;
+    for (int i = 0; i < NOTES_PER_STEP; i++) {
+        if (step_info[step].notes[i] != UNASSIGNED) {
+            count++;
+        }
+    }
+    return count;
+}

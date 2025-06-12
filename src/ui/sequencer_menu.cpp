@@ -59,7 +59,8 @@ void UiHandler::sequencer_handle_encoders(UiHandler &self) {
                 printf("Sequencer: Reset to step 1\n");
                 break;
             case 2:
-                // Could be used for other sequencer functions
+                self.ui_state = UI_STATE_SEQUENCER_EDIT;
+                printf("State: STATE_SEQUENCER_EDIT\n");
                 break;
             case 3:
                 // Exit back to main menu

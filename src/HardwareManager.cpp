@@ -204,7 +204,7 @@ void HardwareManager::draw_notes() {
 void HardwareManager::draw_wave_type(uint8_t midi_channel, int8_t octave) {
     char buf[8]; // Enough for "16 Oct:+4\0"
     ssd1306_clear_square(&disp, 40, 0, 72, 8);
-    
+
     ssd1306_draw_string(&disp, 8, 0, 1, "Chan:");
     sprintf(buf, "%d", midi_channel + 1); // Display channels as 1–16
     ssd1306_draw_string(&disp, 40, 0, 1, buf);
@@ -364,4 +364,119 @@ void HardwareManager::draw_sequencer_settings(bool playing, uint32_t tempo,
     // Instructions at bottom
     ssd1306_draw_string(&disp, 8, 48, 1, "E1: Tempo E1btn: Play");
     ssd1306_draw_string(&disp, 8, 56, 1, "E2btn: Reset E4: Back");
+}
+
+// Implementation in HardwareManager
+void HardwareManager::draw_sequencer_note_edit(
+    uint8_t current_step, uint8_t midi_channel, bool auto_stepping_enabled,
+    bool is_playing, uint8_t *step_notes, uint8_t *step_channels) {
+    // Clear the display area
+    printf("In the draw function for note edit\n");
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+
+    // Title
+    ssd1306_draw_string(&disp, 8, 0, 1, "Note Edit");
+
+    // Current step and channel info
+    char step_line[20];
+    snprintf(step_line, sizeof(step_line), "Step:%d/16 Ch:%d", current_step + 1,
+             midi_channel + 1);
+    ssd1306_draw_string(&disp, 8, 10, 1, step_line);
+
+    // Play/pause and auto-step status
+    char status_line[20];
+    snprintf(status_line, sizeof(status_line), "%s %s",
+             is_playing ? "PLAY" : "STOP",
+             auto_stepping_enabled ? "AUTO" : "MAN");
+    ssd1306_draw_string(&disp, 8, 18, 1, status_line);
+
+    // Visual step indicator (16 steps in a row)
+    const int step_width = 6;
+    const int step_spacing = 7;
+    const int start_x = 8;
+    const int start_y = 26;
+
+    for (int i = 0; i < 16; i++) {
+        int x = start_x + (i * step_spacing);
+        if (i == current_step) {
+            // Current step - filled rectangle
+            ssd1306_draw_square(&disp, x, start_y, step_width, 4);
+        } else {
+            // Other steps - check if they have notes
+            bool has_notes = false;
+            // You might want to check all steps for notes, but for now just
+            // show empty
+            if (has_notes) {
+                // Step with notes - draw outline
+                ssd1306_draw_line(&disp, x, start_y, x + step_width, start_y);
+                ssd1306_draw_line(&disp, x, start_y + 4, x + step_width,
+                                  start_y + 4);
+                ssd1306_draw_line(&disp, x, start_y, x, start_y + 4);
+                ssd1306_draw_line(&disp, x + step_width, start_y,
+                                  x + step_width, start_y + 4);
+            } else {
+                // Empty step - just a dot
+                ssd1306_draw_pixel(&disp, x + 2, start_y + 2);
+            }
+        }
+    }
+
+    bool use_line2 = false;
+    // Show notes on current step
+    ssd1306_draw_string(&disp, 8, 34, 1, "Notes on step:");
+
+    if (step_notes != nullptr && step_channels != nullptr) {
+        char notes_line1[21] = {0}; // For first line of notes
+        char notes_line2[21] = {0}; // For second line if needed
+        int line1_pos = 0;
+        int line2_pos = 0;
+
+        const int NOTES_PER_STEP = 8;
+        const int UNASSIGNED = 200;
+
+        for (int i = 0; i < NOTES_PER_STEP; i++) {
+            if (step_notes[i] != UNASSIGNED) {
+                // Convert MIDI note to note name
+                const char *note_names[] = {"C",  "C#", "D",  "D#", "E",  "F",
+                                            "F#", "G",  "G#", "A",  "A#", "B"};
+                uint8_t note_num = step_notes[i] % 12;
+                // uint8_t octave = step_notes[i] / 12 - 1;
+                uint8_t channel = step_channels[i];
+
+                char note_str[8];
+                snprintf(note_str, sizeof(note_str), "%s(%d) ",
+                         note_names[note_num], channel + 1);
+
+                // Try to fit in first line, otherwise use second line
+                if (line1_pos + strlen(note_str) < 20 && !use_line2) {
+                    strcat(notes_line1, note_str);
+                    line1_pos += strlen(note_str);
+                } else {
+                    use_line2 = true;
+                    if (line2_pos + strlen(note_str) < 20) {
+                        strcat(notes_line2, note_str);
+                        line2_pos += strlen(note_str);
+                    }
+                }
+            }
+        }
+
+        // Draw notes (or "None" if empty)
+        if (line1_pos == 0) {
+            ssd1306_draw_string(&disp, 8, 42, 1, "None");
+        } else {
+            ssd1306_draw_string(&disp, 8, 42, 1, notes_line1);
+            if (use_line2 && line2_pos > 0) {
+                ssd1306_draw_string(&disp, 8, 50, 1, notes_line2);
+            }
+        }
+    }
+
+    // Instructions at bottom
+    if (!use_line2) {
+        ssd1306_draw_string(&disp, 8, 50, 1, "Keys: Note 3+0/11: Step");
+        ssd1306_draw_string(&disp, 8, 58, 1, "E1: Play E2: Auto E4: Back");
+    } else {
+        ssd1306_draw_string(&disp, 8, 58, 1, "E1:Play E2:Auto E4:Back");
+    }
 }

@@ -15,7 +15,7 @@
 
 typedef struct {
     uint8_t notes[NOTES_PER_STEP]; // we use 200 as unassigned value
-    uint8_t channel[NOTES_PER_STEP]; 
+    uint8_t channel[NOTES_PER_STEP];
 } StepInfo;
 
 class Sequencer {
@@ -33,6 +33,8 @@ class Sequencer {
     void add_note_to_step(uint8_t step, uint8_t note);
     void remove_note_from_step(uint8_t step, uint8_t note);
 
+    void toggle_note_step(uint8_t step_, uint8_t note_, uint8_t channel_);
+
     void set_tempo(uint32_t tempo);
     void set_swing(uint32_t swing);
 
@@ -41,6 +43,11 @@ class Sequencer {
     void get_tempo();
     void get_swing();
     uint8_t get_current_step();
+
+    bool is_playing();
+    uint8_t *get_step_notes(uint8_t step);
+    uint8_t *get_step_channels(uint8_t step);
+    uint8_t count_notes_on_step(uint8_t step);
 
     void schedule_next_alarm();
 
