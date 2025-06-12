@@ -15,6 +15,7 @@
 
 typedef struct {
     uint8_t notes[NOTES_PER_STEP]; // we use 200 as unassigned value
+    uint8_t channel[NOTES_PER_STEP]; 
 } StepInfo;
 
 class Sequencer {

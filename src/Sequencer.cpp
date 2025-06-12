@@ -45,6 +45,7 @@ void Sequencer::initialize_pattern() {
     for (uint8_t step = 0; step < SEQ_LEN; step++) {
         for (uint8_t i = 0; i < 8; ++i) {
             step_info[step].notes[i] = UNASSIGNED;
+            step_info[step].channel[i] = 3;
         }
 
         // Use one note per step from arpeggio, cycling through it
@@ -58,7 +59,23 @@ void Sequencer::initialize_pattern() {
 }
 
 void Sequencer::play() { play_flag = true; }
-void Sequencer::pause() { play_flag = false; }
+void Sequencer::pause() {
+    play_flag = false;
+    uint8_t prev_step = (step_current == 0 ? SEQ_LEN - 1 : step_current - 1);
+
+    for (int note_id = 0; note_id < NOTES_PER_STEP; note_id++) {
+        uint8_t note = step_info[prev_step].notes[note_id];
+        uint8_t channel = step_info[prev_step].channel[note_id];
+        if (note != UNASSIGNED) {
+            uint8_t packet[4];
+            packet[0] = 0x08;                    // CIN = Note Off, Cable 0
+            packet[1] = 0x80 | (channel & 0x0F); // Status
+            packet[2] = note;
+            packet[3] = 0x7F; // Velocity
+            midi.midi_receive_note(packet);
+        }
+    }
+}
 void Sequencer::play_from_step(uint8_t step) {}
 
 void Sequencer::play_step(uint8_t step) {
@@ -72,10 +89,11 @@ void Sequencer::play_step(uint8_t step) {
 
     for (int note_id = 0; note_id < NOTES_PER_STEP; note_id++) {
         uint8_t note = step_info[prev_step].notes[note_id];
+        uint8_t channel = step_info[prev_step].channel[note_id];
         if (note != UNASSIGNED) {
             uint8_t packet[4];
-            packet[0] = 0x08; // CIN = Note Off, Cable 0
-            packet[1] = 0x80; // Status
+            packet[0] = 0x08;                    // CIN = Note Off, Cable 0
+            packet[1] = 0x80 | (channel & 0x0F); // Status
             packet[2] = note;
             packet[3] = 0x7F; // Velocity
             midi.midi_receive_note(packet);
@@ -84,10 +102,11 @@ void Sequencer::play_step(uint8_t step) {
 
     for (int note_id = 0; note_id < NOTES_PER_STEP; note_id++) {
         uint8_t note = step_info[step].notes[note_id];
+        uint8_t channel = step_info[prev_step].channel[note_id];
         if (note != UNASSIGNED) {
             uint8_t packet[4];
-            packet[0] = 0x09; // CIN = Note On, Cable 0
-            packet[1] = 0x90; // Status
+            packet[0] = 0x09;                    // CIN = Note On, Cable 0
+            packet[1] = 0x90 | (channel & 0x0F); // Status
             packet[2] = note;
             packet[3] = 0x7F; // Velocity
             midi.midi_receive_note(packet);
