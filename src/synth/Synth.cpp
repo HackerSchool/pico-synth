@@ -109,7 +109,10 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
             printf("attack changed: %d\n", velocity);
             for (int i = 0; i < NUM_OSC; i++) {
                 if (midi_channel[i] == channel) {
-                    envelopes[i].a = velocity;
+                    envelopes[i].set_ADSR(channel_params[channel].attack,
+                                          channel_params[channel].decay,
+                                          channel_params[channel].sustain >> 8,
+                                          channel_params[channel].release);
                 }
             }
             break;
@@ -118,7 +121,10 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
             printf("decay changed: %d\n", velocity);
             for (int i = 0; i < NUM_OSC; i++) {
                 if (midi_channel[i] == channel) {
-                    envelopes[i].d = velocity;
+                    envelopes[i].set_ADSR(channel_params[channel].attack,
+                                          channel_params[channel].decay,
+                                          channel_params[channel].sustain >> 8,
+                                          channel_params[channel].release);
                 }
             }
             break;
@@ -127,7 +133,10 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
             printf("sustain changed: %d\n", velocity);
             for (int i = 0; i < NUM_OSC; i++) {
                 if (midi_channel[i] == channel) {
-                    envelopes[i].s = velocity << 8;
+                    envelopes[i].set_ADSR(channel_params[channel].attack,
+                                          channel_params[channel].decay,
+                                          channel_params[channel].sustain >> 8,
+                                          channel_params[channel].release);
                 }
             }
             break;
@@ -136,7 +145,10 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
             printf("release changed: %d\n", velocity);
             for (int i = 0; i < NUM_OSC; i++) {
                 if (midi_channel[i] == channel) {
-                    envelopes[i].r = velocity;
+                    envelopes[i].set_ADSR(channel_params[channel].attack,
+                                          channel_params[channel].decay,
+                                          channel_params[channel].sustain >> 8,
+                                          channel_params[channel].release);
                 }
             }
             break;
@@ -175,11 +187,12 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
                 oscillators[i].set_wavetable(wt);
                 oscillators[i].set_dco_step(note);
 
-                //Apply channel ADSR params
-                envelopes[i].a = channel_params[channel].attack;
-                envelopes[i].d = channel_params[channel].decay;
-                envelopes[i].s = channel_params[channel].sustain;
-                envelopes[i].r = channel_params[channel].release;
+                // Apply channel ADSR params
+                envelopes[i].set_ADSR(channel_params[channel].attack,
+                                      channel_params[channel].decay,
+                                      channel_params[channel].sustain >>
+                                          8, // Convert back from 16-bit
+                                      channel_params[channel].release);
                 envelopes[i].gate_on();
                 // printf("New Note: note=%d, velocity=%d\n", note, velocity);
                 break;

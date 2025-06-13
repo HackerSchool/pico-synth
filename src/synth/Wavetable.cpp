@@ -5,13 +5,9 @@
 const int16_t Q15_MAX = 32767;
 const int16_t Q14_MAX = 16384;
 
-
-
-
 const int wave_shift = WAVE_SHIFT;
 const int wave_len = WAVE_LEN;
 const int wave_max = WAVE_MAX;
-
 
 const char *wave_type_to_string(WaveType type) {
     switch (type) {
@@ -32,80 +28,81 @@ const char *wave_type_to_string(WaveType type) {
 
 // This method allows to define the wavetable at compile time!
 // Sine Wavetable
-__attribute__((section(".data")))
-const std::array<int16_t, WAVE_TABLE_LEN> sine_wave_table{[]() {
-    std::array<int16_t, WAVE_TABLE_LEN> table{};
-    for (int i = 0; i < WAVE_TABLE_LEN; i++) {
-        table[i] =
-            static_cast<int16_t>(32767 * sin(i * 2 * M_PI / WAVE_TABLE_LEN));
-    }
-    return table;
-}()};
+__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
+    sine_wave_table{[]() {
+        std::array<int16_t, WAVE_TABLE_LEN> table{};
+        for (int i = 0; i < WAVE_TABLE_LEN; i++) {
+            table[i] = static_cast<int16_t>(32767 *
+                                            sin(i * 2 * M_PI / WAVE_TABLE_LEN));
+        }
+        return table;
+    }()};
 
-__attribute__((section(".data")))
-const std::array<int16_t, WAVE_TABLE_LEN> cos_wave_table{[]() {
-    std::array<int16_t, WAVE_TABLE_LEN> table{};
-    for (int i = 0; i < WAVE_TABLE_LEN; i++) {
-        table[i] =
-            static_cast<int16_t>(32767 * cos(i * 2 * M_PI / WAVE_TABLE_LEN));
-    }
-    return table;
-}()};
+__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
+    cos_wave_table{[]() {
+        std::array<int16_t, WAVE_TABLE_LEN> table{};
+        for (int i = 0; i < WAVE_TABLE_LEN; i++) {
+            table[i] = static_cast<int16_t>(32767 *
+                                            cos(i * 2 * M_PI / WAVE_TABLE_LEN));
+        }
+        return table;
+    }()};
 
 // Sinc Wavetable N = 32
-__attribute__((section(".data")))
-const std::array<int16_t, WAVE_TABLE_LEN> sinc_table{[]() {
-    std::array<int16_t, WAVE_TABLE_LEN> table{};
-    int N = 32; // Window size
-    for (int i = 0; i < WAVE_TABLE_LEN; i++) {
-        // Handle the special case at i=0 to avoid division by zero
-        if (i == 0) {
-            table[i] = static_cast<int16_t>(
-                32767); // sinc(0) = 1, scaled to int16_t range
-        } else {
-            float x = static_cast<float>(i) / N;
-            table[i] = static_cast<int16_t>(32767 * sin(M_PI * x) / (M_PI * x));
+__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
+    sinc_table{[]() {
+        std::array<int16_t, WAVE_TABLE_LEN> table{};
+        int N = 32; // Window size
+        for (int i = 0; i < WAVE_TABLE_LEN; i++) {
+            // Handle the special case at i=0 to avoid division by zero
+            if (i == 0) {
+                table[i] = static_cast<int16_t>(
+                    32767); // sinc(0) = 1, scaled to int16_t range
+            } else {
+                float x = static_cast<float>(i) / N;
+                table[i] =
+                    static_cast<int16_t>(32767 * sin(M_PI * x) / (M_PI * x));
+            }
         }
-    }
-    return table;
-}()};
+        return table;
+    }()};
 
 // Square Wavetable
-__attribute__((section(".data")))
-const std::array<int16_t, WAVE_TABLE_LEN> square_wave_table{[]() {
-    std::array<int16_t, WAVE_TABLE_LEN> table{};
-    for (int i = 0; i < WAVE_TABLE_LEN; i++) {
-        table[i] = (i < WAVE_TABLE_LEN / 2) ? 32767 : -32767;
-    }
-    return table;
-}()};
+__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
+    square_wave_table{[]() {
+        std::array<int16_t, WAVE_TABLE_LEN> table{};
+        for (int i = 0; i < WAVE_TABLE_LEN; i++) {
+            table[i] = (i < WAVE_TABLE_LEN / 2) ? 32767 : -32767;
+        }
+        return table;
+    }()};
 
 // Triangle Wavetable
-__attribute__((section(".data")))
-const std::array<int16_t, WAVE_TABLE_LEN> triangle_wave_table{[]() {
-    std::array<int16_t, WAVE_TABLE_LEN> table{};
-    for (int i = 0; i < WAVE_TABLE_LEN; i++) {
-        float phase = static_cast<float>(i) / WAVE_TABLE_LEN;
-        if (phase < 0.5f) {
-            table[i] = static_cast<int16_t>(4 * 32767 * phase - 32767);
-        } else {
-            table[i] =
-                static_cast<int16_t>(-4 * 32767 * (phase - 0.5f) + 32767);
+__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
+    triangle_wave_table{[]() {
+        std::array<int16_t, WAVE_TABLE_LEN> table{};
+        for (int i = 0; i < WAVE_TABLE_LEN; i++) {
+            float phase = static_cast<float>(i) / WAVE_TABLE_LEN;
+            if (phase < 0.5f) {
+                table[i] = static_cast<int16_t>(4 * 32767 * phase - 32767);
+            } else {
+                table[i] =
+                    static_cast<int16_t>(-4 * 32767 * (phase - 0.5f) + 32767);
+            }
         }
-    }
-    return table;
-}()};
+        return table;
+    }()};
 
 // Sawtooth Wavetable
-__attribute__((section(".data")))
-const std::array<int16_t, WAVE_TABLE_LEN> sawtooth_wave_table{[]() {
-    std::array<int16_t, WAVE_TABLE_LEN> table{};
-    for (int i = 0; i < WAVE_TABLE_LEN; i++) {
-        float phase = static_cast<float>(i) / WAVE_TABLE_LEN;
-        table[i] = static_cast<int16_t>(2 * 32767 * phase - 32767);
-    }
-    return table;
-}()};
+__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
+    sawtooth_wave_table{[]() {
+        std::array<int16_t, WAVE_TABLE_LEN> table{};
+        for (int i = 0; i < WAVE_TABLE_LEN; i++) {
+            float phase = static_cast<float>(i) / WAVE_TABLE_LEN;
+            table[i] = static_cast<int16_t>(2 * 32767 * phase - 32767);
+        }
+        return table;
+    }()};
 
 // Sinc Wavetable N = 32
 const std::array<q8_24_t, WAVE_TABLE_LEN> sinc_table_fp{[]() {
@@ -175,3 +172,33 @@ const std::array<int16_t, WAVE_TABLE_LEN> u_wave_table{[]() {
     table[0] = table[1]; // Avoid issues with index 0
     return table;
 }()};
+
+__attribute__((section(".data"))) const std::array<uint32_t, 128>
+    adsr_curve_table{[]() {
+        std::array<uint32_t, 128> table{};
+        
+        // Tuning parameters - adjust these easily
+        const float min_time = 0.001f;  
+        const float max_time = 25.0f; 
+        const float curve_steepness = 0.05f;  // Higher = more steep curve
+        
+        for (int i = 0; i < 128; i++) {
+            if (i == 0) {
+                table[i] = (32768UL << 16) / 100; // Special case for instant
+            } else {
+                float normalized = (127 - i) / 127.0f; // 0.0 to 1.0, flipped
+                
+                // Reciprocal curve: 1/(1 + steepness*(1-x))
+                float curve_factor = 1.0f / (1.0f + curve_steepness * (1.0f - normalized));
+                
+                // Map to time range
+                float time_seconds = min_time + (max_time - min_time) * (1.0f - curve_factor);
+                
+                // Calculate increment
+                float increment_float = (32768UL << 16) / (time_seconds * 44100.0f);
+                uint32_t increment = static_cast<uint32_t>(increment_float);
+                table[i] = increment > 0 ? increment : 1;
+            }
+        }
+        return table;
+    }()};

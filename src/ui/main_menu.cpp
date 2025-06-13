@@ -97,9 +97,6 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
                 if (value > 127)
                     value = 127;
 
-                printf("Value: %d\n", static_cast<uint8_t>(value));
-                printf("Param: %d\n", param);
-
                 self.set_adsr_param(param, static_cast<uint8_t>(value));
 
                 const uint8_t cc_map[4] = {73, 75, 70, 72};
