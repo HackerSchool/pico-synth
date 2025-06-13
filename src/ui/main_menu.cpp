@@ -28,8 +28,8 @@ void UiHandler::main_handle_switches(UiHandler &self) {
                     packet[3] = 0x7F; // Velocity
                     midi.midi_receive_note(packet);
                 }
-                if (self.midi_out)
-                    midi.midi_send_note(note, 127, true);
+                // if (self.midi_out)
+                //     midi.midi_send_note(note, 12 * self.octave, 127, true);
             } else {
                 printf("Change Octave button: %d", i);
                 switch (i) {
@@ -107,21 +107,39 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
                 self.adsr_dirty = true;
                 break;
             }
-            case 2:
-                // Only adjust filter cutoff if not in FILTER_OFF mode
-                // if (synth.current_filter_type != FILTER_OFF) {
-                //     float cut_off = synth.get_filter_cutoff();
-                //     float new_cut_off = cut_off + (delta > 0 ? 50.f : -50.f);
-                //     // Ensure cutoff stays within reasonable bounds
-                //     new_cut_off = new_cut_off < 20.0f ? 20.0f : new_cut_off;
-                //     new_cut_off =
-                //         new_cut_off > 20000.0f ? 20000.0f : new_cut_off;
-                //     synth.set_filter_cutoff(new_cut_off, 0.5f);
-                //     // printf("new cut off %f\n", new_cut_off);
-                // }
-                // TODO: filter cutoff midi
+            case 2: {
+                // Filter cutoff control with 14-bit resolution
+                int32_t current_cutoff_14bit =
+                    (self.filter_cutoff_msb << 7) | self.filter_cutoff_lsb;
+                int32_t new_cutoff_14bit =
+                    current_cutoff_14bit +
+                    (delta > 0 ? 100 : -100); // Adjust step size as needed
+
+                // Clamp to 14-bit range
+                if (new_cutoff_14bit < 0)
+                    new_cutoff_14bit = 0;
+                if (new_cutoff_14bit > 16383)
+                    new_cutoff_14bit = 16383;
+
+                // Update MSB and LSB
+                self.filter_cutoff_msb = (new_cutoff_14bit >> 7) & 0x7F;
+                self.filter_cutoff_lsb = new_cutoff_14bit & 0x7F;
+
+                // Send MIDI CC messages for both MSB and LSB
+                uint8_t packet_msb[4] = {
+                    0x0B, static_cast<uint8_t>(0xB0 | self.midi_channel), 16,
+                    self.filter_cutoff_msb // CC 16 = Cutoff MSB
+                };
+                uint8_t packet_lsb[4] = {
+                    0x0B, static_cast<uint8_t>(0xB0 | self.midi_channel), 48,
+                    self.filter_cutoff_lsb // CC 48 = Cutoff LSB
+                };
+
+                midi.midi_receive_note(packet_msb);
+                midi.midi_receive_note(packet_lsb);
                 self.filter_dirty = true;
                 break;
+            }
             }
         }
 
@@ -132,14 +150,35 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
                 self.adsr_dirty = true;
             }
             if (i == 2) {
+                // Cycle through filter types: Off -> FIR -> Chebyshev -> Off...
+                self.filter_type = (self.filter_type + 1) % 3;
 
-                // synth.cycle_filter_type();
-                // TODO: filter type midi
+                // Map to MIDI values: 0-42=Off, 43-84=FIR, 85-127=Cheby
+                uint8_t midi_filter_value;
+                switch (self.filter_type) {
+                case 0:
+                    midi_filter_value = 21;
+                    break; // Off (middle of 0-42 range)
+                case 1:
+                    midi_filter_value = 64;
+                    break; // FIR (middle of 43-84 range)
+                case 2:
+                    midi_filter_value = 106;
+                    break; // Cheby (middle of 85-127 range)
+                }
+
+                uint8_t packet[4] = {
+                    0x0B, static_cast<uint8_t>(0xB0 | self.midi_channel), 18,
+                    midi_filter_value // CC 18 = Filter Type
+                };
+
+                midi.midi_receive_note(packet);
                 self.filter_dirty = true;
             }
 
             if (i == 3) {
                 self.ui_state = UI_STATE_MIDI_SETTINGS;
+                self.midi_settings_dirty = true;
                 printf("State: MIDI_STATE");
             }
         }
@@ -150,6 +189,11 @@ void UiHandler::main_update_display(UiHandler &self) {
     // Synth &synth = self.synth;
     HardwareManager &hw = self.hw;
     bool changed = false;
+
+    if (self.main_dirty) {
+        hw.display_clear();
+        self.main_dirty = false;
+    }
 
     // std::bitset<128> note_state = synth.get_notes_bitmask();
     // if (note_state != self.last_note_state) {
@@ -176,7 +220,8 @@ void UiHandler::main_update_display(UiHandler &self) {
     }
 
     if (self.filter_dirty) {
-        hw.draw_filter();
+        printf("YOOOOO\n");
+        hw.draw_filter(self.filter_type, 100.f);
         changed = true;
         self.filter_dirty = false;
     }

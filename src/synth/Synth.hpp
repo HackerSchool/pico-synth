@@ -19,6 +19,10 @@ struct ChannelParams {
     uint8_t decay = 5;
     uint16_t sustain = 64 << 8;
     uint8_t release = 5;
+    uint8_t filter_cutoff_msb = 64; // Default to mid-range
+    uint8_t filter_cutoff_lsb = 0;
+    uint8_t filter_q_msb = 16; // Default to lower Q
+    uint8_t filter_q_lsb = 0;
 };
 
 class Synth {
@@ -37,7 +41,7 @@ class Synth {
     std::bitset<128> get_notes_bitmask() const { return notes_playing_bitset; }
 
     FilterFIR low_pass = FilterFIR(1000.f);
-    FilterCheb low_pass_cheb = FilterCheb(5000.f, 1.f, 44100.f);
+    FilterCheb low_pass_cheb = FilterCheb(5000.f, 0.5f, 44100.f);
 
     std::array<ChannelParams, 16> channel_params;
 
@@ -53,6 +57,9 @@ class Synth {
     void cycle_filter_type();
 
     void set_filter_cutoff(float cutoff, float q = 0.5f);
+    void update_filter_cutoff(uint8_t channel);
+    void update_filter_q(uint8_t channel);
+    void set_filter_type(uint8_t type_value);
 
     float get_filter_cutoff();
     FilterType current_filter_type = FILTER_OFF; // Default to Chebyshev

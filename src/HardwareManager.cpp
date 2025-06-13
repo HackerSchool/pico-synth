@@ -221,10 +221,10 @@ void HardwareManager::draw_adsr(int current_adsr_param, uint8_t a, uint8_t d,
 
     // Format values into strings with two digits (e.g., "85%")
     char values[4][8];
-    snprintf(values[0], sizeof(values[0]), "%3d", a ); // A
-    snprintf(values[1], sizeof(values[1]), "%3d", d ); // D
-    snprintf(values[2], sizeof(values[2]), "%3d", s ); // S
-    snprintf(values[3], sizeof(values[3]), "%3d", r ); // R
+    snprintf(values[0], sizeof(values[0]), "%3d", a); // A
+    snprintf(values[1], sizeof(values[1]), "%3d", d); // D
+    snprintf(values[2], sizeof(values[2]), "%3d", s); // S
+    snprintf(values[3], sizeof(values[3]), "%3d", r); // R
 
     // Draw parameter strings starting at x=8
     char line1[24], line2[24];
@@ -261,29 +261,31 @@ void HardwareManager::draw_adsr(int current_adsr_param, uint8_t a, uint8_t d,
     ssd1306_draw_char(&disp, arrow_x, arrow_y, 1, '>');
 }
 
-void HardwareManager::draw_filter() {
-    // char fc_value[32];
+void HardwareManager::draw_filter(uint8_t filter_type, float cutoff) {
+    // const char *filter_names[] = {"Off", "FIR", "Cheby"};
+    char fc_value[32];
 
     // Display different information based on filter type
-    // switch (synth.current_filter_type) {
-    // case FILTER_LOW_PASS:
-    //     snprintf(fc_value, sizeof(fc_value), "LP: %.1f Hz",
-    //              synth.get_filter_cutoff());
-    //     break;
-    // case FILTER_CHEBYSHEV:
-    //     snprintf(fc_value, sizeof(fc_value), "Cheb: %.1f Hz",
-    //              synth.get_filter_cutoff());
-    //     break;
-    // default: // off
-    //     snprintf(fc_value, sizeof(fc_value), "Filter: OFF");
-    //     break;
-    // }
+    switch (filter_type) {
+    case 1:
+        snprintf(fc_value, sizeof(fc_value), "FIR: %.1f Hz", cutoff);
+        break;
+    case 2:
+        snprintf(fc_value, sizeof(fc_value), "Cheb: %.1f Hz", cutoff);
+        break;
+    default: // off
+        snprintf(fc_value, sizeof(fc_value), "Filter: OFF");
+        break;
+    }
 
     ssd1306_clear_square(&disp, 0, 8, 128, 8); // Clear the entire line
-    // ssd1306_draw_string(&disp, 8, 8, 1, fc_value);
+    ssd1306_draw_string(&disp, 8, 8, 1, fc_value);
 }
 
 void HardwareManager::display_show() { ssd1306_show(&disp); }
+void HardwareManager::display_clear() {
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+}
 
 void HardwareManager::draw_midi_settings(bool midi_out, bool midi_in,
                                          bool switches_in, bool sequencer_in,

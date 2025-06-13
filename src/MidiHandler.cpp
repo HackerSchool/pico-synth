@@ -26,11 +26,15 @@ void MidiHandler::midi_task() {
 
 void MidiHandler::midi_receive_note(uint8_t *packet) {
     if (!packet) {
-        // Optionally: log an error or assert
         printf("Error: null MIDI packet received\n");
         return;
     }
+
+    uint8_t const cable_num = (packet[0] >> 4) & 0x0F;
+
     queue_add_blocking(&midi_queue, packet);
+
+    tud_midi_stream_write(cable_num, &packet[1], 3);
 }
 
 void MidiHandler::midi_send_note(uint8_t note, uint8_t velocity, bool on) {

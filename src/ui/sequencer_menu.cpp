@@ -66,6 +66,10 @@ void UiHandler::sequencer_handle_encoders(UiHandler &self) {
                 // Exit back to main menu
                 self.ui_state = UI_STATE_MAIN;
                 printf("State: MAIN_STATE\n");
+                self.channel_dirty = true;
+                self.filter_dirty = true;
+                self.adsr_dirty = true;
+                self.main_dirty = true;
                 break;
             }
         }

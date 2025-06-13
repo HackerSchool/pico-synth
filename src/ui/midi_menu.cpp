@@ -43,6 +43,7 @@ void UiHandler::midi_handle_encoders(UiHandler &self) {
             case 3:
                 // Exit back to main menu
                 self.ui_state = UI_STATE_SEQUENCER;
+                self.sequencer_settings_dirty = true;
                 printf("State: SEQUENCER_STATE\n");
                 break;
             }

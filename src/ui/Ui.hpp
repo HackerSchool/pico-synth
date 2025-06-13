@@ -92,11 +92,18 @@ class UiHandler {
     std::bitset<128> last_note_state;
     uint16_t prev_switches = 0;
     WaveType last_wave_type = static_cast<WaveType>(-1);
-    bool adsr_dirty = 0;
-    bool filter_dirty = 0;
-    bool channel_dirty = 0;
+    bool adsr_dirty = 1;
+    bool channel_dirty = 1;
     uint8_t midi_channel = 1;
     int8_t octave = 0;
+
+    uint8_t filter_cutoff_msb = 64; // Default mid-range
+    uint8_t filter_cutoff_lsb = 0;
+    uint8_t filter_q_msb = 16; // Default lower Q
+    uint8_t filter_q_lsb = 0;
+    int8_t filter_type = 0; // 0=Off, 1=FIR, 2=Cheby
+    bool filter_dirty = 1;
+    bool main_dirty = 1;
 
     // midi state
     bool midi_in = false;             // midi into pico synth

@@ -55,18 +55,18 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
     // low_pass.out(buffer.data(), buffer.size());
     // low_pass_cheb.out(buffer.data(), buffer.size());
 
-    // // Apply the selected filter
-    // switch (current_filter_type) {
-    // case FILTER_LOW_PASS:
-    // low_pass.out(buffer.data(), buffer.size());
-    //     break;
-    // case FILTER_CHEBYSHEV:
-    //     low_pass_cheb.out(output.data(), output.size());
-    //     break;
-    // default:
-    //     // No filtering
-    //     break;
-    // }
+    // Apply the selected filter
+    switch (current_filter_type) {
+    case FILTER_LOW_PASS:
+        low_pass.out(buffer.data(), buffer.size());
+        break;
+    case FILTER_CHEBYSHEV:
+        low_pass_cheb.out(buffer.data(), buffer.size());
+        break;
+    default:
+        // No filtering
+        break;
+    }
 }
 
 std::array<int16_t, SAMPLES_PER_BUFFER> &Synth::get_output() { return output; }
@@ -152,9 +152,64 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
                 }
             }
             break;
+
+        case 16: // Filter Cutoff MSB (CC 16)
+            channel_params[channel].filter_cutoff_msb = velocity;
+            update_filter_cutoff(channel);
+            break;
+        case 48: // Filter Cutoff LSB (CC 48)
+            channel_params[channel].filter_cutoff_lsb = velocity;
+            update_filter_cutoff(channel);
+            break;
+        case 17: // Filter Resonance/Q MSB (CC 17)
+            channel_params[channel].filter_q_msb = velocity;
+            update_filter_q(channel);
+            break;
+        case 49: // Filter Resonance/Q LSB (CC 49)
+            channel_params[channel].filter_q_lsb = velocity;
+            update_filter_q(channel);
+            break;
+        case 18: // Filter Type Selection (CC 18)
+            set_filter_type(velocity);
+            printf("Filter type changed: %d\n", velocity);
+            break;
         }
         break;
+    } break;
     }
+}
+
+void Synth::update_filter_cutoff(uint8_t channel) {
+    // Combine MSB and LSB for 14-bit resolution
+    uint16_t cutoff_14bit = (channel_params[channel].filter_cutoff_msb << 7) |
+                            channel_params[channel].filter_cutoff_lsb;
+
+    // Map 14-bit value (0-16383) to frequency range (500-10000 Hz)
+    float cutoff_freq =
+        1500.0f + (cutoff_14bit * (10000.0f - 500.0f)) / 16383.0f;
+
+    // Get Q value - FIXED RANGE: 0.3 to 1.0
+    uint16_t q_14bit = (channel_params[channel].filter_q_msb << 7) |
+                       channel_params[channel].filter_q_lsb;
+    float q_value =
+        0.3f + (q_14bit * (1.0f - 0.3f)) / 16383.0f; // Q range 0.3-1.0
+
+    set_filter_cutoff(cutoff_freq, q_value);
+    printf("Filter cutoff: %.2f Hz, Q: %.2f\n", cutoff_freq, q_value);
+}
+
+void Synth::update_filter_q(uint8_t channel) {
+    // Same logic as cutoff - recalculate both when Q changes
+    update_filter_cutoff(channel);
+}
+
+void Synth::set_filter_type(uint8_t type_value) {
+    if (type_value < 43) {
+        current_filter_type = FILTER_OFF;
+    } else if (type_value < 85) {
+        current_filter_type = FILTER_LOW_PASS; // FIR sync
+    } else {
+        current_filter_type = FILTER_CHEBYSHEV;
     }
 }
 

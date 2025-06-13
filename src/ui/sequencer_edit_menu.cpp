@@ -43,8 +43,8 @@ void UiHandler::sequencer_note_edit_handle_switches(UiHandler &self) {
                     packet[3] = 0x7F; // Velocity
                     midi.midi_receive_note(packet);
                 }
-                if (self.midi_out)
-                    midi.midi_send_note(note, 127, true);
+                // if (self.midi_out)
+                //     midi.midi_send_note(note, 127, true);
 
             } else {
                 // Non-piano keys for step navigation
@@ -99,8 +99,8 @@ void UiHandler::sequencer_note_edit_handle_switches(UiHandler &self) {
                     packet[3] = 0x7F; // Velocity
                     midi.midi_receive_note(packet);
                 }
-                if (self.midi_out)
-                    midi.midi_send_note(note, 0, false);
+                // if (self.midi_out)
+                //     midi.midi_send_note(note, 0, false);
             }
         }
     }
@@ -168,6 +168,10 @@ void UiHandler::sequencer_note_edit_handle_encoders(UiHandler &self) {
             case 3: // Go to next menu (back to main?)
                 self.ui_state = UI_STATE_MAIN;
                 printf("State: MAIN\n");
+                self.channel_dirty = true;
+                self.filter_dirty = true;
+                self.adsr_dirty = true;
+                self.main_dirty = true;
                 break;
             }
         }
@@ -214,4 +218,3 @@ void UiHandler::sequencer_note_edit_enter(UiHandler &self) {
     self.sequencer_dirty = true;
     printf("Entered sequencer note edit mode\n");
 }
-

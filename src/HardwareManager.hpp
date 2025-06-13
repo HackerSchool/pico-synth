@@ -110,7 +110,7 @@ class HardwareManager {
                    uint8_t r);
     void draw_midi_settings(bool midi_out, bool midi_in, bool switches_in,
                             bool sequencer_in, bool sequencer_out);
-    void draw_filter();
+    void draw_filter(uint8_t filter_type, float cutoff);
 
     void draw_sequencer_settings(bool playing, uint32_t tempo,
                                  uint8_t current_step);
@@ -119,8 +119,8 @@ class HardwareManager {
                                   bool auto_stepping_enabled, bool is_playing,
                                   uint8_t *step_notes, uint8_t *step_channels);
 
-
     void display_show();
+    void display_clear();
 
   private:
     // Synth &synth;

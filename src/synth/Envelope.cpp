@@ -30,8 +30,14 @@ void ADSREnvelope::out() {
             }
             break;
         case ENV_DECAY:
-            lv -= d;                                      // 32-bit subtraction
-            if (lv <= (static_cast<uint32_t>(s << 16))) { // Cast to uint32_t
+            if (lv > d) {
+                lv -= d; // 32-bit subtraction
+                if (lv <=
+                    (static_cast<uint32_t>(s << 16))) { // Cast to uint32_t
+                    lv = (static_cast<uint32_t>(s << 16));
+                    state = s ? ENV_SUSTAIN : ENV_IDLE;
+                }
+            } else {
                 lv = (static_cast<uint32_t>(s << 16));
                 state = s ? ENV_SUSTAIN : ENV_IDLE;
             }
@@ -57,7 +63,6 @@ void ADSREnvelope::out() {
         output[i] = (in[i] * level_q15) >> 15;
     }
 }
-
 
 void ADSREnvelope::gate_on() {
     current_level = 0;
