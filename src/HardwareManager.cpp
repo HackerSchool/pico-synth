@@ -221,10 +221,10 @@ void HardwareManager::draw_adsr(int current_adsr_param, uint8_t a, uint8_t d,
 
     // Format values into strings with two digits (e.g., "85%")
     char values[4][8];
-    snprintf(values[0], sizeof(values[0]), "%3d", a * 100 / 127); // A
-    snprintf(values[1], sizeof(values[1]), "%3d", d * 100 / 127); // D
-    snprintf(values[2], sizeof(values[2]), "%3d", s * 100 / 127); // S
-    snprintf(values[3], sizeof(values[3]), "%3d", r * 100 / 127); // R
+    snprintf(values[0], sizeof(values[0]), "%3d", a ); // A
+    snprintf(values[1], sizeof(values[1]), "%3d", d ); // D
+    snprintf(values[2], sizeof(values[2]), "%3d", s ); // S
+    snprintf(values[3], sizeof(values[3]), "%3d", r ); // R
 
     // Draw parameter strings starting at x=8
     char line1[24], line2[24];

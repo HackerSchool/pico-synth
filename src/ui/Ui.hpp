@@ -54,6 +54,11 @@ class UiHandler {
     static void sequencer_note_edit_update_display(UiHandler &self);
     void sequencer_note_edit_enter(UiHandler &self);
 
+    // helpers:
+
+    void set_adsr_param(int param, uint8_t value);
+    uint8_t get_adsr_param(int param);
+
   private:
     HardwareManager &hw;
     MidiHandler &midi;
@@ -78,6 +83,10 @@ class UiHandler {
 
     // shit I need for the main state
     int current_adsr_param = 0; // 0=A, 1=D, 2=S, 3=R
+    // Channel-specific parameters (16 MIDI channels)
+
+    std::array<ChannelParams, 16> channel_params;
+
     uint8_t adsr[4] = {64, 64, 64,
                        64}; // Attack, Decay, Sustain, Release (MIDI 7-bit)
     std::bitset<128> last_note_state;

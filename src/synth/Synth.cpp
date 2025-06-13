@@ -89,7 +89,7 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
             // Note on with velocity 0 is equivalent to Note Off
             // printf("Note Off (via Note On): channel=%d, note=%d\n", channel,
             // note);
-            note_off(note, velocity);
+            note_off(channel, note, velocity);
         }
         break;
 
@@ -98,29 +98,47 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
         // channel, note,
         // velocity);
 
-        note_off(note, velocity);
+        note_off(channel, note, velocity);
         break;
 
     case 0xB0: { // Control Change
+
         switch (note) {
         case 73: // Attack
-            for (auto &env : envelopes)
-                env.a = velocity;
+            channel_params[channel].attack = velocity;
+            printf("attack changed: %d\n", velocity);
+            for (int i = 0; i < NUM_OSC; i++) {
+                if (midi_channel[i] == channel) {
+                    envelopes[i].a = velocity;
+                }
+            }
             break;
-
         case 75: // Decay
-            for (auto &env : envelopes)
-                env.d = velocity;
+            channel_params[channel].decay = velocity;
+            printf("decay changed: %d\n", velocity);
+            for (int i = 0; i < NUM_OSC; i++) {
+                if (midi_channel[i] == channel) {
+                    envelopes[i].d = velocity;
+                }
+            }
             break;
-
         case 70: // Sustain
-            for (auto &env : envelopes)
-                env.s = velocity << 8;
+            channel_params[channel].sustain = velocity << 8;
+            printf("sustain changed: %d\n", velocity);
+            for (int i = 0; i < NUM_OSC; i++) {
+                if (midi_channel[i] == channel) {
+                    envelopes[i].s = velocity << 8;
+                }
+            }
             break;
-
         case 72: // Release
-            for (auto &env : envelopes)
-                env.r = velocity;
+            channel_params[channel].release = velocity;
+            printf("release changed: %d\n", velocity);
+            for (int i = 0; i < NUM_OSC; i++) {
+                if (midi_channel[i] == channel) {
+                    envelopes[i].r = velocity;
+                }
+            }
             break;
         }
         break;
@@ -136,7 +154,8 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
     // Check if note is playing
     int osc_index = -1;
     for (int i = 0; i < NUM_OSC; i++) {
-        if (osc_midi_note[i] == note && osc_playing[i] && !osc_steal[i]) {
+        if (osc_midi_note[i] == note && osc_playing[i] && !osc_steal[i] &&
+            midi_channel[i] == channel) {
             printf("Note already playing: note=%d, velocity=%d\n", note,
                    velocity);
             osc_index = i;
@@ -148,20 +167,20 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
     if (osc_index == -1) {
         for (int i = 0; i < NUM_OSC; i++) {
             if (!osc_playing[i]) {
+                midi_channel[i] = channel;
                 osc_playing[i] = true;
                 osc_midi_note[i] = note;
                 notes_playing_bitset.set(note);
-
-                // float freq = midi_to_freq(note);
-                // oscillators[i].set_freq(freq)
                 WaveType wt = channel_wave_map[channel];
                 oscillators[i].set_wavetable(wt);
-                //
                 oscillators[i].set_dco_step(note);
-                // oscillators[i].set_freq(261.626f);
-                // envelopes[i].set_trigger(5.f);
+
+                //Apply channel ADSR params
+                envelopes[i].a = channel_params[channel].attack;
+                envelopes[i].d = channel_params[channel].decay;
+                envelopes[i].s = channel_params[channel].sustain;
+                envelopes[i].r = channel_params[channel].release;
                 envelopes[i].gate_on();
-                // envelopes[i].set_idle();
                 // printf("New Note: note=%d, velocity=%d\n", note, velocity);
                 break;
             }
@@ -169,17 +188,19 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
     }
 }
 
-void Synth::note_off(uint8_t note, uint8_t velocity) {
+void Synth::note_off(uint8_t channel, uint8_t note, uint8_t velocity) {
     // Check if note is playing
     // printf("I am in note off");
     for (int i = 0; i < NUM_OSC; i++) {
-        if (osc_midi_note[i] == note && osc_playing[i] && !osc_steal[i]) {
+        if (osc_midi_note[i] == note && osc_playing[i] && !osc_steal[i] &&
+            midi_channel[i] == channel) {
             // envelopes[i].set_trigger(0.f);
             envelopes[i].gate_off();
             // osc_playing[i] = false;
             osc_steal[i] = true;
             notes_playing_bitset.reset(note);
-            // printf("Note Off on Synth: note=%d, velocity=%d\n", note, velocity);
+            // printf("Note Off on Synth: note=%d, velocity=%d\n", note,
+            // velocity);
             break;
         }
     }

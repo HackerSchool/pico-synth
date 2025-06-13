@@ -207,7 +207,6 @@ void UiHandler::sequencer_note_edit_update_display(UiHandler &self) {
     }
 }
 
-// Helper function you might want to add to your UiHandler class
 void UiHandler::sequencer_note_edit_enter(UiHandler &self) {
     // Initialize sequencer note edit mode
     self.current_sequencer_step = 0;
@@ -216,7 +215,3 @@ void UiHandler::sequencer_note_edit_enter(UiHandler &self) {
     printf("Entered sequencer note edit mode\n");
 }
 
-// You'll also need to add these member variables to your UiHandler class:
-// uint8_t current_sequencer_step;
-// bool auto_stepping_enabled;
-// bool sequencer_dirty;
