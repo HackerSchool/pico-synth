@@ -3,6 +3,7 @@
 #include "config.hpp"
 #include "hardware/interp.h"
 #include "tusb.h"
+#include <cstdint>
 
 const int wave_shift = WAVE_SHIFT;
 const int wave_len = WAVE_LEN;
@@ -109,19 +110,40 @@ void Oscillator::out() {
     }
 }
 
-void Oscillator::out_interp() {
-    // copy voice state to the interpolator
+void Oscillator::out_interp(uint8_t fm_depth_) {
+    // FM depth in Q16.16 format - starting at 0.5 (32768 in Q16.16)
+    int fm_ratio = 813;
+
+    // Set up carrier oscillator (interp0)
     interp0->base[0] = dco_step;
-    interp0->base[2] = (uintptr_t)wavetable_->data(); // Get the base pointer
+    interp0->base[2] = (uintptr_t)wavetable_->data();
     interp0->accum[0] = dco_pos;
 
-    // generate the samples
+    // Set up modulator oscillator (interp1)
+    interp1->base[0] = (fm_ratio >> 9) * dco_step;
+    interp1->base[2] = (uintptr_t)wavetable_->data();
+    interp1->accum[0] = dco_mod_pos;
+
+    // Generate samples
     for (uint i = 0; i < SAMPLES_PER_BUFFER; ++i) {
+        // Get modulator sample (signed 16-bit)
+        int16_t mod_sample = *(int16_t *)interp1->pop[2];
+
+        // Apply FM: mod_sample * fm_depth -> frequency offset
+        // Convert to Q16.16: (mod_sample * fm_depth_q16_16) >> 16
+        int32_t freq_offset = (mod_sample * (fm_depth_ << 3));
+
+        // Update carrier frequency with modulation
+        interp0->base[0] = dco_step + freq_offset;
+
+        // Get carrier output
         output[i] = *(int16_t *)interp0->pop[2];
+
     }
 
-    // update voice state
+    // Update oscillator positions
     dco_pos = interp0->accum[0] & (wave_max - 1);
+    dco_mod_pos = interp1->accum[0] & (wave_max - 1);
 }
 
 void Oscillator::set_dco_step(uint8_t note) {

@@ -32,15 +32,21 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
     }
 
     // set up the interpolator
-    interp_config cfg = interp_default_config();
-    interp_config_set_shift(&cfg, 15);
-    interp_config_set_mask(&cfg, 1, wave_shift);
-    interp_config_set_add_raw(&cfg, true);
-    interp_set_config(interp0, 0, &cfg);
+    interp_config cfg0 = interp_default_config();
+    interp_config_set_shift(&cfg0, 15);
+    interp_config_set_mask(&cfg0, 1, wave_shift);
+    interp_config_set_add_raw(&cfg0, true);
+    interp_set_config(interp0, 0, &cfg0);
+
+    interp_config cfg1 = interp_default_config();
+    interp_config_set_shift(&cfg1, 15);
+    interp_config_set_mask(&cfg1, 1, wave_shift);
+    interp_config_set_add_raw(&cfg1, true);
+    interp_set_config(interp1, 0, &cfg1);
 
     for (int i = 0; i < NUM_OSC; i++) {
         // oscillators[i].out();
-        oscillators[i].out_interp();
+        oscillators[i].out_interp(channel_params[0].filter_cutoff_msb);
         envelopes[i].out();
     }
     for (int i = 0; i < NUM_OSC; i++) {
@@ -180,22 +186,22 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
 }
 
 void Synth::update_filter_cutoff(uint8_t channel) {
-    // Combine MSB and LSB for 14-bit resolution
-    uint16_t cutoff_14bit = (channel_params[channel].filter_cutoff_msb << 7) |
-                            channel_params[channel].filter_cutoff_lsb;
-
-    // Map 14-bit value (0-16383) to frequency range (500-10000 Hz)
-    float cutoff_freq =
-        1500.0f + (cutoff_14bit * (10000.0f - 500.0f)) / 16383.0f;
-
-    // Get Q value - FIXED RANGE: 0.3 to 1.0
-    uint16_t q_14bit = (channel_params[channel].filter_q_msb << 7) |
-                       channel_params[channel].filter_q_lsb;
-    float q_value =
-        0.3f + (q_14bit * (1.0f - 0.3f)) / 16383.0f; // Q range 0.3-1.0
-
-    set_filter_cutoff(cutoff_freq, q_value);
-    printf("Filter cutoff: %.2f Hz, Q: %.2f\n", cutoff_freq, q_value);
+    // // Combine MSB and LSB for 14-bit resolution
+    // uint16_t cutoff_14bit = (channel_params[channel].filter_cutoff_msb << 7) |
+    //                         channel_params[channel].filter_cutoff_lsb;
+    //
+    // // Map 14-bit value (0-16383) to frequency range (500-10000 Hz)
+    // float cutoff_freq =
+    //     1500.0f + (cutoff_14bit * (10000.0f - 500.0f)) / 16383.0f;
+    //
+    // // Get Q value - FIXED RANGE: 0.3 to 1.0
+    // uint16_t q_14bit = (channel_params[channel].filter_q_msb << 7) |
+    //                    channel_params[channel].filter_q_lsb;
+    // float q_value =
+    //     0.3f + (q_14bit * (1.0f - 0.3f)) / 16383.0f; // Q range 0.3-1.0
+    //
+    // set_filter_cutoff(cutoff_freq, q_value);
+    // printf("Filter cutoff: %.2f Hz, Q: %.2f\n", cutoff_freq, q_value);
 }
 
 void Synth::update_filter_q(uint8_t channel) {
