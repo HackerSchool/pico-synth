@@ -74,6 +74,7 @@ target_sources(${bin_name} PRIVATE
     src/ui/main_menu.cpp
     src/ui/midi_menu.cpp
     src/ui/sequencer_menu.cpp
+    src/ui/sequencer_edit_menu.cpp
     src/MidiHandler.cpp
     src/synth/Filter.cpp
     src/HardwareManager.cpp
