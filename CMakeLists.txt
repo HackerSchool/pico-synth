@@ -62,6 +62,12 @@ target_compile_options(pico-synth PRIVATE
     -Wno-error=discarded-qualifiers
 )
 
+
+target_compile_definitions(pico-synth PRIVATE
+	PICO_AUDIO_I2S_DATA_PIN=${CONFIG_I2S_DATA_PIN}
+	PICO_AUDIO_I2S_CLOCK_PIN_BASE=${CONFIG_I2S_CLOCK_PIN_BASE}
+)
+
 target_sources(${bin_name} PRIVATE 
     # src/i2s_init.cpp
     src/audio.c
