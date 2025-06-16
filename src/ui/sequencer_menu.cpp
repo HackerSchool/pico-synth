@@ -60,6 +60,7 @@ void UiHandler::sequencer_handle_encoders(UiHandler &self) {
                 break;
             case 2:
                 self.ui_state = UI_STATE_SEQUENCER_EDIT;
+                self.sequencer_settings_dirty = true;
                 printf("State: STATE_SEQUENCER_EDIT\n");
                 break;
             case 3:

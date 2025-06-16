@@ -161,7 +161,7 @@ void UiHandler::sequencer_note_edit_handle_encoders(UiHandler &self) {
 
             case 2:                                 // Next Sequencer Menu
                 self.ui_state = UI_STATE_SEQUENCER; // or whatever the next
-                                                    // sequencer menu is
+                self.sequencer_dirty = true;        // sequencer menu is
                 printf("State: SEQUENCER_TEMPO\n");
                 break;
 
