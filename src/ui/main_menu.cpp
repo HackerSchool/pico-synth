@@ -177,7 +177,7 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
             }
 
             if (i == 3) {
-                self.ui_state = UI_STATE_MIDI_SETTINGS;
+                self.ui_state = UI_STATE_CHOOSE;
                 self.midi_settings_dirty = true;
                 printf("State: MIDI_STATE");
             }

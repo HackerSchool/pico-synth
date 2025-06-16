@@ -12,6 +12,7 @@ typedef enum UiState {
     UI_STATE_MIDI_SETTINGS,
     UI_STATE_SEQUENCER,
     UI_STATE_SEQUENCER_EDIT,
+    UI_STATE_CHOOSE,
     UI_STATE_COUNT // helpful for bounds checking
 } UiState;
 
@@ -54,6 +55,10 @@ class UiHandler {
     static void sequencer_note_edit_update_display(UiHandler &self);
     void sequencer_note_edit_enter(UiHandler &self);
 
+    // choose state
+    static void choose_handle_encoders(UiHandler &self);
+    static void choose_update_display(UiHandler &self);
+
     // helpers:
 
     void set_adsr_param(int param, uint8_t value);
@@ -79,7 +84,10 @@ class UiHandler {
         [UI_STATE_SEQUENCER_EDIT] = {
             .handle_encoders = sequencer_note_edit_handle_encoders,
             .handle_switches = sequencer_note_edit_handle_switches,
-            .handle_display = sequencer_note_edit_update_display}};
+            .handle_display = sequencer_note_edit_update_display},
+        [UI_STATE_CHOOSE = {.handle_encoders = choose_handle_encoders,
+                            .handle_switches = main_handle_switches,
+                            .handle_display = choose_update_display}};
 
     // shit I need for the main state
     int current_adsr_param = 0; // 0=A, 1=D, 2=S, 3=R
@@ -124,6 +132,10 @@ class UiHandler {
     uint8_t current_sequencer_step = 0;
     bool auto_stepping_enabled = false;
     bool sequencer_dirty = true;
+
+    // choose state~
+    bool choose_dirty = true;
+    int chosen_index = 1;
 };
 
 #endif // !UI_STATE_HPP

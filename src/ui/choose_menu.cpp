@@ -1,7 +1,7 @@
 #include "HardwareManager.hpp"
 #include "Ui.hpp"
 
-void UiHandler::midi_handle_encoders(UiHandler &self) {
+void UiHandler::choose_handle_encoders(UiHandler &self) {
     HardwareManager &hw = self.hw;
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         Encoder *enc = &hw.encoders[i];
@@ -19,6 +19,14 @@ void UiHandler::midi_handle_encoders(UiHandler &self) {
             case 2:
                 // Could adjust other MIDI settings
                 break;
+            case 3:
+                if (delta > 0) {
+                    self.chosen_index += 1;
+                } else {
+                    self.chosen_index -= 1;
+                }
+                self.chosen_dirty = true;
+                break;
             }
         }
 
@@ -26,38 +34,31 @@ void UiHandler::midi_handle_encoders(UiHandler &self) {
         if (!enc->button_state && enc->button_edge) {
             switch (i) {
             case 0:
-                self.midi_out = !self.midi_out;
-                self.midi_settings_dirty = true;
-                printf("MIDI Out: %s\n", self.midi_out ? "ON" : "OFF");
+                //self.midi_out = !self.midi_out;
+                //self.midi_settings_dirty = true;
+                //printf("MIDI Out: %s\n", self.midi_out ? "ON" : "OFF");
+                self.chosen_dirty = true;
                 break;
             case 1:
-                self.midi_in = !self.midi_in;
-                self.midi_settings_dirty = true;
-                printf("MIDI In: %s\n", self.midi_in ? "ON" : "OFF");
-                break;
+                self.chosen_dirty = true;
+                break
             case 2:
-                self.switches_in = !self.switches_in;
-                self.midi_settings_dirty = true;
-                printf("Switches In: %s\n", self.switches_in ? "ON" : "OFF");
+                self.chosen_dirty = true;
                 break;
             case 3:
-                // Exit back to main menu
-                self.ui_state = UI_STATE_CHOOSE;
-                self.sequencer_settings_dirty = true;
-                printf("State: SEQUENCER_STATE\n");
+                self.chosen_dirty = true;
                 break;
             }
         }
     }
 }
 
-void UiHandler::midi_update_display(UiHandler &self) {
+void UiHandler::choose_update_display(UiHandler &self) {
     HardwareManager &hw = self.hw;
 
-    if (self.midi_settings_dirty) {
-        hw.draw_midi_settings(self.midi_out, self.midi_in, self.switches_in,
-                              self.sequencer_in, self.sequencer_out);
+    if (self.choose_dirty) {
+        hw.draw_choose_menu(self.chosen_index);
         hw.display_show();
-        self.midi_settings_dirty = false;
+        self.choose_dirty = false;
     }
 }
