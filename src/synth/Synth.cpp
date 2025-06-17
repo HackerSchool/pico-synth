@@ -4,6 +4,7 @@
 #include "Wavetable.hpp"
 #include "config.hpp"
 #include "hardware/interp.h"
+#include <array>
 #include <cstdint>
 #include <cstdio>
 
@@ -17,7 +18,7 @@ Synth::Synth() {
     // init the oscillators and envelopes
     for (int i = 0; i < NUM_OSC; i++) {
         oscillators[i] = Oscillator(Sine, 440.f);
-        envelopes[i] = ADSREnvelope(1, 1, 100, 1, oscillators[i].get_output());
+        envelopes[i] = ADSREnvelope(1, 1, 100, 1);
     }
 }
 
@@ -45,16 +46,19 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
     interp_set_config(interp1, 0, &cfg1);
 
     for (int i = 0; i < NUM_OSC; i++) {
+        if (!osc_playing[i]) {
+            continue;
+        }
         // oscillators[i].out();
-        oscillators[i].out_interp(channel_params[0].filter_cutoff_msb);
-        envelopes[i].out();
-    }
-    for (int i = 0; i < NUM_OSC; i++) {
-        std::array<int16_t, SAMPLES_PER_BUFFER> &env_out_i =
-            envelopes[i].get_output();
+        std::array<int16_t, SAMPLES_PER_BUFFER> flow_buffer{0};
+        oscillators[i].out_interp(flow_buffer,
+                                  channel_params[0].filter_cutoff_msb);
+        envelopes[i].out(flow_buffer);
+        // std::array<int16_t, SAMPLES_PER_BUFFER> &env_out_i =
+        //     envelopes[i].get_output();
         for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
             // divide by 8
-            buffer[k] += env_out_i[k] >> 4;
+            buffer[k] += flow_buffer[k] >> 4;
         }
     }
 
@@ -187,7 +191,8 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
 
 void Synth::update_filter_cutoff(uint8_t channel) {
     // // Combine MSB and LSB for 14-bit resolution
-    // uint16_t cutoff_14bit = (channel_params[channel].filter_cutoff_msb << 7) |
+    // uint16_t cutoff_14bit = (channel_params[channel].filter_cutoff_msb << 7)
+    // |
     //                         channel_params[channel].filter_cutoff_lsb;
     //
     // // Map 14-bit value (0-16383) to frequency range (500-10000 Hz)

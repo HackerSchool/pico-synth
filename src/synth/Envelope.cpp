@@ -8,16 +8,13 @@
 #define FRAC_BITS 24
 
 ADSREnvelope::ADSREnvelope()
-    : a(64), d(64), s(64), r(64), in_signal(nullptr), state(ENV_IDLE) {
-} // Default constructor
+    : a(64), d(64), s(64), r(64), state(ENV_IDLE) {} // Default constructor
 
 ADSREnvelope::ADSREnvelope(uint8_t a_in, uint8_t d_in, uint8_t s_in,
-                           uint8_t r_in,
-                           std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal)
-    : a(a_in), d(d_in), s(s_in << 8), r(r_in), in_signal(&in_signal) {}
+                           uint8_t r_in)
+    : a(a_in), d(d_in), s(s_in << 8), r(r_in) {}
 
-void ADSREnvelope::out() {
-    auto &in = *in_signal;    // Shorter reference
+void ADSREnvelope::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
     auto &lv = current_level; // Shorter reference for current_level
 
     for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
@@ -60,7 +57,8 @@ void ADSREnvelope::out() {
 
         // Use upper 16 bits for multiplication (Q16.16 -> Q1.15)
         uint16_t level_q15 = lv >> 16;
-        output[i] = (in[i] * level_q15) >> 15;
+        // output[i] = (in[i] * level_q15) >> 15;
+        buffer[i] = (buffer[i] * level_q15) >> 15;
     }
 }
 
@@ -93,6 +91,6 @@ std::array<uint32_t, 4> ADSREnvelope::get_ADSR() { return {a, d, s, r}; }
 
 void ADSREnvelope::set_idle() { state = ENV_IDLE; }
 
-std::array<int16_t, SAMPLES_PER_BUFFER> &ADSREnvelope::get_output() {
-    return output;
-}
+// std::array<int16_t, SAMPLES_PER_BUFFER> &ADSREnvelope::get_output() {
+//     return output;
+// }

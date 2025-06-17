@@ -18,7 +18,8 @@ class Oscillator {
     void set_wavetable(WaveType wave_table);
     WaveType get_wave_type();
 
-    void out_interp(uint8_t fm_depth_);
+    void out_interp(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer,
+                    uint8_t fm_depth_);
     void set_dco_step(uint8_t note);
 
   private:

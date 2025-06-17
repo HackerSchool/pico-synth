@@ -110,7 +110,8 @@ void Oscillator::out() {
     }
 }
 
-void Oscillator::out_interp(uint8_t fm_depth_) {
+void Oscillator::out_interp(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer,
+                            uint8_t fm_depth_) {
     // FM depth in Q16.16 format - starting at 0.5 (32768 in Q16.16)
     int fm_ratio = 813;
 
@@ -137,8 +138,7 @@ void Oscillator::out_interp(uint8_t fm_depth_) {
         interp0->base[0] = dco_step + freq_offset;
 
         // Get carrier output
-        output[i] = *(int16_t *)interp0->pop[2];
-
+        buffer[i] = *(int16_t *)interp0->pop[2];
     }
 
     // Update oscillator positions

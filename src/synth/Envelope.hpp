@@ -12,10 +12,9 @@
 class ADSREnvelope {
   public:
     ADSREnvelope(); // Default Constructor
-    ADSREnvelope(uint8_t a, uint8_t d, uint8_t s, uint8_t r,
-                 std::array<int16_t, SAMPLES_PER_BUFFER> &in_signal);
+    ADSREnvelope(uint8_t a, uint8_t d, uint8_t s, uint8_t r);
 
-    void out();
+    void out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer);
     void set_idle();
     void gate_on();
     void gate_off();
@@ -45,8 +44,8 @@ class ADSREnvelope {
     EnvelopeState state = ENV_IDLE;
 
   private:
-    std::array<int16_t, SAMPLES_PER_BUFFER> *in_signal;
-    std::array<int16_t, SAMPLES_PER_BUFFER> output;
+    // std::array<int16_t, SAMPLES_PER_BUFFER> *in_signal;
+    // std::array<int16_t, SAMPLES_PER_BUFFER> output;
 
     // Current envelope state
 };
