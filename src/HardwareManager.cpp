@@ -373,7 +373,7 @@ void HardwareManager::draw_sequencer_note_edit(
     uint8_t current_step, uint8_t midi_channel, bool auto_stepping_enabled,
     bool is_playing, uint8_t *step_notes, uint8_t *step_channels) {
     // Clear the display area
-    printf("In the draw function for note edit\n");
+    // printf("In the draw function for note edit\n");
     ssd1306_clear_square(&disp, 0, 0, 128, 64);
 
     // Title

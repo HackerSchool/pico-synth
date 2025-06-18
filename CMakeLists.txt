@@ -60,6 +60,7 @@ target_compile_options(pico-synth PRIVATE
     -Wno-error=maybe-uninitialized
     -Wno-error=unused-parameter
     -Wno-error=discarded-qualifiers
+    -Wno-error=shadow
 )
 
 
@@ -94,11 +95,13 @@ target_include_directories(pico-synth PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/synth
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ui
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/tinyusb/hw
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/tinyusb
 )
 
 # Enable USB and UART for debugging
 pico_enable_stdio_usb(${bin_name} 1)
-pico_enable_stdio_uart(${bin_name} 1)
+pico_enable_stdio_uart(${bin_name} 0)
 
 # Link necessary libraries
 target_link_libraries(${bin_name} PRIVATE

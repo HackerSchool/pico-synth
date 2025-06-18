@@ -220,7 +220,7 @@ void UiHandler::main_update_display(UiHandler &self) {
     }
 
     if (self.filter_dirty) {
-        printf("YOOOOO\n");
+        // printf("YOOOOO\n");
         hw.draw_filter(self.filter_type, 100.f);
         changed = true;
         self.filter_dirty = false;

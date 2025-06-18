@@ -13,8 +13,11 @@ UiHandler::UiHandler(HardwareManager &hw, MidiHandler &midi_handler,
 void UiHandler::update() {
     UiDispatchEntry ui_dispatch_entry = ui_dispatch_table[ui_state];
     ui_dispatch_entry.handle_encoders(*this);
+    tud_task(); // Service USB
     ui_dispatch_entry.handle_switches(*this);
+    tud_task(); // Service USB
     ui_dispatch_entry.handle_display(*this);
+    tud_task(); // Service USB
 }
 
 // Helper functions

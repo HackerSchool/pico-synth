@@ -94,7 +94,7 @@ class UiHandler {
     WaveType last_wave_type = static_cast<WaveType>(-1);
     bool adsr_dirty = 1;
     bool channel_dirty = 1;
-    uint8_t midi_channel = 1;
+    uint8_t midi_channel = 0;
     int8_t octave = 0;
 
     uint8_t filter_cutoff_msb = 64; // Default mid-range

@@ -96,11 +96,9 @@ int main() {
                     CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS, 150 * MHZ,
                     150 * MHZ); // Standard 125MHz
 
-    stdio_init_all();
-    stdio_usb_init();
-
     // Initialize TinyUSB
     tusb_init();
+    stdio_usb_init();
 
     // Initialize I2S audio output
     ap = audio_init();
