@@ -32,6 +32,7 @@ public:
                     uint8_t fm_depth_);
     void gate_on();
     void gate_off();
+    bool is_idle();
 
     std::array<Operator, OP_PER_VOICE> op;
     uint8_t midi_note;

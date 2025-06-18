@@ -1,4 +1,5 @@
 #include "Operator.hpp"
+#include "Envelope.hpp"
 #include "config.hpp"
 #include <cstdint>
 
@@ -22,6 +23,7 @@ Voice::Voice() {
     for(int i = 0; i < OP_PER_VOICE; i++){
         op[i] = Operator();
     }
+    op[0].env.set_ADSR(0,80, 5, 100);
 }
 
 void Voice::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer,
@@ -42,5 +44,10 @@ void Voice::gate_off(){
     for(int i = 0; i < OP_PER_VOICE; i++){
         op[i].env.gate_off();
     }
+}
+
+
+bool Voice::is_idle(){
+    return (op[1].env.state == ADSREnvelope::ENV_IDLE);
 }
 

@@ -77,6 +77,7 @@ target_sources(${bin_name} PRIVATE
     src/synth/Oscillator.cpp
     src/synth/Envelope.cpp
     src/synth/Synth.cpp
+    src/synth/Operator.cpp
     src/ui/Ui.cpp
     src/ui/main_menu.cpp
     src/ui/midi_menu.cpp

@@ -25,7 +25,7 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
 
     // cleanup oscillators
     for (int i = 0; i < NUM_VOICES; i++) {
-        if (voice[i].playing && voice[i].state == 0) {
+        if (voice[i].playing && voice[i].is_idle()) {
             voice[i].playing = false;
             voice[i].steal = false;
         }
@@ -250,7 +250,7 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
                 voice[i].op[1].osc.set_wavetable(wt);
                 voice[i].op[1].osc.set_dco_step(note);
                 voice[i].op[0].osc.set_dco_step(note + 12);
-                voice[i].state = 1;
+                // voice[i].state = 1;
 
                 // // Apply channel ADSR params
                 // envelopes[i].set_ADSR(channel_params[channel].attack,
@@ -277,7 +277,7 @@ void Synth::note_off(uint8_t channel, uint8_t note, uint8_t velocity) {
             voice[i].gate_off();
             // osc_playing[i] = false;
             voice[i].steal = true;
-            voice[i].state = false;
+            // voice[i].state = false;
             notes_playing_bitset.reset(note);
             // printf("Note Off on Synth: note=%d, velocity=%d\n", note,
             // velocity);
