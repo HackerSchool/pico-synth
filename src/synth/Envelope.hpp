@@ -42,12 +42,6 @@ class ADSREnvelope {
     };
 
     EnvelopeState state = ENV_IDLE;
-
-  private:
-    // std::array<int16_t, SAMPLES_PER_BUFFER> *in_signal;
-    // std::array<int16_t, SAMPLES_PER_BUFFER> output;
-
-    // Current envelope state
 };
 
 #endif // !ENVELOPE_HPP

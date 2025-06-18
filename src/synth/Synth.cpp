@@ -16,19 +16,18 @@ const int wave_max = WAVE_MAX;
 
 Synth::Synth() {
     // init the oscillators and envelopes
-    for (int i = 0; i < NUM_OSC; i++) {
-        oscillators[i] = Oscillator(Sine, 440.f);
-        envelopes[i] = ADSREnvelope(1, 1, 100, 1);
+    for (int i = 0; i < NUM_VOICES; i++) {
+        voice[i] = Voice();
     }
 }
 
 void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
 
     // cleanup oscillators
-    for (int i = 0; i < NUM_OSC; i++) {
-        if (osc_playing[i] and envelopes[i].state == ADSREnvelope::ENV_IDLE) {
-            osc_playing[i] = false;
-            osc_steal[i] = false;
+    for (int i = 0; i < NUM_VOICES; i++) {
+        if (voice[i].playing && voice[i].state == 0) {
+            voice[i].playing = false;
+            voice[i].steal = false;
         }
     }
 
@@ -45,17 +44,11 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
     interp_config_set_add_raw(&cfg1, true);
     interp_set_config(interp1, 0, &cfg1);
 
-    for (int i = 0; i < NUM_OSC; i++) {
-        if (!osc_playing[i]) {
+    for (int i = 0; i < NUM_VOICES; i++) {
+        if (!voice[i].playing) {
             continue;
         }
-        // oscillators[i].out();
-        std::array<int16_t, SAMPLES_PER_BUFFER> flow_buffer{0};
-        oscillators[i].out_interp(flow_buffer,
-                                  channel_params[0].filter_cutoff_msb);
-        envelopes[i].out(flow_buffer);
-        // std::array<int16_t, SAMPLES_PER_BUFFER> &env_out_i =
-        //     envelopes[i].get_output();
+        voice[i].out(flow_buffer, channel_params[0].filter_cutoff_msb);
         for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
             // divide by 8
             buffer[k] += flow_buffer[k] >> 4;
@@ -66,17 +59,17 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
     // low_pass_cheb.out(buffer.data(), buffer.size());
 
     // Apply the selected filter
-    switch (current_filter_type) {
-    case FILTER_LOW_PASS:
-        low_pass.out(buffer.data(), buffer.size());
-        break;
-    case FILTER_CHEBYSHEV:
-        low_pass_cheb.out(buffer.data(), buffer.size());
-        break;
-    default:
-        // No filtering
-        break;
-    }
+    // switch (current_filter_type) {
+    // case FILTER_LOW_PASS:
+    //     low_pass.out(buffer.data(), buffer.size());
+    //     break;
+    // case FILTER_CHEBYSHEV:
+    //     low_pass_cheb.out(buffer.data(), buffer.size());
+    //     break;
+    // default:
+    //     // No filtering
+    //     break;
+    // }
 }
 
 std::array<int16_t, SAMPLES_PER_BUFFER> &Synth::get_output() { return output; }
@@ -114,54 +107,58 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
     case 0xB0: { // Control Change
 
         switch (note) {
-        case 73: // Attack
-            channel_params[channel].attack = velocity;
-            printf("attack changed: %d\n", velocity);
-            for (int i = 0; i < NUM_OSC; i++) {
-                if (midi_channel[i] == channel) {
-                    envelopes[i].set_ADSR(channel_params[channel].attack,
-                                          channel_params[channel].decay,
-                                          channel_params[channel].sustain >> 8,
-                                          channel_params[channel].release);
-                }
-            }
-            break;
-        case 75: // Decay
-            channel_params[channel].decay = velocity;
-            printf("decay changed: %d\n", velocity);
-            for (int i = 0; i < NUM_OSC; i++) {
-                if (midi_channel[i] == channel) {
-                    envelopes[i].set_ADSR(channel_params[channel].attack,
-                                          channel_params[channel].decay,
-                                          channel_params[channel].sustain >> 8,
-                                          channel_params[channel].release);
-                }
-            }
-            break;
-        case 70: // Sustain
-            channel_params[channel].sustain = velocity << 8;
-            printf("sustain changed: %d\n", velocity);
-            for (int i = 0; i < NUM_OSC; i++) {
-                if (midi_channel[i] == channel) {
-                    envelopes[i].set_ADSR(channel_params[channel].attack,
-                                          channel_params[channel].decay,
-                                          channel_params[channel].sustain >> 8,
-                                          channel_params[channel].release);
-                }
-            }
-            break;
-        case 72: // Release
-            channel_params[channel].release = velocity;
-            printf("release changed: %d\n", velocity);
-            for (int i = 0; i < NUM_OSC; i++) {
-                if (midi_channel[i] == channel) {
-                    envelopes[i].set_ADSR(channel_params[channel].attack,
-                                          channel_params[channel].decay,
-                                          channel_params[channel].sustain >> 8,
-                                          channel_params[channel].release);
-                }
-            }
-            break;
+            // case 73: // Attack
+            //     channel_params[channel].attack = velocity;
+            //     printf("attack changed: %d\n", velocity);
+            //     for (int i = 0; i < NUM_VOICES; i++) {
+            //         if (midi_channel[i] == channel) {
+            //             envelopes[i].set_ADSR(channel_params[channel].attack,
+            //                                   channel_params[channel].decay,
+            //                                   channel_params[channel].sustain
+            //                                   >> 8,
+            //                                   channel_params[channel].release);
+            //         }
+            //     }
+            //     break;
+            // case 75: // Decay
+            //     channel_params[channel].decay = velocity;
+            //     printf("decay changed: %d\n", velocity);
+            //     for (int i = 0; i < NUM_VOICES; i++) {
+            //         if (midi_channel[i] == channel) {
+            //             envelopes[i].set_ADSR(channel_params[channel].attack,
+            //                                   channel_params[channel].decay,
+            //                                   channel_params[channel].sustain
+            //                                   >> 8,
+            //                                   channel_params[channel].release);
+            //         }
+            //     }
+            //     break;
+            // case 70: // Sustain
+            //     channel_params[channel].sustain = velocity << 8;
+            //     printf("sustain changed: %d\n", velocity);
+            //     for (int i = 0; i < NUM_VOICES; i++) {
+            //         if (midi_channel[i] == channel) {
+            //             envelopes[i].set_ADSR(channel_params[channel].attack,
+            //                                   channel_params[channel].decay,
+            //                                   channel_params[channel].sustain
+            //                                   >> 8,
+            //                                   channel_params[channel].release);
+            //         }
+            //     }
+            //     break;
+            // case 72: // Release
+            //     channel_params[channel].release = velocity;
+            //     printf("release changed: %d\n", velocity);
+            //     for (int i = 0; i < NUM_VOICES; i++) {
+            //         if (midi_channel[i] == channel) {
+            //             envelopes[i].set_ADSR(channel_params[channel].attack,
+            //                                   channel_params[channel].decay,
+            //                                   channel_params[channel].sustain
+            //                                   >> 8,
+            //                                   channel_params[channel].release);
+            //         }
+            //     }
+            //     break;
 
         case 16: // Filter Cutoff MSB (CC 16)
             channel_params[channel].filter_cutoff_msb = velocity;
@@ -230,37 +227,40 @@ const WaveType channel_wave_map[16] = {
 
 void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
     // Check if note is playing
-    int osc_index = -1;
-    for (int i = 0; i < NUM_OSC; i++) {
-        if (osc_midi_note[i] == note && osc_playing[i] && !osc_steal[i] &&
-            midi_channel[i] == channel) {
+    int voice_index = -1;
+    for (int i = 0; i < NUM_VOICES; i++) {
+        if (voice[i].midi_note == note && voice[i].playing && !voice[i].steal &&
+            voice[i].midi_channel == channel) {
             printf("Note already playing: note=%d, velocity=%d\n", note,
                    velocity);
-            osc_index = i;
+            voice_index = i;
             break;
         }
     }
 
     // Check if there are any free oscilators
-    if (osc_index == -1) {
-        for (int i = 0; i < NUM_OSC; i++) {
-            if (!osc_playing[i]) {
-                midi_channel[i] = channel;
-                osc_playing[i] = true;
-                osc_midi_note[i] = note;
+    if (voice_index == -1) {
+        for (int i = 0; i < NUM_VOICES; i++) {
+            if (!voice[i].playing) {
+                voice[i].midi_channel = channel;
+                voice[i].playing = true;
+                voice[i].midi_note = note;
                 notes_playing_bitset.set(note);
                 WaveType wt = channel_wave_map[channel];
-                oscillators[i].set_wavetable(wt);
-                oscillators[i].set_dco_step(note);
+                voice[i].op[1].osc.set_wavetable(wt);
+                voice[i].op[1].osc.set_dco_step(note);
+                voice[i].op[0].osc.set_dco_step(note + 12);
+                voice[i].state = 1;
 
-                // Apply channel ADSR params
-                envelopes[i].set_ADSR(channel_params[channel].attack,
-                                      channel_params[channel].decay,
-                                      channel_params[channel].sustain >>
-                                          8, // Convert back from 16-bit
-                                      channel_params[channel].release);
-                envelopes[i].gate_on();
+                // // Apply channel ADSR params
+                // envelopes[i].set_ADSR(channel_params[channel].attack,
+                //                       channel_params[channel].decay,
+                //                       channel_params[channel].sustain >>
+                //                           8, // Convert back from 16-bit
+                //                       channel_params[channel].release);
+                // envelopes[i].gate_on();
                 // printf("New Note: note=%d, velocity=%d\n", note, velocity);
+                voice[i].gate_on();
                 break;
             }
         }
@@ -270,13 +270,14 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
 void Synth::note_off(uint8_t channel, uint8_t note, uint8_t velocity) {
     // Check if note is playing
     // printf("I am in note off");
-    for (int i = 0; i < NUM_OSC; i++) {
-        if (osc_midi_note[i] == note && osc_playing[i] && !osc_steal[i] &&
-            midi_channel[i] == channel) {
+    for (int i = 0; i < NUM_VOICES; i++) {
+        if (voice[i].midi_note == note && voice[i].playing && !voice[i].steal &&
+            voice[i].midi_channel == channel) {
             // envelopes[i].set_trigger(0.f);
-            envelopes[i].gate_off();
+            voice[i].gate_off();
             // osc_playing[i] = false;
-            osc_steal[i] = true;
+            voice[i].steal = true;
+            voice[i].state = false;
             notes_playing_bitset.reset(note);
             // printf("Note Off on Synth: note=%d, velocity=%d\n", note,
             // velocity);
@@ -312,25 +313,25 @@ const char *Synth::get_notes_playing_names() {
     return buffer;
 }
 
-void Synth::cycle_wave_type(int delta) {
-    WaveType wave_type = oscillators[0].get_wave_type();
-    int new_index = static_cast<int>(wave_type) + delta;
-
-    // Wrap around the enum range
-    const int max_wave = static_cast<int>(WaveType::Sinc);
-    if (new_index > max_wave)
-        new_index = 0;
-    if (new_index < 0)
-        new_index = max_wave;
-
-    wave_type = static_cast<WaveType>(new_index);
-
-    for (auto &osc : oscillators) {
-        osc.set_wavetable(wave_type);
-    }
-
-    // printf("Waveform set to: %d\n", wave_type);
-}
+// void Synth::cycle_wave_type(int delta) {
+//     WaveType wave_type = oscillators[0].get_wave_type();
+//     int new_index = static_cast<int>(wave_type) + delta;
+//
+//     // Wrap around the enum range
+//     const int max_wave = static_cast<int>(WaveType::Sinc);
+//     if (new_index > max_wave)
+//         new_index = 0;
+//     if (new_index < 0)
+//         new_index = max_wave;
+//
+//     wave_type = static_cast<WaveType>(new_index);
+//
+//     for (auto &osc : oscillators) {
+//         osc.set_wavetable(wave_type);
+//     }
+//
+//     // printf("Waveform set to: %d\n", wave_type);
+// }
 
 void Synth::cycle_filter_type() {
     current_filter_type =

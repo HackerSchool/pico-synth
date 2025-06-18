@@ -4,14 +4,16 @@
 #include "Envelope.hpp"
 #include "Filter.hpp"
 #include "MidiHandler.hpp"
+#include "Operator.hpp"
 #include "Oscillator.hpp"
 #include "Wavetable.hpp"
+
 #include "config.hpp"
 #include "tusb.h"
 #include <bitset>
 #include <cstdint>
 
-#define NUM_OSC 32
+#define NUM_VOICES 32
 
 // Channel-specific parameters (16 MIDI channels)
 struct ChannelParams {
@@ -29,6 +31,11 @@ class Synth {
   public:
     Synth();
     void out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer);
+
+    // TODO: make it into an array of buffers, max 6 should be enough for all
+    // algos
+    std::array<int16_t, SAMPLES_PER_BUFFER> flow_buffer{0};
+
     void out_interp();
     std::array<int16_t, SAMPLES_PER_BUFFER> &get_output();
     void process_midi_packet(uint8_t packet[4]);
@@ -47,12 +54,15 @@ class Synth {
 
     // voice arrays
     // maybe make Ill make this into a struct, but thats the age old question
-    std::array<Oscillator, NUM_OSC> oscillators;
-    std::array<ADSREnvelope, NUM_OSC> envelopes;
-    bool osc_playing[NUM_OSC] = {};
-    uint8_t osc_midi_note[NUM_OSC] = {};
-    uint8_t midi_channel[NUM_OSC] = {};
-    bool osc_steal[NUM_OSC] = {};
+    std::array<Voice, NUM_VOICES> voice;
+
+    // std::array<Oscillator, NUM_VOICES> oscillators;
+    // std::array<ADSREnvelope, NUM_VOICES> envelopes;
+    // bool osc_playing[NUM_VOICES] = {};
+    // uint8_t osc_midi_note[NUM_VOICES] = {};
+    // uint8_t midi_channel[NUM_VOICES] = {};
+    // bool osc_steal[NUM_VOICES] = {};
+
 
     void cycle_filter_type();
 

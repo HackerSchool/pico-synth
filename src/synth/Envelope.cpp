@@ -8,7 +8,7 @@
 #define FRAC_BITS 24
 
 ADSREnvelope::ADSREnvelope()
-    : a(64), d(64), s(64), r(64), state(ENV_IDLE) {} // Default constructor
+    : a(64), d(64), s(64 << 8), r(64), state(ENV_IDLE) {} // Default constructor
 
 ADSREnvelope::ADSREnvelope(uint8_t a_in, uint8_t d_in, uint8_t s_in,
                            uint8_t r_in)
