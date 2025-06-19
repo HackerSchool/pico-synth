@@ -15,6 +15,8 @@
 
 #define NUM_VOICES 32
 
+extern const WaveType channel_wave_map[16];
+
 // Channel-specific parameters (16 MIDI channels)
 struct ChannelParams {
     uint8_t attack = 5;

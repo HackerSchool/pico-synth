@@ -2,6 +2,7 @@
 #include "Wavetable.hpp"
 #include "fixed_point.h"
 #include "ssd1306.h"
+#include "ui/draw_utils.hpp"
 #include <cstdint>
 #include <cstdio>
 
@@ -139,7 +140,7 @@ void HardwareManager::init_display() {
     ssd1306_clear(&disp);
     const char *words[] = {"PicoSynth", "v1.0"};
     ssd1306_draw_string(&disp, 8, 10, 2, words[0]);
-    ssd1306_draw_string(&disp, 8, 30, 1, words[1]);
+    ssd1306_draw_string_inverted(&disp, 8, 30, 1, words[1]);
     ssd1306_show(&disp);
     sleep_ms(1000);  // Hold the display for 1 second
 }
@@ -215,6 +216,10 @@ void HardwareManager::draw_wave_type(uint8_t midi_channel, int8_t octave) {
     int8_t display_octave = octave + 4;
     sprintf(buf, "Oc:%+d", display_octave);
     ssd1306_draw_string(&disp, 72, 0, 1, buf); // Draw after channel number
+
+    //Draw waveform
+    ssd1306_clear_square(&disp, 0, 8, 128, 24);
+    draw_waveform(&disp, get_wavetable_for_channel(midi_channel), 0, 8, 128, 24);
 }
 
 void HardwareManager::draw_adsr(int current_adsr_param, uint8_t a, uint8_t d,
@@ -280,8 +285,8 @@ void HardwareManager::draw_filter(uint8_t filter_type, float cutoff) {
         break;
     }
 
-    ssd1306_clear_square(&disp, 0, 8, 128, 8); // Clear the entire line
-    ssd1306_draw_string(&disp, 8, 8, 1, fc_value);
+    ssd1306_clear_square(&disp, 0, 52, 128, 8); // Clear the entire line
+    ssd1306_draw_string(&disp, 8, 52, 1, fc_value);
 }
 
 void HardwareManager::display_show() { ssd1306_show(&disp); }
@@ -296,7 +301,7 @@ void HardwareManager::draw_midi_settings(bool midi_out, bool midi_in,
     ssd1306_clear_square(&disp, 0, 0, 128, 64);
 
     // Title
-    ssd1306_draw_string(&disp, 8, 0, 1, "MIDI Settings");
+    ssd1306_draw_string_inverted(&disp, 8, 0, 1, "MIDI Settings");
 
     // Draw each setting with ON/OFF status
     char line1[20], line2[20], line3[20], line4[20], line5[20];
@@ -323,12 +328,12 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
     ssd1306_clear_square(&disp, 0, 0, 128, 64);
 
     // Title
-    ssd1306_draw_string(&disp, 8, 0, 1, "Choose Wisely");
+    ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Select Menu");
 
     // Draw each setting with ON/OFF status
     char line1[20], line2[20], line3[20], line4[20];
 
-    snprintf(line1, sizeof(line1), "Main Menu %s", chosen_index == 0 ? "<" : "");
+    snprintf(line1, sizeof(line1), "Synth %s", chosen_index == 0 ? "<" : "");
     snprintf(line2, sizeof(line2), "MIDI %s", chosen_index == 1 ? "<" : "");
     snprintf(line3, sizeof(line3), "Sequencer %s" , chosen_index == 2 ? "<" : "");
     //snprintf(line5, sizeof(line5), "%d" , chosen_index);
@@ -348,7 +353,7 @@ void HardwareManager::draw_sequencer_settings(bool playing, uint32_t tempo,
     ssd1306_clear_square(&disp, 0, 0, 128, 64);
 
     // Title
-    ssd1306_draw_string(&disp, 8, 0, 1, "Sequencer");
+    ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Sequencer");
 
     // Play/Pause status
     char status_line[20];
@@ -402,7 +407,7 @@ void HardwareManager::draw_sequencer_note_edit(
     ssd1306_clear_square(&disp, 0, 0, 128, 64);
 
     // Title
-    ssd1306_draw_string(&disp, 8, 0, 1, "Note Edit");
+    ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Note Edit");
 
     // Current step and channel info
     char step_line[20];
