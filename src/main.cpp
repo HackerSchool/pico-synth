@@ -34,6 +34,7 @@ static queue_t midi_queue;
 Synth synth = Synth();
 
 std::array<int16_t, SAMPLES_PER_BUFFER> output;
+std::array<int16_t, SAMPLES_PER_BUFFER> sample_buffer;
 
 // Sample player structure
 typedef struct {
@@ -136,41 +137,56 @@ void trigger_sample() {
     }
 }
 
-// Get next sample (called from Core 1)
-int16_t get_next_sample() {
+// Get buffer of samples (called from Core 1)
+void get_sample_buffer(std::array<int16_t, SAMPLES_PER_BUFFER> &sample_buffer) {
+    sample_buffer.fill(0); // Clear buffer first
+
     if (!g_sample_player.playing || g_sample_player.eof_reached) {
-        return 0;
+        return; // Return silence
     }
 
-    // Refill buffer if needed
-    if (g_sample_player.buffer_pos >= g_sample_player.buffer_valid) {
-        UINT bytes_read;
-        FRESULT result =
-            f_read(&g_sample_player.file, g_sample_player.read_buffer,
-                   sizeof(g_sample_player.read_buffer), &bytes_read);
+    size_t samples_filled = 0;
 
-        if (result != FR_OK || bytes_read == 0) {
-            g_sample_player.eof_reached = true;
-            g_sample_player.playing = false;
-            return 0;
+    while (samples_filled < SAMPLES_PER_BUFFER &&
+           !g_sample_player.eof_reached) {
+        // Refill read buffer if needed
+        if (g_sample_player.buffer_pos >= g_sample_player.buffer_valid) {
+            UINT bytes_read;
+            FRESULT result =
+                f_read(&g_sample_player.file, g_sample_player.read_buffer,
+                       sizeof(g_sample_player.read_buffer), &bytes_read);
+
+            if (result != FR_OK || bytes_read == 0) {
+                g_sample_player.eof_reached = true;
+                g_sample_player.playing = false;
+                break; // EOF reached, rest of buffer stays zero
+            }
+
+            g_sample_player.buffer_valid = bytes_read;
+            g_sample_player.buffer_pos = 0;
         }
 
-        g_sample_player.buffer_valid = bytes_read;
-        g_sample_player.buffer_pos = 0;
+        // Calculate how many samples we can copy from current read buffer
+        size_t bytes_available =
+            g_sample_player.buffer_valid - g_sample_player.buffer_pos;
+        size_t samples_available =
+            bytes_available / 2; // 16-bit = 2 bytes per sample
+        size_t samples_to_copy =
+            std::min(samples_available, SAMPLES_PER_BUFFER - samples_filled);
+
+        // Copy samples efficiently
+        int16_t *src =
+            (int16_t *)&g_sample_player.read_buffer[g_sample_player.buffer_pos];
+        for (size_t i = 0; i < samples_to_copy; i++) {
+            sample_buffer[samples_filled + i] = src[i];
+        }
+
+        g_sample_player.buffer_pos +=
+            samples_to_copy * 2; // Update byte position
+        samples_filled += samples_to_copy;
     }
 
-    // Get sample (assuming 16-bit mono for now)
-    int16_t sample = 0;
-    if (g_sample_player.buffer_pos + 1 < g_sample_player.buffer_valid) {
-        sample =
-            (int16_t)(g_sample_player.read_buffer[g_sample_player.buffer_pos] |
-                      (g_sample_player
-                           .read_buffer[g_sample_player.buffer_pos + 1]
-                       << 8));
-        g_sample_player.buffer_pos += 2;
-    }
-
-    return sample;
+    // Remaining samples in buffer are already zeroed from fill(0)
 }
 
 void enter_bootsel_mode() {
@@ -192,7 +208,6 @@ void setup_gpios(void) {
     gpio_pull_up(21);
 }
 
-
 // Modified audio_task function
 void audio_task(void) {
     // Check for sample triggers
@@ -201,26 +216,27 @@ void audio_task(void) {
         // Sample trigger received, already handled in trigger_sample()
         printf("Sample triggered on Core 1\n");
     }
-
+    
     // Clear accumulation buffer
     output.fill(0);
-
+    
     // Render synth
     synth.out(output);
-
-    // Mix in sample
+    
+    // Get sample buffer
+    std::array<int16_t, SAMPLES_PER_BUFFER> sample_buffer;
+    get_sample_buffer(sample_buffer);
+    
+    // Mix sample buffer with synth output
     for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
-        int16_t sample_value = get_next_sample();
         // Mix sample with synth (simple addition, you might want to scale)
-        int32_t mixed = (int32_t)output[i] + (int32_t)sample_value;
+        int32_t mixed = (int32_t)output[i] + (int32_t)sample_buffer[i];
         // Clamp to prevent overflow
-        if (mixed > 32767)
-            mixed = 32767;
-        if (mixed < -32768)
-            mixed = -32768;
+        if (mixed > 32767) mixed = 32767;
+        if (mixed < -32768) mixed = -32768;
         output[i] = (int16_t)mixed;
     }
-
+    
     // Send to audio buffer (your existing code)
     audio_buffer_t *buffer = take_audio_buffer(ap, true);
     if (!buffer)
