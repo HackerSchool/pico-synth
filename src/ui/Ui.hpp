@@ -5,6 +5,7 @@
 #include "MidiHandler.hpp"
 #include "Sequencer.hpp"
 #include "Synth.hpp"
+#include "Sampler.hpp"
 #include <cstdint>
 
 //When adding a new state here watch out for the order
@@ -35,7 +36,7 @@ typedef struct {
 class UiHandler {
 
   public:
-    UiHandler(HardwareManager &hw, MidiHandler &midi_handler, Sequencer &seq);
+    UiHandler(HardwareManager &hw, MidiHandler &midi_handler, Sequencer &seq, Sampler& sampler);
 
     // void init();
     void update(); // called every loop
@@ -72,6 +73,7 @@ class UiHandler {
     HardwareManager &hw;
     MidiHandler &midi;
     Sequencer &seq;
+    Sampler &sampler;
 
     UiState ui_state = UI_STATE_MAIN;
 

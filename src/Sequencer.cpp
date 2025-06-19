@@ -1,8 +1,10 @@
 #include "Sequencer.hpp"
+#include "Sampler.hpp"
 #include "Ui.hpp"
 #include <cstdint>
 
-Sequencer::Sequencer(MidiHandler &midi) : midi(midi) {
+Sequencer::Sequencer(MidiHandler &midi, Sampler &sampler)
+    : midi(midi), sampler(sampler) {
     set_tempo(120);
     initialize_pattern();
     printf("\n\n\nSequencer init!\n\n\n");
@@ -91,6 +93,7 @@ void Sequencer::play_step(uint8_t step) {
         uint8_t note = step_info[prev_step].notes[note_id];
         uint8_t channel = step_info[prev_step].channel[note_id];
         if (note != UNASSIGNED) {
+
             uint8_t packet[4];
             packet[0] = 0x08;                    // CIN = Note Off, Cable 0
             packet[1] = 0x80 | (channel & 0x0F); // Status
@@ -104,12 +107,16 @@ void Sequencer::play_step(uint8_t step) {
         uint8_t note = step_info[step].notes[note_id];
         uint8_t channel = step_info[step].channel[note_id];
         if (note != UNASSIGNED) {
-            uint8_t packet[4];
-            packet[0] = 0x09;                    // CIN = Note On, Cable 0
-            packet[1] = 0x90 | (channel & 0x0F); // Status
-            packet[2] = note;
-            packet[3] = 0x7F; // Velocity
-            midi.midi_receive_note(packet);
+            if (channel == 5) {
+                sampler.trigger_player(note - 60);
+            } else {
+                uint8_t packet[4];
+                packet[0] = 0x09;                    // CIN = Note On, Cable 0
+                packet[1] = 0x90 | (channel & 0x0F); // Status
+                packet[2] = note;
+                packet[3] = 0x7F; // Velocity
+                midi.midi_receive_note(packet);
+            }
         }
     }
 }

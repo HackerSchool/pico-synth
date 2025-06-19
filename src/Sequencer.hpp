@@ -3,6 +3,7 @@
 
 #include "MidiHandler.hpp"
 #include "Synth.hpp"
+#include "Sampler.hpp"
 #include "config.hpp"
 #include "hardware/structs/systick.h"
 #include "hardware/timer.h"
@@ -20,7 +21,7 @@ typedef struct {
 
 class Sequencer {
   public:
-    Sequencer(MidiHandler &midi);
+    Sequencer(MidiHandler &midi, Sampler &sampler);
 
     void initialize_pattern();
     void update();
@@ -55,6 +56,7 @@ class Sequencer {
 
   private:
     MidiHandler &midi;
+    Sampler &sampler;
 
     StepInfo step_info[SEQ_LEN];
 

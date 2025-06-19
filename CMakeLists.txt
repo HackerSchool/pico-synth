@@ -40,6 +40,7 @@ pico_sdk_init()
 # add_subdirectory(lib/pico_audio_i2s_32b/src/pico_audio_32b)
 # add_subdirectory(lib/fpm)
 # add_subdirectory(lib/pico-ssd1306)
+add_subdirectory(lib/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico/src)
 
 set(bin_name ${PROJECT_NAME})
 add_executable(${bin_name}
@@ -61,6 +62,11 @@ target_compile_options(pico-synth PRIVATE
     -Wno-error=unused-parameter
     -Wno-error=discarded-qualifiers
     -Wno-error=shadow
+
+    #these are for the sd-card lib
+    -Wno-error=cast-qual
+    -Wno-error=float-conversion
+    -Wno-error=float-equal
 )
 
 
@@ -70,14 +76,19 @@ target_compile_definitions(pico-synth PRIVATE
 )
 
 target_sources(${bin_name} PRIVATE 
-    # src/i2s_init.cpp
-    src/audio.c
+
+    src/MidiHandler.cpp
+    src/HardwareManager.cpp
     src/Sequencer.cpp
+    src/Sampler.cpp
+
     src/synth/Wavetable.cpp
     src/synth/Oscillator.cpp
     src/synth/Envelope.cpp
     src/synth/Synth.cpp
     src/synth/Operator.cpp
+    src/synth/Filter.cpp
+
     src/ui/Ui.cpp
     src/ui/main_menu.cpp
     src/ui/midi_menu.cpp
@@ -88,9 +99,12 @@ target_sources(${bin_name} PRIVATE
     src/MidiHandler.cpp
     src/synth/Filter.cpp
     src/HardwareManager.cpp
+
+    src/audio.c
     src/usb_descriptors.c
     src/tusb_config.h
     src/ssd1306.c
+    src/hw_config.c
 )
 
 # Add include directories for TinyUSB
@@ -119,6 +133,7 @@ target_link_libraries(${bin_name} PRIVATE
     pico_multicore     # If using Core 1 for processing
     tinyusb_device
     tinyusb_board
+    no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
 )
 
 
