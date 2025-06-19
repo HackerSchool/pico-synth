@@ -76,14 +76,19 @@ target_compile_definitions(pico-synth PRIVATE
 )
 
 target_sources(${bin_name} PRIVATE 
-    # src/i2s_init.cpp
-    src/audio.c
+
+    src/MidiHandler.cpp
+    src/HardwareManager.cpp
     src/Sequencer.cpp
+    src/Sampler.cpp
+
     src/synth/Wavetable.cpp
     src/synth/Oscillator.cpp
     src/synth/Envelope.cpp
     src/synth/Synth.cpp
     src/synth/Operator.cpp
+    src/synth/Filter.cpp
+
     src/ui/Ui.cpp
     src/ui/main_menu.cpp
     src/ui/midi_menu.cpp
@@ -93,6 +98,8 @@ target_sources(${bin_name} PRIVATE
     src/MidiHandler.cpp
     src/synth/Filter.cpp
     src/HardwareManager.cpp
+
+    src/audio.c
     src/usb_descriptors.c
     src/tusb_config.h
     src/ssd1306.c
