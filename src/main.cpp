@@ -69,7 +69,7 @@ void audio_task(void) {
 
     // Mix sampler with synth
     for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
-        int32_t mixed = (int32_t)output[i] + (int32_t)sampler_buffer[i];
+        int32_t mixed = (int32_t)output[i] + (int32_t)(sampler_buffer[i]>> 2);
         if (mixed > 32767)
             mixed = 32767;
         if (mixed < -32768)
