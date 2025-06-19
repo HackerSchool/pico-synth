@@ -7,14 +7,18 @@
 #include "Synth.hpp"
 #include <cstdint>
 
+//When adding a new state here watch out for the order
+//sine enums are basically ints
 typedef enum UiState {
-    UI_STATE_MAIN,
-    UI_STATE_MIDI_SETTINGS,
-    UI_STATE_SEQUENCER,
+    UI_STATE_MAIN, // = 0
+    UI_STATE_MIDI_SETTINGS, // = 1
+    UI_STATE_SEQUENCER, // = 2
     UI_STATE_SEQUENCER_EDIT,
     UI_STATE_CHOOSE,
     UI_STATE_COUNT // helpful for bounds checking
 } UiState;
+
+#define NUM_USABLE_STATES (3) //3 states (MAIN, MIDI, SEQUENCER) (states listed in the menu)
 
 class UiHandler;
 

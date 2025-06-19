@@ -178,7 +178,9 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
 
             if (i == 3) {
                 self.ui_state = UI_STATE_CHOOSE;
-                self.midi_settings_dirty = true;
+                self.chosen_index = (UI_STATE_MAIN + 1 + NUM_USABLE_STATES) % NUM_USABLE_STATES;
+                self.main_dirty = true;
+                self.chosen_dirty = true;
                 printf("State: CHOOSE_STATE");
             }
         }

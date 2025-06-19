@@ -137,9 +137,11 @@ void HardwareManager::init_display() {
     // ssd1306_hflip(&disp, 1);
     ssd1306_rotate(&disp, 1);
     ssd1306_clear(&disp);
-    const char *words[] = {"SSD1306", "DISPLAY", "DRIVER"};
-    ssd1306_draw_string(&disp, 8, 24, 1, words[0]);
+    const char *words[] = {"PicoSynth", "v1.0"};
+    ssd1306_draw_string(&disp, 8, 10, 2, words[0]);
+    ssd1306_draw_string(&disp, 8, 30, 1, words[1]);
     ssd1306_show(&disp);
+    sleep_ms(1000);  // Hold the display for 1 second
 }
 
 void HardwareManager::update() {
@@ -324,19 +326,18 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
     ssd1306_draw_string(&disp, 8, 0, 1, "Choose Wisely");
 
     // Draw each setting with ON/OFF status
-    char line1[20], line2[20], line3[20], line4[20], line5[20];
+    char line1[20], line2[20], line3[20], line4[20];
 
-    snprintf(line1, sizeof(line1), "BACK %s", chosen_index == 0 ? "<" : "" );
-    snprintf(line2, sizeof(line2), "Main Menu %s", chosen_index == 1 ? "<" : "");
-    snprintf(line3, sizeof(line3), "MIDI %s", chosen_index == 2 ? "<" : "");
-    snprintf(line4, sizeof(line4), "Sequencer %s" , chosen_index == 3 ? "<" : "");
-    snprintf(line5, sizeof(line5), "%d" , chosen_index);
+    snprintf(line1, sizeof(line1), "Main Menu %s", chosen_index == 0 ? "<" : "");
+    snprintf(line2, sizeof(line2), "MIDI %s", chosen_index == 1 ? "<" : "");
+    snprintf(line3, sizeof(line3), "Sequencer %s" , chosen_index == 2 ? "<" : "");
+    //snprintf(line5, sizeof(line5), "%d" , chosen_index);
 
-    ssd1306_draw_string(&disp, 8, 12, 1, line1);
-    ssd1306_draw_string(&disp, 8, 20, 1, line2);
-    ssd1306_draw_string(&disp, 8, 28, 1, line3);
-    ssd1306_draw_string(&disp, 8, 36, 1, line4);
-    ssd1306_draw_string(&disp, 8, 44, 1, line5);
+    //ssd1306_draw_string(&disp, 8, 12, 1, line1);
+    ssd1306_draw_string(&disp, 8, 20, 1, line1);
+    ssd1306_draw_string(&disp, 8, 28, 1, line2);
+    ssd1306_draw_string(&disp, 8, 36, 1, line3);
+    ssd1306_draw_string(&disp, 8, 44, 1, line4);
 
 }
 

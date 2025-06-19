@@ -1,6 +1,12 @@
 #include "HardwareManager.hpp"
 #include "Ui.hpp"
 
+/*
+self.chosen_index = 0 -> Main Menu
+self.chosen_index = 1 -> MIDI
+self.chosen_index = 2 -> Sequencer
+*/
+
 void UiHandler::choose_handle_encoders(UiHandler &self) {
     HardwareManager &hw = self.hw;
     for (int i = 0; i < NUM_ENCODERS; ++i) {
@@ -20,12 +26,7 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                 // Could adjust other MIDI settings
                 break;
             case 3:
-                if(delta > 0){
-                    self.chosen_index += 1;
-                }
-                else{
-                    self.chosen_index -= 1;
-                }
+                self.chosen_index = (self.chosen_index + (delta > 0 ? 1 : -1) + NUM_USABLE_STATES) % (NUM_USABLE_STATES);
                 self.chosen_dirty = true;
                 break;
             }
@@ -47,7 +48,16 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                 self.chosen_dirty = true;
                 break;
             case 3:
-                self.chosen_dirty = true;
+                self.ui_state = static_cast<UiState>(self.chosen_index);
+                //self.chosen_dirty = true;
+                self.main_dirty = true;
+                self.adsr_dirty = true;
+                self.channel_dirty = true;
+                self.filter_dirty = true;
+                self.midi_settings_dirty = true;
+                self.sequencer_settings_dirty = true;
+                self.sequencer_dirty = true;
+
                 break;
             }
         }

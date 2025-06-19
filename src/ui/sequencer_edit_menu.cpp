@@ -168,6 +168,7 @@ void UiHandler::sequencer_note_edit_handle_encoders(UiHandler &self) {
             case 3: // Go to next menu (back to main?)
                 self.ui_state = UI_STATE_CHOOSE;
                 printf("State: MAIN\n");
+                self.chosen_dirty = true;
                 self.channel_dirty = true;
                 self.filter_dirty = true;
                 self.adsr_dirty = true;
