@@ -20,9 +20,10 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                 // Could adjust other MIDI settings
                 break;
             case 3:
-                if (delta > 0) {
+                if(delta > 0){
                     self.chosen_index += 1;
-                } else {
+                }
+                else{
                     self.chosen_index -= 1;
                 }
                 self.chosen_dirty = true;
@@ -41,7 +42,7 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                 break;
             case 1:
                 self.chosen_dirty = true;
-                break
+                break;
             case 2:
                 self.chosen_dirty = true;
                 break;
@@ -56,9 +57,9 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
 void UiHandler::choose_update_display(UiHandler &self) {
     HardwareManager &hw = self.hw;
 
-    if (self.choose_dirty) {
+    if (self.chosen_dirty) {
         hw.draw_choose_menu(self.chosen_index);
         hw.display_show();
-        self.choose_dirty = false;
+        self.chosen_dirty = false;
     }
 }

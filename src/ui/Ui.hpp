@@ -85,9 +85,9 @@ class UiHandler {
             .handle_encoders = sequencer_note_edit_handle_encoders,
             .handle_switches = sequencer_note_edit_handle_switches,
             .handle_display = sequencer_note_edit_update_display},
-        [UI_STATE_CHOOSE = {.handle_encoders = choose_handle_encoders,
-                            .handle_switches = main_handle_switches,
-                            .handle_display = choose_update_display}};
+        [UI_STATE_CHOOSE] = {.handle_encoders = choose_handle_encoders, // <- CORRECTED: Removed the '=' after UI_STATE_CHOOSE
+                     .handle_switches = main_handle_switches,
+                     .handle_display = choose_update_display}}; // The semicolon only belongs here, at the end of the entire array initialization block.
 
     // shit I need for the main state
     int current_adsr_param = 0; // 0=A, 1=D, 2=S, 3=R
@@ -134,7 +134,7 @@ class UiHandler {
     bool sequencer_dirty = true;
 
     // choose state~
-    bool choose_dirty = true;
+    bool chosen_dirty = true;
     int chosen_index = 1;
 };
 

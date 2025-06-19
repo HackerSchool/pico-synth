@@ -119,6 +119,8 @@ class HardwareManager {
                                   bool auto_stepping_enabled, bool is_playing,
                                   uint8_t *step_notes, uint8_t *step_channels);
 
+    void draw_choose_menu(int chosen_index);
+
     void display_show();
     void display_clear();
 
