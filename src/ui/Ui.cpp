@@ -7,8 +7,8 @@ const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
                              66, 68, 70, -1, 67, 69, 71, 72};
 
 UiHandler::UiHandler(HardwareManager &hw, MidiHandler &midi_handler,
-                     Sequencer &seq)
-    : hw(hw), midi(midi_handler), seq(seq) {}
+                     Sequencer &seq, Sampler& sampler)
+    : hw(hw), midi(midi_handler), seq(seq), sampler(sampler) {}
 
 void UiHandler::update() {
     UiDispatchEntry ui_dispatch_entry = ui_dispatch_table[ui_state];

@@ -10,7 +10,9 @@ const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
 void UiHandler::sequencer_note_edit_handle_switches(UiHandler &self) {
     Sequencer &sequencer = self.seq;
     MidiHandler &midi = self.midi;
+    Sampler &sampler = self.sampler;
     uint16_t curr = self.hw.curr_switches;
+
     KeyChanges changes = compute_key_changes(self.prev_switches, curr);
     update_leds_from_keys(i2c1, self.prev_switches, curr);
 
@@ -36,12 +38,18 @@ void UiHandler::sequencer_note_edit_handle_switches(UiHandler &self) {
 
                 // play note
                 if (self.switches_in) {
-                    uint8_t packet[4];
-                    packet[0] = 0x09; // CIN = Note On, Cable 0
-                    packet[1] = 0x90 | (self.midi_channel & 0x0F); // Status
-                    packet[2] = note + 12 * self.octave;
-                    packet[3] = 0x7F; // Velocity
-                    midi.midi_receive_note(packet);
+
+                    if (self.midi_channel == 5) {
+                        sampler.trigger_player(note - 60);
+                    } else {
+
+                        uint8_t packet[4];
+                        packet[0] = 0x09; // CIN = Note On, Cable 0
+                        packet[1] = 0x90 | (self.midi_channel & 0x0F); // Status
+                        packet[2] = note + 12 * self.octave;
+                        packet[3] = 0x7F; // Velocity
+                        midi.midi_receive_note(packet);
+                    }
                 }
                 // if (self.midi_out)
                 //     midi.midi_send_note(note, 127, true);
@@ -159,9 +167,9 @@ void UiHandler::sequencer_note_edit_handle_encoders(UiHandler &self) {
                        self.auto_stepping_enabled ? "ON" : "OFF");
                 break;
 
-            case 2:                                 // Next Sequencer Menu
-                self.ui_state = UI_STATE_SEQUENCER; // or whatever the next
-                self.sequencer_settings_dirty = true;        // sequencer menu is
+            case 2:                                   // Next Sequencer Menu
+                self.ui_state = UI_STATE_SEQUENCER;   // or whatever the next
+                self.sequencer_settings_dirty = true; // sequencer menu is
                 printf("State: SEQUENCER_TEMPO\n");
                 break;
 

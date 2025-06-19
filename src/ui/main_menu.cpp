@@ -1,5 +1,6 @@
 #include "HardwareManager.hpp"
 #include "MidiHandler.hpp"
+#include "Sampler.hpp"
 #include "Ui.hpp"
 #include "fixed_point.h"
 #include <cstdint>
@@ -11,6 +12,7 @@ const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
 void UiHandler::main_handle_switches(UiHandler &self) {
 
     MidiHandler &midi = self.midi;
+    Sampler &sampler = self.sampler;
 
     uint16_t curr = self.hw.curr_switches;
     KeyChanges changes = compute_key_changes(self.prev_switches, curr);
@@ -20,7 +22,10 @@ void UiHandler::main_handle_switches(UiHandler &self) {
         if ((changes.note_on_mask >> i) & 1) {
             uint8_t note = key_to_midi[i];
             if (note != 255) {
-                if (self.switches_in) {
+                if(self.midi_channel == 5){
+                    sampler.trigger_player(note-60);
+                }
+                else if (self.switches_in) {
                     uint8_t packet[4];
                     packet[0] = 0x09; // CIN = Note On, Cable 0
                     packet[1] = 0x90 | (self.midi_channel & 0x0F); // Status
