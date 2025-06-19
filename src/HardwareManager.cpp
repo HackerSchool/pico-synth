@@ -126,8 +126,6 @@ void HardwareManager::init() {
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         init_encoder(&encoders[i]);
     }
-    //
-    // // Init display
     init_display();
 }
 
