@@ -142,8 +142,12 @@ void Oscillator::out_interp(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer,
     dco_pos = interp0->accum[0] & (wave_max - 1);
 }
 
-void Oscillator::set_dco_step(uint8_t note) {
-    dco_step = note_table[note];
+void Oscillator::set_dco_step(uint8_t note, uint8_t ratio) {
+    dco_step = note_table[note] * ratio;
+}
+
+
+void Oscillator::reset_dco_pos() {
     dco_pos = 0;
 }
 

@@ -95,7 +95,8 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
 
             case 1: {
                 Patch &patch = synth.patch_storage[self.midi_channel];
-                patch.ops[1].fm_depth = 100;
+                // patch.ops[1].fm_depth = 100;
+                patch.ops[1].ratio += delta;
                 synth.active_patch[self.midi_channel].store(
                     &patch, std::memory_order_release);
                 synth.patch_dirty_flags.set(self.midi_channel);

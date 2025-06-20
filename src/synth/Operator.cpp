@@ -63,6 +63,10 @@ void Voice::apply_patch(const Patch &patch) {
         op[i].feedback = p.feedback;
         op[i].fm_depth = p.fm_depth;
 
+        //make it update in real time baby
+        op[i].osc.set_dco_step(midi_note, op[i].ratio);
+        // voice[i].op[1].osc.set_dco_step(note, voice[i].op[1].ratio);
+
         printf("  Op %d AFTER: fm_depth=%d, ratio=%d\n", i, op[i].fm_depth,
                op[i].ratio);
     }

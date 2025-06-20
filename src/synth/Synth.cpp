@@ -321,13 +321,7 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
             voice[i].playing = true;
             voice[i].midi_note = note;
             notes_playing_bitset.set(note);
-
-            // WaveType wt = channel_wave_map[channel];
-            // voice[i].op[1].osc.set_wavetable(wt);
-            voice[i].op[0].osc.set_dco_step(note);
-            voice[i].op[1].osc.set_dco_step(note + 12);
-
-            // Apply patch immediately if channel changed (or voice is new)
+            
             // if (channel_changed) {
                 const Patch *patch_ptr =
                     active_patch[channel].load(std::memory_order_acquire);
@@ -335,6 +329,11 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
                     voice[i].apply_patch(*patch_ptr);
                 }
             // }
+            
+
+            // WaveType wt = channel_wave_map[channel];
+            // voice[i].op[1].osc.set_wavetable(wt);
+
 
             voice[i].gate_on();
             break;
