@@ -59,6 +59,9 @@ class HardwareManager {
   public:
     HardwareManager();
 
+    // Display
+    ssd1306_t disp;
+
     void init();
     void update();      // called every loop
     void poll_inputs(); // handle encoders + buttons
@@ -120,6 +123,12 @@ class HardwareManager {
                                   bool auto_stepping_enabled, bool is_playing,
                                   uint8_t *step_notes, uint8_t *step_channels);
 
+    void draw_fm_edit(uint8_t midi_channel, uint8_t selected_operator,
+                      int8_t octave, uint8_t fm_edit_mode, WaveType wave_type,
+                      uint8_t attack, uint8_t decay, uint8_t sustain,
+                      uint8_t release, uint16_t ratio, uint16_t feedback,
+                      uint16_t fm_depth);
+
     void draw_choose_menu(int chosen_index);
 
     void draw_sampler_menu(const WavFileList& wav_files, int sample_index, int sample_channel);
@@ -139,9 +148,6 @@ class HardwareManager {
     void update_leds(uint16_t prev, uint16_t curr);
 
     // uint16_t prev_state = 0;
-
-    // Display
-    ssd1306_t disp;
 
     void init_display();
     // bool last_encoder1_button = true; // for edge detection

@@ -97,9 +97,8 @@ target_sources(${bin_name} PRIVATE
     src/ui/choose_menu.cpp
     src/ui/sampler_menu.cpp
     src/ui/draw_utils.cpp
-    src/MidiHandler.cpp
-    src/synth/Filter.cpp
-    src/HardwareManager.cpp
+    src/ui/fm_menu.cpp
+
 
     src/audio.c
     src/usb_descriptors.c

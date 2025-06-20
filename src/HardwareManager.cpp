@@ -140,7 +140,7 @@ void HardwareManager::init_display() {
     ssd1306_draw_string(&disp, 8, 10, 2, words[0]);
     ssd1306_draw_string_inverted(&disp, 8, 30, 1, words[1]);
     ssd1306_show(&disp);
-    sleep_ms(1000);  // Hold the display for 1 second
+    sleep_ms(1000); // Hold the display for 1 second
 }
 
 void HardwareManager::update() {
@@ -215,9 +215,10 @@ void HardwareManager::draw_wave_type(uint8_t midi_channel, int8_t octave) {
     sprintf(buf, "Oc:%+d", display_octave);
     ssd1306_draw_string(&disp, 72, 0, 1, buf); // Draw after channel number
 
-    //Draw waveform
+    // Draw waveform
     ssd1306_clear_square(&disp, 0, 8, 128, 24);
-    draw_waveform(&disp, get_wavetable_for_channel(midi_channel), 0, 8, 128, 24);
+    draw_waveform(&disp, get_wavetable_for_channel(midi_channel), 0, 8, 128,
+                  24);
 }
 
 void HardwareManager::draw_adsr(int current_adsr_param, uint8_t a, uint8_t d,
@@ -332,17 +333,17 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
     char line1[20], line2[20], line3[20], line4[20];
 
     snprintf(line1, sizeof(line1), "Synth %s", chosen_index == 0 ? "<" : "");
-    snprintf(line2, sizeof(line2), "MIDI %s", chosen_index == 1 ? "<" : "");
-    snprintf(line3, sizeof(line3), "Sequencer %s" , chosen_index == 2 ? "<" : "");
-    snprintf(line4, sizeof(line4), "Sampler %s" , chosen_index == 3 ? "<" : "");
+    snprintf(line1, sizeof(line1), "FM Edit %s", chosen_index == 1 ? "<" : "");
+    snprintf(line2, sizeof(line2), "MIDI %s", chosen_index == 2 ? "<" : "");
+    snprintf(line3, sizeof(line3), "Sequencer %s" , chosen_index == 3 ? "<" : "");
+    snprintf(line4, sizeof(line4), "Sampler %s" , chosen_index == 4 ? "<" : "");
     //snprintf(line5, sizeof(line5), "%d" , chosen_index);
 
-    //ssd1306_draw_string(&disp, 8, 12, 1, line1);
+    // ssd1306_draw_string(&disp, 8, 12, 1, line1);
     ssd1306_draw_string(&disp, 8, 20, 1, line1);
     ssd1306_draw_string(&disp, 8, 28, 1, line2);
     ssd1306_draw_string(&disp, 8, 36, 1, line3);
     ssd1306_draw_string(&disp, 8, 44, 1, line4);
-
 }
 
 void HardwareManager::draw_sampler_menu(const WavFileList& wav_files, int sample_index, int sample_channel) {
@@ -537,5 +538,160 @@ void HardwareManager::draw_sequencer_note_edit(
         ssd1306_draw_string(&disp, 8, 58, 1, "E1: Play E2: Auto E4: Back");
     } else {
         ssd1306_draw_string(&disp, 8, 58, 1, "E1:Play E2:Auto E4:Back");
+    }
+}
+
+void HardwareManager::draw_fm_edit(uint8_t midi_channel,
+                                   uint8_t selected_operator, int8_t octave,
+                                   uint8_t fm_edit_mode, WaveType wave_type,
+                                   uint8_t attack, uint8_t decay,
+                                   uint8_t sustain, uint8_t release,
+                                   uint16_t ratio, uint16_t feedback,
+                                   uint16_t fm_depth) {
+    // Clear the display area
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+
+    // Header with channel/operator info integrated
+    char header[25];
+    snprintf(header, sizeof(header), "FM Ch%d Op%d", midi_channel + 1,
+             selected_operator + 1);
+    ssd1306_draw_string_inverted(&disp, 4, 0, 1, header);
+
+    // Octave indicator (top right)
+    char oct_str[8];
+    snprintf(oct_str, sizeof(oct_str), "Oct%+d", octave);
+    ssd1306_draw_string(&disp, 88, 2, 1, oct_str);
+
+    // Mode tabs with visual separation
+    const char *mode_names[] = {"SEL", "ADSR", "PARAM"};
+    for (int i = 0; i < 3; i++) {
+        int x_pos = 8 + (i * 38);
+        if (i == fm_edit_mode) {
+            // Active tab - inverted
+            ssd1306_draw_string_inverted(&disp, x_pos, 12, 1, mode_names[i]);
+        } else {
+            // Inactive tab - normal
+            ssd1306_draw_string(&disp, x_pos, 12, 1, mode_names[i]);
+        }
+    }
+
+    // Separator line
+    for (int x = 4; x < 124; x++) {
+        ssd1306_draw_pixel(&disp, x, 22);
+    }
+
+    // Content area based on mode
+    switch (fm_edit_mode) {
+    case 0: // Operator selection
+    {
+        // Wave type with icon/symbol
+        const char *wave_symbols[] = {"~", "/|", "▯", "△"};
+        const char *wave_names[] = {"Sine", "Saw", "Square", "Triangle"};
+
+        char wave_line[20];
+        snprintf(wave_line, sizeof(wave_line), "%s %s",
+                 wave_symbols[static_cast<int>(wave_type)],
+                 wave_names[static_cast<int>(wave_type)]);
+        ssd1306_draw_string(&disp, 8, 28, 1, wave_line);
+
+        // Parameters in a clean grid
+        char ratio_str[12];
+        snprintf(ratio_str, sizeof(ratio_str), "Ratio %d", ratio);
+        ssd1306_draw_string(&disp, 8, 38, 1, ratio_str);
+
+        char fb_str[12];
+        snprintf(fb_str, sizeof(fb_str), "FB %d", feedback);
+        ssd1306_draw_string(&disp, 70, 38, 1, fb_str);
+
+        char depth_str[15];
+        snprintf(depth_str, sizeof(depth_str), "Depth %d", fm_depth);
+        ssd1306_draw_string(&disp, 8, 48, 1, depth_str);
+    } break;
+
+    case 1: // ADSR mode
+    {
+        // ADSR with visual bars/indicators
+        char attack_str[12];
+        snprintf(attack_str, sizeof(attack_str), "A %3d", attack);
+        ssd1306_draw_string(&disp, 8, 28, 1, attack_str);
+
+        char decay_str[12];
+        snprintf(decay_str, sizeof(decay_str), "D %3d", decay);
+        ssd1306_draw_string(&disp, 70, 28, 1, decay_str);
+
+        char sustain_str[12];
+        snprintf(sustain_str, sizeof(sustain_str), "S %3d", sustain);
+        ssd1306_draw_string(&disp, 8, 40, 1, sustain_str);
+
+        char release_str[12];
+        snprintf(release_str, sizeof(release_str), "R %3d", release);
+        ssd1306_draw_string(&disp, 70, 40, 1, release_str);
+
+        // Dynamic ADSR envelope visualization
+        const int env_start_x = 4;
+        const int env_end_x = 124;
+        const int env_top_y = 30;
+        const int env_bottom_y = 60;
+        const int env_height = env_bottom_y - env_top_y;
+
+        // Calculate segment widths using bitshifts (fast division)
+        int total_width = env_end_x - env_start_x;
+        int attack_width = (attack * total_width >> 2) >>
+                           7; // /4 then /128 (bitshift approximation of /127)
+        int decay_width = (decay * total_width >> 2) >> 7; // /4 then /128
+        int sustain_width =
+            total_width / 3; // Keep division for 1/3 (no clean bitshift)
+        int release_width = (release * total_width >> 2) >> 7; // /4 then /128
+
+        // Allow zero widths for instant attack/decay/release (vertical lines)
+        // No minimum width constraints
+
+        // Calculate sustain level using bitshift (higher sustain value = higher
+        // on screen)
+        int sustain_y = env_bottom_y - (sustain * env_height >>
+                                        7); // /128 approximation of /127
+
+        // Draw the envelope
+        int x = env_start_x;
+
+        ssd1306_draw_line(&disp, x, env_bottom_y, x + attack_width, env_top_y);
+        x += attack_width;
+
+        ssd1306_draw_line(&disp, x, env_top_y, x + decay_width, sustain_y);
+        x += decay_width;
+
+        // Sustain: hold at sustain level
+        ssd1306_draw_line(&disp, x, sustain_y, x + sustain_width, sustain_y);
+        x += sustain_width;
+
+        ssd1306_draw_line(&disp, x, sustain_y, x + release_width, env_bottom_y);
+
+        // Draw baseline
+        ssd1306_draw_line(&disp, env_start_x, env_bottom_y, env_end_x,
+                          env_bottom_y);
+    } break;
+
+    case 2: // Parameter mode
+    {
+        // Clean parameter layout
+        const char *wave_short[] = {"Sin", "Saw", "Sqr", "Tri"};
+
+        char line1[20];
+        snprintf(line1, sizeof(line1), "Ratio  %d", ratio);
+        ssd1306_draw_string(&disp, 8, 28, 1, line1);
+
+        char line2[20];
+        snprintf(line2, sizeof(line2), "FB     %d", feedback);
+        ssd1306_draw_string(&disp, 8, 36, 1, line2);
+
+        char line3[20];
+        snprintf(line3, sizeof(line3), "Depth  %d", fm_depth);
+        ssd1306_draw_string(&disp, 8, 44, 1, line3);
+
+        char line4[20];
+        snprintf(line4, sizeof(line4), "Wave   %s",
+                 wave_short[static_cast<int>(wave_type)]);
+        ssd1306_draw_string(&disp, 8, 52, 1, line4);
+    } break;
     }
 }

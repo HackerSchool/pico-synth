@@ -3,8 +3,9 @@
 
 /*
 self.chosen_index = 0 -> Main Menu
-self.chosen_index = 1 -> MIDI
-self.chosen_index = 2 -> Sequencer
+self.chosen_index = 1 -> FM Edit
+self.chosen_index = 3 -> MIDI
+self.chosen_index = 4 -> Sequencer
 */
 
 void UiHandler::choose_handle_encoders(UiHandler &self) {
@@ -58,6 +59,8 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                 self.sequencer_settings_dirty = true;
                 self.sequencer_dirty = true;
                 self.sampler_dirty = true;
+                self.fm_edit_dirty = true;
+
                 break;
             }
         }
