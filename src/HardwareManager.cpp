@@ -334,6 +334,30 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
     snprintf(line1, sizeof(line1), "Synth %s", chosen_index == 0 ? "<" : "");
     snprintf(line2, sizeof(line2), "MIDI %s", chosen_index == 1 ? "<" : "");
     snprintf(line3, sizeof(line3), "Sequencer %s" , chosen_index == 2 ? "<" : "");
+    snprintf(line4, sizeof(line4), "Sampler %s" , chosen_index == 3 ? "<" : "");
+    //snprintf(line5, sizeof(line5), "%d" , chosen_index);
+
+    //ssd1306_draw_string(&disp, 8, 12, 1, line1);
+    ssd1306_draw_string(&disp, 8, 20, 1, line1);
+    ssd1306_draw_string(&disp, 8, 28, 1, line2);
+    ssd1306_draw_string(&disp, 8, 36, 1, line3);
+    ssd1306_draw_string(&disp, 8, 44, 1, line4);
+
+}
+
+void HardwareManager::draw_sampler_menu(const char* sample_name) {
+    // Clear the display area for MIDI settings
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+
+    // Title
+    ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Sampler Settings");
+
+    // Draw each setting with ON/OFF status
+    char line1[20], line2[20], line3[20], line4[20];
+
+    snprintf(line1, sizeof(line1), "Channel: ");
+    snprintf(line2, sizeof(line2), "Switch: ");
+    snprintf(line3, sizeof(line3), "Sample: %s", sample_name);
     //snprintf(line5, sizeof(line5), "%d" , chosen_index);
 
     //ssd1306_draw_string(&disp, 8, 12, 1, line1);

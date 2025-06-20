@@ -14,12 +14,13 @@ typedef enum UiState {
     UI_STATE_MAIN, // = 0
     UI_STATE_MIDI_SETTINGS, // = 1
     UI_STATE_SEQUENCER, // = 2
+    UI_STATE_SAMPLER, // = 3
     UI_STATE_SEQUENCER_EDIT,
     UI_STATE_CHOOSE,
     UI_STATE_COUNT // helpful for bounds checking
 } UiState;
 
-#define NUM_USABLE_STATES (3) //3 states (MAIN, MIDI, SEQUENCER) (states listed in the menu)
+#define NUM_USABLE_STATES (4) //4 states (MAIN, MIDI, SEQUENCER, SAMPLER) (states listed in the menu)
 
 class UiHandler;
 
@@ -64,6 +65,10 @@ class UiHandler {
     static void choose_handle_encoders(UiHandler &self);
     static void choose_update_display(UiHandler &self);
 
+    // sampler state
+    static void sampler_handle_encoders(UiHandler &self);
+    static void sampler_update_display(UiHandler &self);
+
     // helpers:
 
     void set_adsr_param(int param, uint8_t value);
@@ -87,13 +92,15 @@ class UiHandler {
         [UI_STATE_SEQUENCER] = {.handle_encoders = sequencer_handle_encoders,
                                 .handle_switches = main_handle_switches,
                                 .handle_display = sequencer_update_display},
-        [UI_STATE_SEQUENCER_EDIT] = {
-            .handle_encoders = sequencer_note_edit_handle_encoders,
-            .handle_switches = sequencer_note_edit_handle_switches,
-            .handle_display = sequencer_note_edit_update_display},
+        [UI_STATE_SAMPLER] = {.handle_encoders = sampler_handle_encoders, 
+                              .handle_switches = main_handle_switches,
+                              .handle_display = sampler_update_display},
+        [UI_STATE_SEQUENCER_EDIT] = {.handle_encoders = sequencer_note_edit_handle_encoders,
+                                     .handle_switches = sequencer_note_edit_handle_switches,
+                                     .handle_display = sequencer_note_edit_update_display},
         [UI_STATE_CHOOSE] = {.handle_encoders = choose_handle_encoders, // <- CORRECTED: Removed the '=' after UI_STATE_CHOOSE
-                     .handle_switches = main_handle_switches,
-                     .handle_display = choose_update_display}}; // The semicolon only belongs here, at the end of the entire array initialization block.
+                             .handle_switches = main_handle_switches,
+                             .handle_display = choose_update_display}}; // The semicolon only belongs here, at the end of the entire array initialization block.
 
     // shit I need for the main state
     int current_adsr_param = 0; // 0=A, 1=D, 2=S, 3=R
@@ -139,9 +146,13 @@ class UiHandler {
     bool auto_stepping_enabled = false;
     bool sequencer_dirty = true;
 
-    // choose state~
+    // choose state
     bool chosen_dirty = true;
     int chosen_index = 1;
+
+    //sampler state
+    bool sampler_dirty = true;
+    char sample_name[32] = "teste.wav";
 };
 
 #endif // !UI_STATE_HPP

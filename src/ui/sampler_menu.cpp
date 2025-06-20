@@ -7,7 +7,7 @@ self.chosen_index = 1 -> MIDI
 self.chosen_index = 2 -> Sequencer
 */
 
-void UiHandler::choose_handle_encoders(UiHandler &self) {
+void UiHandler::sampler_handle_encoders(UiHandler &self) {
     HardwareManager &hw = self.hw;
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         Encoder *enc = &hw.encoders[i];
@@ -26,8 +26,6 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                 // Could adjust other MIDI settings
                 break;
             case 3:
-                self.chosen_index = (self.chosen_index + (delta > 0 ? 1 : -1) + NUM_USABLE_STATES) % (NUM_USABLE_STATES);
-                self.chosen_dirty = true;
                 break;
             }
         }
@@ -48,28 +46,24 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                 self.chosen_dirty = true;
                 break;
             case 3:
-                self.ui_state = static_cast<UiState>(self.chosen_index);
-                self.chosen_dirty = true;
-                self.main_dirty = true;
-                self.adsr_dirty = true;
-                self.channel_dirty = true;
-                self.filter_dirty = true;
-                self.midi_settings_dirty = true;
-                self.sequencer_settings_dirty = true;
-                self.sequencer_dirty = true;
+                // Exit back to main menu
+                self.ui_state = UI_STATE_CHOOSE;
+                self.chosen_index = (UI_STATE_SAMPLER + 1 + NUM_USABLE_STATES) % NUM_USABLE_STATES;
                 self.sampler_dirty = true;
+                self.chosen_dirty = true;
+                printf("State: CHOOSE_STATE\n");
                 break;
             }
         }
     }
 }
 
-void UiHandler::choose_update_display(UiHandler &self) {
+void UiHandler::sampler_update_display(UiHandler &self) {
     HardwareManager &hw = self.hw;
 
-    if (self.chosen_dirty) {
-        hw.draw_choose_menu(self.chosen_index);
+    if (self.sampler_dirty) {
+        hw.draw_sampler_menu(self.sample_name);
         hw.display_show();
-        self.chosen_dirty = false;
+        self.sampler_dirty = false;
     }
 }

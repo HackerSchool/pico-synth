@@ -121,6 +121,8 @@ class HardwareManager {
 
     void draw_choose_menu(int chosen_index);
 
+    void draw_sampler_menu(const char *sample_name);
+
     void display_show();
     void display_clear();
 

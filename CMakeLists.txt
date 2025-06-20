@@ -95,6 +95,7 @@ target_sources(${bin_name} PRIVATE
     src/ui/sequencer_menu.cpp
     src/ui/sequencer_edit_menu.cpp
     src/ui/choose_menu.cpp
+    src/ui/sampler_menu.cpp
     src/ui/draw_utils.cpp
     src/MidiHandler.cpp
     src/synth/Filter.cpp
