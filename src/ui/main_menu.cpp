@@ -22,10 +22,9 @@ void UiHandler::main_handle_switches(UiHandler &self) {
         if ((changes.note_on_mask >> i) & 1) {
             uint8_t note = key_to_midi[i];
             if (note != 255) {
-                if(self.midi_channel == 5){
-                    sampler.trigger_player(note-60);
-                }
-                else if (self.switches_in) {
+                if (self.midi_channel == 5) {
+                    sampler.trigger_player(note - 60);
+                } else if (self.switches_in) {
                     uint8_t packet[4];
                     packet[0] = 0x09; // CIN = Note On, Cable 0
                     packet[1] = 0x90 | (self.midi_channel & 0x0F); // Status
@@ -78,6 +77,7 @@ void UiHandler::main_handle_switches(UiHandler &self) {
 void UiHandler::main_handle_encoders(UiHandler &self) {
     HardwareManager &hw = self.hw;
     MidiHandler &midi = self.midi;
+    Synth &synth = self.synth;
 
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         Encoder *enc = &hw.encoders[i];
@@ -94,22 +94,27 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
                 break;
 
             case 1: {
-                int param = self.current_adsr_param;
-                int16_t value =
-                    self.get_adsr_param(param) + (delta > 0 ? 1 : -1);
-                if (value < 0)
-                    value = 0;
-                if (value > 127)
-                    value = 127;
-
-                self.set_adsr_param(param, static_cast<uint8_t>(value));
-
-                const uint8_t cc_map[4] = {73, 75, 70, 72};
-                uint8_t packet[4] = {
-                    0x0B, static_cast<uint8_t>(0xB0 | self.midi_channel),
-                    cc_map[param], static_cast<uint8_t>(value)};
-                midi.midi_receive_note(packet);
-                self.adsr_dirty = true;
+                Patch &patch = synth.patch_storage[self.midi_channel];
+                patch.ops[1].fm_depth = 100;
+                synth.active_patch[self.midi_channel].store(
+                    &patch, std::memory_order_release);
+                synth.patch_dirty_flags.set(self.midi_channel);
+                // int param = self.current_adsr_param;
+                // // int16_t value =
+                // //     self.get_adsr_param(param) + (delta > 0 ? 1 : -1);
+                // // if (value < 0)
+                // //     value = 0;
+                // // if (value > 127)
+                // //     value = 127;
+                //
+                // // self.set_adsr_param(param, static_cast<uint8_t>(value));
+                //
+                // const uint8_t cc_map[4] = {73, 75, 70, 72};
+                // uint8_t packet[4] = {
+                //     0x0B, static_cast<uint8_t>(0xB0 | self.midi_channel),
+                //     cc_map[param], static_cast<uint8_t>(value)};
+                // midi.midi_receive_note(packet);
+                // self.adsr_dirty = true;
                 break;
             }
             case 2: {
@@ -183,7 +188,8 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
 
             if (i == 3) {
                 self.ui_state = UI_STATE_CHOOSE;
-                self.chosen_index = (UI_STATE_MAIN + 1 + NUM_USABLE_STATES) % NUM_USABLE_STATES;
+                self.chosen_index =
+                    (UI_STATE_MAIN + 1 + NUM_USABLE_STATES) % NUM_USABLE_STATES;
                 self.main_dirty = true;
                 self.chosen_dirty = true;
                 printf("State: CHOOSE_STATE");
@@ -216,12 +222,12 @@ void UiHandler::main_update_display(UiHandler &self) {
     // TODO: get synth state on the UI
 
     if (self.adsr_dirty) {
-        uint8_t midi_channel = self.midi_channel;
-        hw.draw_adsr(self.current_adsr_param,
-                     self.channel_params[midi_channel].attack,
-                     self.channel_params[midi_channel].decay,
-                     self.channel_params[midi_channel].sustain >> 8,
-                     self.channel_params[midi_channel].release);
+        // uint8_t midi_channel = self.midi_channel;
+        // hw.draw_adsr(self.current_adsr_param,
+        //              self.channel_params[midi_channel].attack,
+        //              self.channel_params[midi_channel].decay,
+        //              self.channel_params[midi_channel].sustain >> 8,
+        //              self.channel_params[midi_channel].release);
         changed = true;
         self.adsr_dirty = false;
     }

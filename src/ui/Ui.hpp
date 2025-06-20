@@ -3,15 +3,15 @@
 
 #include "HardwareManager.hpp"
 #include "MidiHandler.hpp"
+#include "Sampler.hpp"
 #include "Sequencer.hpp"
 #include "Synth.hpp"
-#include "Sampler.hpp"
 #include <cstdint>
 
-//When adding a new state here watch out for the order
-//sine enums are basically ints
+// When adding a new state here watch out for the order
+// sine enums are basically ints
 typedef enum UiState {
-    UI_STATE_MAIN, // = 0
+    UI_STATE_MAIN,          // = 0
     UI_STATE_MIDI_SETTINGS, // = 1
     UI_STATE_SEQUENCER, // = 2
     UI_STATE_SAMPLER, // = 3
@@ -37,7 +37,8 @@ typedef struct {
 class UiHandler {
 
   public:
-    UiHandler(HardwareManager &hw, MidiHandler &midi_handler, Sequencer &seq, Sampler& sampler);
+    UiHandler(HardwareManager &hw, MidiHandler &midi_handler, Sequencer &seq,
+              Sampler &sampler, Synth &synth); 
 
     // void init();
     void update(); // called every loop
@@ -79,6 +80,7 @@ class UiHandler {
     MidiHandler &midi;
     Sequencer &seq;
     Sampler &sampler;
+    Synth &synth;
 
     UiState ui_state = UI_STATE_MAIN;
 
@@ -106,7 +108,7 @@ class UiHandler {
     int current_adsr_param = 0; // 0=A, 1=D, 2=S, 3=R
     // Channel-specific parameters (16 MIDI channels)
 
-    std::array<ChannelParams, 16> channel_params;
+    // std::array<ChannelParams, 16> channel_params;
 
     uint8_t adsr[4] = {64, 64, 64,
                        64}; // Attack, Decay, Sustain, Release (MIDI 7-bit)

@@ -32,7 +32,7 @@
 
 #define USBD_ITF_MIDI (0) // needs 2 interfaces
 #define USBD_ITF_CDC (2)  // needs 2 interfaces
-#define USBD_ITF_MSC (5)  // needs 2 interfaces
+#define USBD_ITF_MSC (4)  // needs 2 interfaces
 #define USBD_ITF_MAX (5)
 
 #define USBD_CDC_EP_CMD (0x81)

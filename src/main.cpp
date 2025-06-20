@@ -144,7 +144,7 @@ int main() {
 
     Sequencer seq(midi_handler, sampler);
 
-    UiHandler ui = UiHandler(hw, midi_handler, seq, sampler);
+    UiHandler ui = UiHandler(hw, midi_handler, seq, sampler, synth);
 
     queue_init(&midi_queue, 4, 64);
     // queue_init(&sample_trigger_queue, sizeof(uint32_t), 16); // Add this line
