@@ -1,3 +1,4 @@
+#include "device/usbd.h"
 #include "tusb.h"
 
 #ifndef USBD_VID
@@ -9,7 +10,7 @@
     (0x6942 | _PID_MAP(CDC, 0) | _PID_MAP(MSC, 1) | _PID_MAP(HID, 2) |         \
      _PID_MAP(MIDI, 3) | _PID_MAP(VENDOR, 4))
 #ifndef USBD_MANUFACTURER
-#define USBD_MANUFACTURER "Raspberry Pi"
+#define USBD_MANUFACTURER "HackerSchool"
 #endif
 
 #ifndef USBD_PRODUCT
@@ -17,7 +18,8 @@
 #endif
 
 #define USBD_DESC_LEN                                                          \
-    (TUD_CONFIG_DESC_LEN + TUD_MIDI_DESC_LEN + TUD_CDC_DESC_LEN)
+    (TUD_CONFIG_DESC_LEN + TUD_MIDI_DESC_LEN + TUD_CDC_DESC_LEN +              \
+     TUD_MSC_DESC_LEN)
 #define TUD_RPI_RESET_DESC_LEN 9
 #if !PICO_STDIO_USB_DEVICE_SELF_POWERED
 #define USBD_CONFIGURATION_DESCRIPTOR_ATTRIBUTE (0)
@@ -30,7 +32,8 @@
 
 #define USBD_ITF_MIDI (0) // needs 2 interfaces
 #define USBD_ITF_CDC (2)  // needs 2 interfaces
-#define USBD_ITF_MAX (4)
+#define USBD_ITF_MSC (5)  // needs 2 interfaces
+#define USBD_ITF_MAX (5)
 
 #define USBD_CDC_EP_CMD (0x81)
 
@@ -44,6 +47,9 @@
 #define USBD_MIDI_EP_IN (0x82)
 
 #define USBD_MIDI_IN_OUT_MAX_SIZE (64)
+
+#define USBD_MSC_OUT 0x04
+#define USBD_MSC_IN 0x84
 
 #define USBD_STR_0 (0x00)
 #define USBD_STR_MANUF (0x01)
@@ -83,6 +89,8 @@ static const uint8_t usbd_desc_cfg[USBD_DESC_LEN] = {
                        USBD_CDC_EP_CMD, USBD_CDC_CMD_MAX_SIZE, USBD_CDC_EP_OUT,
                        USBD_CDC_EP_IN, USBD_CDC_IN_OUT_MAX_SIZE),
 
+    // Interface number, string index, EP Out & EP In address, EP size
+    TUD_MSC_DESCRIPTOR(USBD_ITF_MSC, USBD_STR_0, USBD_MSC_OUT, USBD_MSC_IN, 64),
 };
 
 //--------------------------------------------------------------------+

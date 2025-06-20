@@ -105,6 +105,7 @@ target_sources(${bin_name} PRIVATE
     src/tusb_config.h
     src/ssd1306.c
     src/hw_config.c
+    src/msc_disk.c
 )
 
 # Add include directories for TinyUSB
@@ -133,6 +134,7 @@ target_link_libraries(${bin_name} PRIVATE
     pico_multicore     # If using Core 1 for processing
     tinyusb_device
     tinyusb_board
+    tinyusb_additions
     no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
 )
 

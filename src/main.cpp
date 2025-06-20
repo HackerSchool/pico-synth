@@ -1,6 +1,8 @@
 #include <cstdint>
 #include <pico/types.h>
 #include <stdio.h>
+#include <pico/stdlib.h>
+#include <stdlib.h>
 
 #include "pico/audio.h"
 #include "pico/bootrom.h"
@@ -13,6 +15,7 @@
 
 #include "fixed_point.h"
 #include "tusb.h"
+#include <bsp/board.h>
 
 #include "HardwareManager.hpp"
 #include "MidiHandler.hpp"
