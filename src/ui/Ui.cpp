@@ -8,7 +8,17 @@ const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
 
 UiHandler::UiHandler(HardwareManager &hw, MidiHandler &midi_handler,
                      Sequencer &seq, Sampler& sampler)
-    : hw(hw), midi(midi_handler), seq(seq), sampler(sampler) {}
+    : hw(hw), midi(midi_handler), seq(seq), sampler(sampler) {
+
+    // List all WAV files and store them
+    wav_files = sampler.list_wav_files(true); // recursive
+    wav_files.print_files(); // Optional: print on startup
+    
+    // Optional: Load first file by default
+    //if (wav_files.get_count() > 0) {
+    //    sampler.load_sample_by_index(0, 0); // Load first file into player 0
+    //}
+}
 
 void UiHandler::update() {
     UiDispatchEntry ui_dispatch_entry = ui_dispatch_table[ui_state];

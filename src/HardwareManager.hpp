@@ -5,6 +5,7 @@
 #include "Wavetable.hpp"
 #include "hardware/i2c.h"
 #include "hardware/pio.h"
+#include "Sampler.hpp"
 // #include "i2s_init.hpp"
 #include "quadrature_encoder.pio.h"
 #include "ssd1306.h"
@@ -121,7 +122,7 @@ class HardwareManager {
 
     void draw_choose_menu(int chosen_index);
 
-    void draw_sampler_menu(const char *sample_name);
+    void draw_sampler_menu(const WavFileList& wav_files, int sample_index, int sample_channel);
 
     void display_show();
     void display_clear();

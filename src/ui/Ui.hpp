@@ -152,7 +152,10 @@ class UiHandler {
 
     //sampler state
     bool sampler_dirty = true;
-    char sample_name[32] = "teste.wav";
+    int sample_index = 0;
+    int sample_channel = 6;
+    // WAV file list for sampler
+    WavFileList wav_files;
 };
 
 #endif // !UI_STATE_HPP

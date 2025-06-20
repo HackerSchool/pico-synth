@@ -345,7 +345,7 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
 
 }
 
-void HardwareManager::draw_sampler_menu(const char* sample_name) {
+void HardwareManager::draw_sampler_menu(const WavFileList& wav_files, int sample_index, int sample_channel) {
     // Clear the display area for MIDI settings
     ssd1306_clear_square(&disp, 0, 0, 128, 64);
 
@@ -355,10 +355,15 @@ void HardwareManager::draw_sampler_menu(const char* sample_name) {
     // Draw each setting with ON/OFF status
     char line1[20], line2[20], line3[20], line4[20];
 
-    snprintf(line1, sizeof(line1), "Channel: ");
+    snprintf(line1, sizeof(line1), "Channel: %d", sample_channel);
     snprintf(line2, sizeof(line2), "Switch: ");
-    snprintf(line3, sizeof(line3), "Sample: %s", sample_name);
-    //snprintf(line5, sizeof(line5), "%d" , chosen_index);
+    
+    // Get sample name from WAV file list
+    if (wav_files.get_count() > 0 && sample_index < wav_files.get_count()) {
+        snprintf(line3, sizeof(line3), "Sample: %s", wav_files.get_filename(sample_index).c_str());
+    } else {
+        snprintf(line3, sizeof(line3), "Sample: No files");
+    }
 
     //ssd1306_draw_string(&disp, 8, 12, 1, line1);
     ssd1306_draw_string(&disp, 8, 20, 1, line1);

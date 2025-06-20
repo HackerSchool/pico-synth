@@ -9,6 +9,7 @@
 
 #define SAMPLE_PLAYER_NUM 8  // Number of concurrent sample players
 #define SD_READ_BUFFER_SIZE 2048
+#define MAX_WAV_FILES 100
 
 class SamplePlayer {
 private:
@@ -65,11 +66,31 @@ public:
     
 };
 
+class WavFileList {
+private:
+    std::string* filenames;
+    int count;
+    int capacity;
+
+public:
+    WavFileList();
+    ~WavFileList();
+    
+    bool add_file(const std::string& filename);
+    const std::string& get_filename(int index) const;
+    int get_count() const { return count; }
+    int get_capacity() const { return capacity; }
+    void clear();
+    void print_files() const;
+        
+};
+
 class Sampler {
 private:
     std::array<SamplePlayer, SAMPLE_PLAYER_NUM> players;
     static FATFS fs;
     static bool fs_mounted;
+    FRESULT scan_directory_for_wav(WavFileList& list, const std::string& path, bool recursive);
     
 public:
     Sampler();
@@ -97,4 +118,8 @@ public:
     // Info
     SamplePlayer* get_player(uint8_t player_id);
     uint8_t get_num_players() const { return SAMPLE_PLAYER_NUM; }
+
+    // WAV file listing functions
+    WavFileList list_wav_files(bool recursive = true);
+    bool load_sample_by_index(uint8_t player_id, int file_index, bool recursive = true);
 };
