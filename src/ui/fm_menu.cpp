@@ -1,10 +1,8 @@
 #include "Ui.hpp"
 #include "draw_utils.hpp"
-#include "ssd1306.h"
 
 const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
                              66, 68, 70, -1, 67, 69, 71, 72};
-
 
 // Helper function you'll need to add (if not already present):
 template <typename T> T constrain(T value, T min_val, T max_val) {
@@ -187,11 +185,9 @@ void UiHandler::fm_edit_handle_encoders(UiHandler &self) {
         if (!enc->button_state && enc->button_edge) {
             switch (i) {
             case 0: // Encoder 1 button - cycle through operators
-                if (self.fm_edit_mode == 0) {
-                    self.selected_operator =
-                        (self.selected_operator + 1) % OP_PER_VOICE;
-                    self.fm_edit_dirty = true;
-                }
+                self.selected_operator =
+                    (self.selected_operator + 1) % OP_PER_VOICE;
+                self.fm_edit_dirty = true;
                 break;
             case 1: // Encoder 2 button - toggle ADSR mode
                 self.fm_edit_mode = (self.fm_edit_mode == 1) ? 0 : 1;
@@ -215,24 +211,24 @@ void UiHandler::fm_edit_update_display(UiHandler &self) {
     HardwareManager &hw = self.hw;
     Synth &synth = self.synth;
     bool changed = false;
-    
+
     if (self.fm_edit_dirty) {
         Patch &patch = synth.patch_storage[self.midi_channel];
         OperatorParams &op = patch.ops[self.selected_operator];
-        
+
         hw.draw_fm_edit(self.midi_channel, self.selected_operator, self.octave,
                         self.fm_edit_mode, op.wave_type, op.attack, op.decay,
-                        op.sustain, op.release, op.ratio, op.feedback, op.fm_depth);
-        
+                        op.sustain, op.release, op.ratio, op.feedback,
+                        op.fm_depth);
+
         changed = true;
         self.fm_edit_dirty = false;
     }
-    
+
     if (changed) {
         hw.display_show();
     }
 }
-
 
 // // Add this function to HardwareManager class:
 // void HardwareManager::draw_string_inverted(int x, int y, const char* text) {

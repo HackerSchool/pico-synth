@@ -22,7 +22,8 @@ typedef enum UiState {
 } UiState;
 
 #define NUM_USABLE_STATES                                                      \
-    (5) // 4 states (MAIN, MIDI, SEQUENCER, SAMPLER) (states listed in the menu)
+    (5) // 4 states (MAIN, FM_EDIT, MIDI, SEQUENCER, SAMPLER) (states listed in
+        // the menu)
 
 class UiHandler;
 
@@ -90,45 +91,7 @@ class UiHandler {
     Synth &synth;
 
     UiState ui_state = UI_STATE_MAIN;
-
-    UiDispatchEntry ui_dispatch_table[UI_STATE_COUNT] = {
-        [UI_STATE_MAIN] = {.handle_encoders = main_handle_encoders,
-                           .handle_switches = main_handle_switches,
-                           .handle_display = main_update_display},
-        [UI_STATE_FM_EDIT] = {.handle_encoders = fm_edit_handle_encoders,
-                              .handle_switches = fm_edit_handle_switches,
-                              .handle_display = fm_edit_update_display},
-
-        [UI_STATE_MIDI_SETTINGS] = {.handle_encoders = midi_handle_encoders,
-                                    .handle_switches = main_handle_switches,
-                                    .handle_display = midi_update_display},
-
-        [UI_STATE_SEQUENCER] = {.handle_encoders = sequencer_handle_encoders,
-                                .handle_switches = main_handle_switches,
-                                .handle_display = sequencer_update_display},
-
-        [UI_STATE_SAMPLER] = {.handle_encoders = sampler_handle_encoders,
-                              .handle_switches = main_handle_switches,
-                              .handle_display = sampler_update_display},
-
-        [UI_STATE_SEQUENCER_EDIT] =
-            {.handle_encoders = sequencer_note_edit_handle_encoders,
-             .handle_switches = sequencer_note_edit_handle_switches,
-             .handle_display = sequencer_note_edit_update_display},
-
-        [UI_STATE_CHOOSE] = {.handle_encoders = choose_handle_encoders,
-                             .handle_switches = main_handle_switches,
-                             .handle_display = choose_update_display},
-        [UI_STATE_SEQUENCER_EDIT] =
-            {.handle_encoders = sequencer_note_edit_handle_encoders,
-             .handle_switches = sequencer_note_edit_handle_switches,
-             .handle_display = sequencer_note_edit_update_display},
-
-        [UI_STATE_CHOOSE] = {.handle_encoders = choose_handle_encoders,
-                             .handle_switches = main_handle_switches,
-                             .handle_display = choose_update_display},
-
-    };
+    UiDispatchEntry ui_dispatch_table[UI_STATE_COUNT];
 
     // shit I need for the main state
     int current_adsr_param = 0; // 0=A, 1=D, 2=S, 3=R

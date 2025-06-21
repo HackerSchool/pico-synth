@@ -18,6 +18,25 @@ UiHandler::UiHandler(HardwareManager &hw, MidiHandler &midi_handler,
     // if (wav_files.get_count() > 0) {
     //    sampler.load_sample_by_index(0, 0); // Load first file into player 0
     //}
+
+    ui_dispatch_table[UI_STATE_MAIN] = {
+        main_handle_encoders, main_handle_switches, main_update_display};
+    ui_dispatch_table[UI_STATE_FM_EDIT] = {fm_edit_handle_encoders,
+                                           main_handle_switches,
+                                           fm_edit_update_display};
+    ui_dispatch_table[UI_STATE_MIDI_SETTINGS] = {
+        midi_handle_encoders, main_handle_switches, midi_update_display};
+    ui_dispatch_table[UI_STATE_SEQUENCER] = {sequencer_handle_encoders,
+                                             main_handle_switches,
+                                             sequencer_update_display};
+    ui_dispatch_table[UI_STATE_SEQUENCER_EDIT] = {
+        sequencer_note_edit_handle_encoders,
+        sequencer_note_edit_handle_switches,
+        sequencer_note_edit_update_display};
+    ui_dispatch_table[UI_STATE_CHOOSE] = {
+        choose_handle_encoders, main_handle_switches, choose_update_display};
+    ui_dispatch_table[UI_STATE_SAMPLER] = {
+        sampler_handle_encoders, main_handle_switches, sampler_update_display};
 }
 
 void UiHandler::update() {
