@@ -198,10 +198,17 @@ void UiHandler::fm_edit_handle_encoders(UiHandler &self) {
                 self.fm_edit_dirty = true;
                 break;
             case 3: // Encoder 4 button - back to previous menu
-                self.ui_state =
-                    UI_STATE_MAIN; // or whatever your previous state was
-                self.main_dirty = true;
+                // Exit back to choose menu
+                self.ui_state = UI_STATE_CHOOSE;
+                self.chosen_index = (UI_STATE_FM_EDIT + 1 + NUM_USABLE_STATES) % NUM_USABLE_STATES;
+                self.fm_edit_dirty = true;
+                self.chosen_dirty = true;
+                printf("State: CHOOSE_STATE\n");
                 break;
+                //self.ui_state =
+                //    UI_STATE_MAIN; // or whatever your previous state was
+                //self.main_dirty = true;
+                //break;
             }
         }
     }
