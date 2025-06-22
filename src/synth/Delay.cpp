@@ -32,7 +32,8 @@ void Delay::set_delay_ms(int ms) {
 void Delay::set_feedback(int16_t fb_q1_15) {
     // Clamp feedback to safe range (0 to ~0.95 in Q1.15)
     // 31000 in Q1.15 ≈ 0.946
-    feedback = int16_max(0, int16_min(fb_q1_15, 31000));
+    // Lmao. no i dont want safety
+    feedback = int16_max(0, int16_min(fb_q1_15, 32767));
 }
 
 void Delay::set_mix(int16_t mix_q1_15) {
