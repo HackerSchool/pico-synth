@@ -88,6 +88,7 @@ target_sources(${bin_name} PRIVATE
     src/synth/Synth.cpp
     src/synth/Operator.cpp
     src/synth/Filter.cpp
+    src/synth/Delay.cpp
 
     src/ui/Ui.cpp
     src/ui/main_menu.cpp
@@ -98,6 +99,7 @@ target_sources(${bin_name} PRIVATE
     src/ui/sampler_menu.cpp
     src/ui/draw_utils.cpp
     src/ui/fm_menu.cpp
+    src/ui/fx_menu.cpp
 
 
     src/audio.c

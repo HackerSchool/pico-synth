@@ -13,16 +13,17 @@
 typedef enum UiState {
     UI_STATE_MAIN,          // = 0
     UI_STATE_FM_EDIT,       // = 1
-    UI_STATE_MIDI_SETTINGS, // = 2
-    UI_STATE_SEQUENCER,     // = 3
-    UI_STATE_SAMPLER,       // = 4
+    UI_STATE_FX_EDIT,       // = 2
+    UI_STATE_MIDI_SETTINGS, // = 3
+    UI_STATE_SEQUENCER,     // = 4
+    UI_STATE_SAMPLER,       // = 5
     UI_STATE_SEQUENCER_EDIT,
     UI_STATE_CHOOSE,
     UI_STATE_COUNT // helpful for bounds checking
 } UiState;
 
 #define NUM_USABLE_STATES                                                      \
-    (5) // 4 states (MAIN, FM_EDIT, MIDI, SEQUENCER, SAMPLER) (states listed in
+    (6) // 6 states (MAIN, FM_EDIT, FX_EDIT, MIDI, SEQUENCER, SAMPLER) (states listed in
         // the menu)
 
 class UiHandler;
@@ -78,10 +79,15 @@ class UiHandler {
     static void fm_edit_handle_switches(UiHandler &self);
     static void fm_edit_update_display(UiHandler &self);
 
+    static void fx_handle_encoders(UiHandler &self);
+    static void fx_update_display(UiHandler &self);
+
     // helpers:
 
     void set_adsr_param(int param, uint8_t value);
     uint8_t get_adsr_param(int param);
+
+    void set_delay_param(int delay_ms, int feedback, int mix);
 
   private:
     HardwareManager &hw;
@@ -129,6 +135,7 @@ class UiHandler {
     // sequencer state
     bool sequencer_settings_dirty = true;
     bool sequencer_playing = false;
+    uint32_t max_tempo = 400;
     uint32_t display_tempo = 120;
     uint8_t display_current_step = 0;
 
@@ -153,6 +160,12 @@ class UiHandler {
     int sample_channel = 6;
     // WAV file list for sampler
     WavFileList wav_files;
+
+    //FX variables
+    int delay_ms = 250;
+    int feedback = 10000;   // ~0.3 in Q1.15 format (9830/32767 ≈ 0.3)
+    int mix = 10000;        // ~0.3 in Q1.15 format
+    bool fx_dirty = true;
 };
 
 #endif // !UI_STATE_HPP

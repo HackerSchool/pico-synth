@@ -133,6 +133,8 @@ class HardwareManager {
 
     void draw_sampler_menu(const WavFileList& wav_files, int sample_index, int sample_channel);
 
+    void draw_fx_menu(int delay_ms, int feedback, int mix);
+
     void display_show();
     void display_clear();
 

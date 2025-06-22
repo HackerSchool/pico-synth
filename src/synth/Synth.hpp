@@ -7,6 +7,7 @@
 #include "Operator.hpp"
 #include "Oscillator.hpp"
 #include "Wavetable.hpp"
+#include "Delay.hpp"
 
 #include "config.hpp"
 #include "tusb.h"
@@ -54,7 +55,7 @@ class Synth {
 
     FilterFIR low_pass = FilterFIR(1000.f);
     FilterCheb low_pass_cheb = FilterCheb(5000.f, 0.5f, 44100.f);
-
+    Delay delay_effect;    
     // std::array<ChannelParams, 16> channel_params;
 
     // patches

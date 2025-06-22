@@ -24,6 +24,8 @@ UiHandler::UiHandler(HardwareManager &hw, MidiHandler &midi_handler,
     ui_dispatch_table[UI_STATE_FM_EDIT] = {fm_edit_handle_encoders,
                                            main_handle_switches,
                                            fm_edit_update_display};
+    ui_dispatch_table[UI_STATE_FX_EDIT] = {
+        fx_handle_encoders, main_handle_switches, fx_update_display};
     ui_dispatch_table[UI_STATE_MIDI_SETTINGS] = {
         midi_handle_encoders, main_handle_switches, midi_update_display};
     ui_dispatch_table[UI_STATE_SEQUENCER] = {sequencer_handle_encoders,
@@ -67,6 +69,13 @@ void UiHandler::update() {
 //     }
 // }
 //
+
+void UiHandler::set_delay_param(int delay_ms, int feedback, int mix){
+    synth.delay_effect.set_delay_ms(delay_ms);
+    synth.delay_effect.set_feedback(feedback);
+    synth.delay_effect.set_mix(mix);
+}
+
 uint8_t UiHandler::get_adsr_param(int param) {
     //     switch (param) {
     //     case 0:

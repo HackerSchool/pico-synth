@@ -26,6 +26,7 @@ Synth::Synth() {
     for (int i = 0; i < 16; i++) {
         active_patch[i].store(&patch_storage[i], std::memory_order_release);
     }
+
 }
 
 // Add this method to your Synth class:
@@ -131,6 +132,9 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
             buffer[k] += flow_buffer[k] >> 4;
         }
     }
+
+    // The delay effect
+    delay_effect.process(buffer.data(), SAMPLES_PER_BUFFER);
 
     // low_pass.out(buffer.data(), buffer.size());
     // low_pass_cheb.out(buffer.data(), buffer.size());

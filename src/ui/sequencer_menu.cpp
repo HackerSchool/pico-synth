@@ -17,7 +17,7 @@ void UiHandler::sequencer_handle_encoders(UiHandler &self) {
                 // Tempo control (encoder 0)
                 if (delta > 0) {
                     self.display_tempo += 5;
-                    if (self.display_tempo > 200)
+                    if (self.display_tempo > self.max_tempo)
                         self.display_tempo = 200;
                 } else {
                     if (self.display_tempo > 5)

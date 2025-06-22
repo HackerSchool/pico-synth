@@ -1,12 +1,6 @@
 #include "HardwareManager.hpp"
 #include "Ui.hpp"
 
-/*
-self.chosen_index = 0 -> Main Menu
-self.chosen_index = 1 -> MIDI
-self.chosen_index = 2 -> Sequencer
-*/
-
 void UiHandler::sampler_handle_encoders(UiHandler &self) {
     HardwareManager &hw = self.hw;
     for (int i = 0; i < NUM_ENCODERS; ++i) {

@@ -60,7 +60,7 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                 self.sequencer_dirty = true;
                 self.sampler_dirty = true;
                 self.fm_edit_dirty = true;
-
+                self.fx_dirty = true;
                 break;
             }
         }

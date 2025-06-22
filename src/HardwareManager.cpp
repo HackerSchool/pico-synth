@@ -330,20 +330,22 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
     ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Select Menu");
 
     // Draw each setting with ON/OFF status
-    char line1[20], line2[20], line3[20], line4[20], line5[20];
+    char line1[20], line2[20], line3[20], line4[20], line5[20], line6[20];
 
     snprintf(line1, sizeof(line1), "Synth %s", chosen_index == 0 ? "<" : "");
     snprintf(line2, sizeof(line2), "FM Edit %s", chosen_index == 1 ? "<" : "");
-    snprintf(line3, sizeof(line3), "MIDI %s", chosen_index == 2 ? "<" : "");
-    snprintf(line4, sizeof(line4), "Sequencer %s" , chosen_index == 3 ? "<" : "");
-    snprintf(line5, sizeof(line5), "Sampler %s" , chosen_index == 4 ? "<" : "");
+    snprintf(line3, sizeof(line3), "FX Edit %s", chosen_index == 2 ? "<" : "");
+    snprintf(line4, sizeof(line4), "MIDI %s", chosen_index == 3 ? "<" : "");
+    snprintf(line5, sizeof(line5), "Sequencer %s" , chosen_index == 4 ? "<" : "");
+    snprintf(line6, sizeof(line6), "Sampler %s" , chosen_index == 5 ? "<" : "");
     //snprintf(line5, sizeof(line5), "%d" , chosen_index);
 
-    ssd1306_draw_string(&disp, 8, 12, 1, line1);
-    ssd1306_draw_string(&disp, 8, 20, 1, line2);
-    ssd1306_draw_string(&disp, 8, 28, 1, line3);
-    ssd1306_draw_string(&disp, 8, 36, 1, line4);
-    ssd1306_draw_string(&disp, 8, 44, 1, line5);
+    ssd1306_draw_string(&disp, 8, 8, 1, line1);
+    ssd1306_draw_string(&disp, 8, 16, 1, line2);
+    ssd1306_draw_string(&disp, 8, 24, 1, line3);
+    ssd1306_draw_string(&disp, 8, 32, 1, line4);
+    ssd1306_draw_string(&disp, 8, 40, 1, line5);
+    ssd1306_draw_string(&disp, 8, 48, 1, line6);
 }
 
 void HardwareManager::draw_sampler_menu(const WavFileList& wav_files, int sample_index, int sample_channel) {
@@ -365,6 +367,29 @@ void HardwareManager::draw_sampler_menu(const WavFileList& wav_files, int sample
     } else {
         snprintf(line3, sizeof(line3), "Sample: No files");
     }
+
+    //ssd1306_draw_string(&disp, 8, 12, 1, line1);
+    ssd1306_draw_string(&disp, 8, 20, 1, line1);
+    ssd1306_draw_string(&disp, 8, 28, 1, line2);
+    ssd1306_draw_string(&disp, 8, 36, 1, line3);
+    ssd1306_draw_string(&disp, 8, 44, 1, line4);
+
+}
+
+void HardwareManager::draw_fx_menu(int delay_ms, int feedback, int mix) {
+    // Clear the display area for MIDI settings
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+
+    // Title
+    ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Effects Settings");
+
+    // Draw each setting with ON/OFF status
+    char line1[20], line2[20], line3[20], line4[20];
+
+    snprintf(line1, sizeof(line1), "Effect: Delay");
+    snprintf(line2, sizeof(line2), "Delay Time: %d", delay_ms);
+    snprintf(line3, sizeof(line3), "Feedback: %d", feedback);
+    snprintf(line4, sizeof(line4), "Mix: %d", mix);
 
     //ssd1306_draw_string(&disp, 8, 12, 1, line1);
     ssd1306_draw_string(&disp, 8, 20, 1, line1);
