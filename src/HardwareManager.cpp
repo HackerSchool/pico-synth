@@ -332,12 +332,12 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
     // Draw each setting with ON/OFF status
     char line1[20], line2[20], line3[20], line4[20], line5[20], line6[20];
 
-    snprintf(line1, sizeof(line1), "Synth %s", chosen_index == 0 ? "<" : "");
-    snprintf(line2, sizeof(line2), "FM Edit %s", chosen_index == 1 ? "<" : "");
-    snprintf(line3, sizeof(line3), "FX Edit %s", chosen_index == 2 ? "<" : "");
-    snprintf(line4, sizeof(line4), "MIDI %s", chosen_index == 3 ? "<" : "");
+    snprintf(line1, sizeof(line1), "Synth     %s", chosen_index == 0 ? "<" : "");
+    snprintf(line2, sizeof(line2), "FM Edit   %s", chosen_index == 1 ? "<" : "");
+    snprintf(line3, sizeof(line3), "FX Edit   %s", chosen_index == 2 ? "<" : "");
+    snprintf(line4, sizeof(line4), "MIDI      %s", chosen_index == 3 ? "<" : "");
     snprintf(line5, sizeof(line5), "Sequencer %s" , chosen_index == 4 ? "<" : "");
-    snprintf(line6, sizeof(line6), "Sampler %s" , chosen_index == 5 ? "<" : "");
+    snprintf(line6, sizeof(line6), "Sampler   %s" , chosen_index == 5 ? "<" : "");
     //snprintf(line5, sizeof(line5), "%d" , chosen_index);
 
     ssd1306_draw_string(&disp, 8, 8, 1, line1);

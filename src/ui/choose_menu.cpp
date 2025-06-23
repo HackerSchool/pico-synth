@@ -27,7 +27,14 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                 // Could adjust other MIDI settings
                 break;
             case 3:
-                self.chosen_index = (self.chosen_index + (delta > 0 ? 1 : -1) + NUM_USABLE_STATES) % (NUM_USABLE_STATES);
+                self.chosen_index = (self.chosen_index + (delta > 0 ? 1 : -1));
+                if (self.chosen_index >= NUM_USABLE_STATES - 1){
+                    self.chosen_index = NUM_USABLE_STATES - 1;
+                }
+                else if (self.chosen_index <= 0){
+                    self.chosen_index = 0;
+                }
+                
                 self.chosen_dirty = true;
                 break;
             }
