@@ -329,6 +329,37 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
     // Title
     ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Select Menu");
 
+    const char* items[] = {
+        "Synth", "FM Edit", "FX Edit", "MIDI", "Sequencer", "Sampler"
+    };
+    const int item_count = sizeof(items) / sizeof(items[0]);
+
+    // Indices for previous, current, next
+    int prev_index = (chosen_index - 1 + item_count) % item_count;
+    int next_index = (chosen_index + 1) % item_count;
+
+    if(chosen_index > 0){
+        // Draw previous item (smaller font)
+        ssd1306_draw_string(&disp, 8, 16, 1, items[prev_index]);
+    }
+
+    // Draw current item (centered, larger font)
+    ssd1306_draw_string(&disp, 8, 24, 2, items[chosen_index]);
+
+    if(chosen_index < 5){
+        // Draw previous item (smaller font)
+        ssd1306_draw_string(&disp, 8, 40, 1, items[next_index]);
+    }
+}
+
+/*
+void HardwareManager::draw_choose_menu(int chosen_index) {
+    // Clear the display area for MIDI settings
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+
+    // Title
+    ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Select Menu");
+
     // Draw each setting with ON/OFF status
     char line1[20], line2[20], line3[20], line4[20], line5[20], line6[20];
 
@@ -347,6 +378,7 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
     ssd1306_draw_string(&disp, 8, 40, 1, line5);
     ssd1306_draw_string(&disp, 8, 48, 1, line6);
 }
+*/
 
 void HardwareManager::draw_sampler_menu(const WavFileList& wav_files, int sample_index, int sample_channel) {
     // Clear the display area for MIDI settings

@@ -59,6 +59,7 @@ decrement:
 
     ; this is where the main loop starts
 .wrap_target
+
 update:
     MOV ISR, Y      ; read 11
     PUSH noblock
