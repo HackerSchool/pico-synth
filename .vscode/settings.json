@@ -1,0 +1,18 @@
+{
+    "files.associations": {
+        "cstdint": "cpp",
+        "compare": "cpp",
+        "bitset": "cpp",
+        "format": "cpp",
+        "fstream": "cpp",
+        "ostream": "cpp",
+        "ratio": "cpp",
+        "span": "cpp",
+        "sstream": "cpp",
+        "streambuf": "cpp",
+        "regex": "cpp",
+        "typeinfo": "cpp",
+        "valarray": "cpp",
+        "variant": "cpp"
+    }
+}

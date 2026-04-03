@@ -166,6 +166,15 @@ class UiHandler {
     int feedback = 10000;   // ~0.3 in Q1.15 format (9830/32767 ≈ 0.3)
     int mix = 10000;        // ~0.3 in Q1.15 format
     bool fx_dirty = true;
+    
+    // FX selection and enable flags
+    enum FXType { FX_DELAY = 0, FX_DISTORTION = 1, FX_REVERB = 2, FX_CHORUS = 3, FX_COUNT = 4 };
+    int current_fx = FX_DELAY;
+    bool fx_enabled[FX_COUNT] = { true, false, false, false };
+
+    // Generic FX control helper - forwards UI params to synth effects
+    void set_fx_param(int p1, int p2, int mix);
+    void set_fx_enabled(int fx_id, bool enabled);
 };
 
 #endif // !UI_STATE_HPP

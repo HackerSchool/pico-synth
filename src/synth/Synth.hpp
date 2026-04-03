@@ -9,6 +9,11 @@
 #include "Wavetable.hpp"
 #include "Delay.hpp"
 
+// Effect classes are implemented in Synth.cpp (private helper types)
+class Distortion;
+class Reverb;
+class Chorus;
+
 #include "config.hpp"
 #include "tusb.h"
 
@@ -35,6 +40,7 @@ extern const WaveType channel_wave_map[16];
 class Synth {
   public:
     Synth();
+    ~Synth();
     void out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer);
 
     // TODO: make it into an array of buffers, max 6 should be enough for all
@@ -55,7 +61,11 @@ class Synth {
 
     FilterFIR low_pass = FilterFIR(1000.f);
     FilterCheb low_pass_cheb = FilterCheb(5000.f, 0.5f, 44100.f);
-    Delay delay_effect;    
+    Delay delay_effect;
+    Distortion *distortion_effect = nullptr;
+    Reverb *reverb_effect = nullptr;
+    Chorus *chorus_effect = nullptr;
+    bool fx_enabled[4] = { true, false, false, false };
     // std::array<ChannelParams, 16> channel_params;
 
     // patches
@@ -69,6 +79,10 @@ class Synth {
     std::array<Voice, NUM_VOICES> voice;
 
     void cycle_filter_type();
+
+    // FX control
+    void enable_fx(int fx_id, bool enabled);
+    void set_fx_params(int fx_id, int p1, int p2, int mix);
 
     void set_filter_cutoff(float cutoff, float q = 0.5f);
     void update_filter_cutoff(uint8_t channel);

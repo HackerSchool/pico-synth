@@ -76,6 +76,17 @@ void UiHandler::set_delay_param(int delay_ms, int feedback, int mix){
     synth.delay_effect.set_mix(mix);
 }
 
+void UiHandler::set_fx_param(int p1, int p2, int mix){
+    // Forward generic FX parameters to synth based on currently selected FX
+    synth.set_fx_params(current_fx, p1, p2, mix);
+}
+
+void UiHandler::set_fx_enabled(int fx_id, bool enabled){
+    if (fx_id < 0 || fx_id >= FX_COUNT) return;
+    fx_enabled[fx_id] = enabled;
+    synth.enable_fx(fx_id, enabled);
+}
+
 uint8_t UiHandler::get_adsr_param(int param) {
     //     switch (param) {
     //     case 0:

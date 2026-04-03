@@ -1,7 +1,13 @@
 cmake_minimum_required(VERSION 3.13)
 
+# When cross-compiling on Windows, prevent CMake from trying to build host
+# executables during try_compile checks (use static library instead).
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+# Set Pico board to Pico W 2 (RP2350-based)
+set(PICO_BOARD pico2)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Import the Pico SDK early so CMake can configure the cross toolchain
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 include($ENV{PICO_EXTRAS_PATH}/external/pico_extras_import.cmake)
 
@@ -22,12 +28,13 @@ if(CMAKE_CXX_FLAGS MATCHES "-Werror")
 endif()
 
 set(project_name "pico-synth")
-project(${project_name})
+project(${project_name} C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
-set(FAMILY rp2040)
-set(BOARD pico_sdk)
+
+#set(FAMILY rp2350)
+#set(BOARD pico2)
 
 
 set(CONFIG_I2S_DATA_PIN 14)
@@ -89,6 +96,9 @@ target_sources(${bin_name} PRIVATE
     src/synth/Operator.cpp
     src/synth/Filter.cpp
     src/synth/Delay.cpp
+    src/synth/Distortion.cpp
+    src/synth/Reverb.cpp
+    src/synth/Chorus.cpp
 
     src/ui/Ui.cpp
     src/ui/main_menu.cpp

@@ -167,20 +167,20 @@ void SamplePlayer::stop() {
 
 void SamplePlayer::render_buffer(std::array<int16_t, SAMPLES_PER_BUFFER>& buffer) {
     buffer.fill(0);  // Clear buffer first
-    
+
     if (!playing || !file_open || eof_reached) {
         return;  // Return silence
     }
-    
+
     size_t samples_filled = 0;
-    
+
     while (samples_filled < SAMPLES_PER_BUFFER && !eof_reached) {
         // Refill read buffer if needed
         if (buffer_pos >= buffer_valid) {
             // Calculate how many bytes we can still read from data chunk
             uint32_t current_pos = f_tell(&file);
             uint32_t bytes_remaining_in_data = (data_start_pos + data_size) - current_pos;
-            
+
             if (bytes_remaining_in_data == 0) {
                 // We've reached the end of the actual audio data
                 if (loop_enabled && file_open) {
@@ -196,13 +196,13 @@ void SamplePlayer::render_buffer(std::array<int16_t, SAMPLES_PER_BUFFER>& buffer
                     break;
                 }
             }
-            
+
             // Don't read beyond the data chunk
-            UINT bytes_to_read = (SD_READ_BUFFER_SIZE < bytes_remaining_in_data) ? 
+            UINT bytes_to_read = (SD_READ_BUFFER_SIZE < bytes_remaining_in_data) ?
                                 SD_READ_BUFFER_SIZE : (UINT)bytes_remaining_in_data;
             UINT bytes_read;
             FRESULT result = f_read(&file, read_buffer, bytes_to_read, &bytes_read);
-            
+
             if (result != FR_OK || bytes_read == 0) {
                 // End of file reached
                 if (loop_enabled && file_open) {
@@ -218,46 +218,36 @@ void SamplePlayer::render_buffer(std::array<int16_t, SAMPLES_PER_BUFFER>& buffer
                     break;
                 }
             }
-            
+
             buffer_valid = bytes_read;
             buffer_pos = 0;
         }
-        
+
         // Calculate samples to copy
         size_t bytes_available = buffer_valid - buffer_pos;
-        size_t samples_available = (channels == 1) ? 
+        size_t samples_available = (channels == 1) ?
                                   (bytes_available >> 1) :      // Mono: divide by 2
                                   (bytes_available >> 2);       // Stereo: divide by 4
         size_t samples_to_copy = (samples_available < (SAMPLES_PER_BUFFER - samples_filled)) ?
                                 samples_available : (SAMPLES_PER_BUFFER - samples_filled);
-        
-        // Copy samples
+
+        // Fast copy for mono: memcpy the raw sample bytes directly into buffer
         int16_t* src = (int16_t*)&read_buffer[buffer_pos];
-        
         if (channels == 1) {
-            // Mono
-            for (size_t i = 0; i < samples_to_copy; i++) {
-                int32_t sample = (int32_t)src[i];
-                // Clamp
-                if (sample > 32767) sample = 32767;
-                if (sample < -32768) sample = -32768;
-                buffer[samples_filled + i] = (int16_t)sample;
-            }
+            // Mono: raw copy (samples are already 16-bit signed)
+            memcpy(&buffer[samples_filled], src, samples_to_copy * sizeof(int16_t));
             buffer_pos += samples_to_copy * 2;
         } else {
-            // Stereo - mix down to mono
+            // Stereo - mix down to mono (simple average). This range fits in int16.
             for (size_t i = 0; i < samples_to_copy; i++) {
                 int32_t left = src[i * 2];
                 int32_t right = src[i * 2 + 1];
-                int32_t mono = (left + right) / 2;
-                // Clamp
-                if (mono > 32767) mono = 32767;
-                if (mono < -32768) mono = -32768;
-                buffer[samples_filled + i] = (int16_t)mono;
+                int16_t mono = (int16_t)((left + right) >> 1);
+                buffer[samples_filled + i] = mono;
             }
             buffer_pos += samples_to_copy * 4;  // 2 channels * 2 bytes
         }
-        
+
         samples_filled += samples_to_copy;
     }
 }
@@ -324,24 +314,27 @@ SamplePlayer* Sampler::get_player(uint8_t player_id) {
 }
 
 void Sampler::out(std::array<int16_t, SAMPLES_PER_BUFFER>& buffer) {
-    buffer.fill(0);  // Clear output buffer
-    
+    // Use a 32-bit accumulation buffer to avoid clamping on every player add
+    int32_t accum[SAMPLES_PER_BUFFER];
+    for (size_t i = 0; i < SAMPLES_PER_BUFFER; ++i) accum[i] = 0;
+
     std::array<int16_t, SAMPLES_PER_BUFFER> player_buffer;
-    
-    // Mix all active players
+
+    // Accumulate samples from all active players into accum[]
     for (auto& player : players) {
-        if (player.is_playing()) {
-            player.render_buffer(player_buffer);
-            
-            // Mix into main buffer
-            for (size_t i = 0; i < SAMPLES_PER_BUFFER; i++) {
-                int32_t mixed = (int32_t)buffer[i] + (int32_t)player_buffer[i];
-                // Clamp to prevent overflow
-                if (mixed > 32767) mixed = 32767;
-                if (mixed < -32768) mixed = -32768;
-                buffer[i] = (int16_t)mixed;
-            }
+        if (!player.is_playing()) continue;
+        player.render_buffer(player_buffer);
+        for (size_t i = 0; i < SAMPLES_PER_BUFFER; ++i) {
+            accum[i] += (int32_t)player_buffer[i];
         }
+    }
+
+    // Convert back to 16-bit with a single clamp pass
+    for (size_t i = 0; i < SAMPLES_PER_BUFFER; ++i) {
+        int32_t v = accum[i];
+        if (v > 32767) v = 32767;
+        else if (v < -32768) v = -32768;
+        buffer[i] = (int16_t)v;
     }
 }
 
@@ -356,16 +349,8 @@ WavFileList::~WavFileList() {
 
 bool WavFileList::add_file(const std::string& filename) {
     if (count >= capacity) return false;
-    
-    printf("DEBUG: Adding file '%s' at index %d\n", filename.c_str(), count);
-    printf("DEBUG: filename.length() = %zu\n", filename.length());
-    
     filenames[count] = filename;
-    
-    printf("DEBUG: After assignment: filenames[%d] = '%s'\n", count, filenames[count].c_str());
-    printf("DEBUG: filenames[%d].length() = %zu\n", count, filenames[count].length());
-    
-    count++;
+    ++count;
     return true;
 }
 

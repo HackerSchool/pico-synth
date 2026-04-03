@@ -153,8 +153,10 @@ void Sequencer::toggle_note_step(uint8_t step_, uint8_t note_,
 
 void Sequencer::set_tempo(uint32_t new_tempo) {
     tempo = new_tempo;
-    float interval = 60.f * 1000000.f / tempo;
-    timer_interval = static_cast<uint64_t>(interval);
+    // Use integer arithmetic to avoid floating-point on Cortex-M0+
+    // interval in microseconds per beat = 60,000,000 / tempo
+    if (tempo == 0) tempo = 120; // guard against divide-by-zero
+    timer_interval = 60000000ULL / tempo;
 };
 
 void Sequencer::set_swing(uint32_t swing) {}

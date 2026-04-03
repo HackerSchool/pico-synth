@@ -7,6 +7,12 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
+
+#include "Distortion.hpp"
+#include "Reverb.hpp"
+#include "Chorus.hpp"
+
 
 const int wave_shift = WAVE_SHIFT;
 const int wave_len = WAVE_LEN;
@@ -26,6 +32,15 @@ Synth::Synth() {
     for (int i = 0; i < 16; i++) {
         active_patch[i].store(&patch_storage[i], std::memory_order_release);
     }
+
+    // Allocate effect objects
+    distortion_effect = new Distortion();
+    reverb_effect = new Reverb();
+    chorus_effect = new Chorus();
+    // default params
+    distortion_effect->set_params(0, 16000, 16384);
+    reverb_effect->set_params(250, 8192, 8192); // 250ms, medium damp, medium mix
+    chorus_effect->set_params(1, 4000, 8192);
 
 }
 
@@ -84,6 +99,12 @@ void Synth::initialize_patches() {
     }
 }
 
+Synth::~Synth() {
+    if (distortion_effect) { delete distortion_effect; distortion_effect = nullptr; }
+    if (reverb_effect) { delete reverb_effect; reverb_effect = nullptr; }
+    if (chorus_effect) { delete chorus_effect; chorus_effect = nullptr; }
+}
+
 void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
 
     // cleanup voices
@@ -133,8 +154,22 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
         }
     }
 
-    // The delay effect
-    delay_effect.process(buffer.data(), SAMPLES_PER_BUFFER);
+    // Apply inline FX chain (order: Distortion -> Chorus -> Delay -> Reverb)
+    if (fx_enabled[1] && distortion_effect) {
+        distortion_effect->process(buffer.data(), SAMPLES_PER_BUFFER);
+    }
+    if (fx_enabled[3] && chorus_effect) {
+        chorus_effect->process(buffer.data(), SAMPLES_PER_BUFFER);
+    }
+
+    // The delay effect (FX slot 0)
+    if (fx_enabled[0]) {
+        delay_effect.process(buffer.data(), SAMPLES_PER_BUFFER);
+    }
+
+    if (fx_enabled[2] && reverb_effect) {
+        reverb_effect->process(buffer.data(), SAMPLES_PER_BUFFER);
+    }
 
     // low_pass.out(buffer.data(), buffer.size());
     // low_pass_cheb.out(buffer.data(), buffer.size());
@@ -361,6 +396,32 @@ void Synth::note_off(uint8_t channel, uint8_t note, uint8_t velocity) {
             // velocity);
             break;
         }
+    }
+}
+
+void Synth::enable_fx(int fx_id, bool enabled) {
+    if (fx_id < 0 || fx_id >= 4) return;
+    fx_enabled[fx_id] = enabled;
+}
+
+void Synth::set_fx_params(int fx_id, int p1, int p2, int mix) {
+    switch (fx_id) {
+    case 0: // Delay
+        delay_effect.set_delay_ms(p1);
+        delay_effect.set_feedback((int16_t)p2);
+        delay_effect.set_mix((int16_t)mix);
+        break;
+    case 1: // Distortion
+        if (distortion_effect) distortion_effect->set_params(p1, p2, mix);
+        break;
+    case 2: // Reverb
+        if (reverb_effect) reverb_effect->set_params(p1, p2, mix);
+        break;
+    case 3: // Chorus
+        if (chorus_effect) chorus_effect->set_params(p1, p2, mix);
+        break;
+    default:
+        break;
     }
 }
 

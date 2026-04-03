@@ -53,8 +53,6 @@ void update_led(i2c_inst_t *i2c, int key, bool on);
 void update_leds_from_keys(i2c_inst_t *i2c, uint16_t prev_state,
                            uint16_t curr_state);
 
-KeyChanges compute_key_changes(uint16_t prev_state, uint16_t curr_state);
-
 class HardwareManager {
   public:
     HardwareManager();
@@ -133,7 +131,7 @@ class HardwareManager {
 
     void draw_sampler_menu(const WavFileList& wav_files, int sample_index, int sample_channel);
 
-    void draw_fx_menu(int delay_ms, int feedback, int mix);
+    void draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int mix);
 
     void display_show();
     void display_clear();

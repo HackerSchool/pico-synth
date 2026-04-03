@@ -408,7 +408,7 @@ void HardwareManager::draw_sampler_menu(const WavFileList& wav_files, int sample
 
 }
 
-void HardwareManager::draw_fx_menu(int delay_ms, int feedback, int mix) {
+void HardwareManager::draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int mix) {
     // Clear the display area for MIDI settings
     ssd1306_clear_square(&disp, 0, 0, 128, 64);
 
@@ -416,14 +416,42 @@ void HardwareManager::draw_fx_menu(int delay_ms, int feedback, int mix) {
     ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Effects Settings");
 
     // Draw each setting with ON/OFF status
-    char line1[20], line2[20], line3[20], line4[20];
+    char line1[28], line2[28], line3[28], line4[28];
 
-    snprintf(line1, sizeof(line1), "Effect: Delay");
-    snprintf(line2, sizeof(line2), "Delay Time: %d", delay_ms);
-    snprintf(line3, sizeof(line3), "Feedback: %d", feedback);
-    snprintf(line4, sizeof(line4), "Mix: %d", mix);
+    const char* fx_names[] = {"Delay", "Distort", "Reverb", "Chorus"};
+    const char* name = "Unknown";
+    if (fx_id >= 0 && fx_id < 4) name = fx_names[fx_id];
 
-    //ssd1306_draw_string(&disp, 8, 12, 1, line1);
+    snprintf(line1, sizeof(line1), "Effect: %s %s", name, enabled ? "ON" : "OFF");
+
+    switch (fx_id) {
+    case 0: // Delay
+        snprintf(line2, sizeof(line2), "Delay Time: %d ms", p1);
+        snprintf(line3, sizeof(line3), "Feedback: %d", p2);
+        snprintf(line4, sizeof(line4), "Mix: %d", mix);
+        break;
+    case 1: // Distortion
+        snprintf(line2, sizeof(line2), "Drive: %d", p1);
+        snprintf(line3, sizeof(line3), "Thresh: %d", p2);
+        snprintf(line4, sizeof(line4), "Mix: %d", mix);
+        break;
+    case 2: // Reverb
+        snprintf(line2, sizeof(line2), "Size: %d", p1);
+        snprintf(line3, sizeof(line3), "Damp: %d", p2);
+        snprintf(line4, sizeof(line4), "Mix: %d", mix);
+        break;
+    case 3: // Chorus
+        snprintf(line2, sizeof(line2), "Rate: %d", p1);
+        snprintf(line3, sizeof(line3), "Depth: %d", p2);
+        snprintf(line4, sizeof(line4), "Mix: %d", mix);
+        break;
+    default:
+        snprintf(line2, sizeof(line2), "Param1: %d", p1);
+        snprintf(line3, sizeof(line3), "Param2: %d", p2);
+        snprintf(line4, sizeof(line4), "Mix: %d", mix);
+        break;
+    }
+
     ssd1306_draw_string(&disp, 8, 20, 1, line1);
     ssd1306_draw_string(&disp, 8, 28, 1, line2);
     ssd1306_draw_string(&disp, 8, 36, 1, line3);
