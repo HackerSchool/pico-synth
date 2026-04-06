@@ -8,7 +8,7 @@ void UiHandler::midi_handle_encoders(UiHandler &self) {
         int32_t delta = enc->delta;
 
         // Handle encoder rotations (if needed for future features)
-        if (delta != 0 && abs(delta) > 1) {
+        if (UiHandler::encoder_moved(delta)) {
             switch (i) {
             case 0:
                 // Could cycle through MIDI channels or other settings

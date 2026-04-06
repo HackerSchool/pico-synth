@@ -124,11 +124,11 @@ void UiHandler::sequencer_note_edit_handle_encoders(UiHandler &self) {
         Encoder *enc = &hw.encoders[i];
         int32_t delta = enc->delta;
 
-        if (delta != 0 && abs(delta) > 1) {
+        if (UiHandler::encoder_moved(delta)) {
             switch (i) {
             case 0: // Change Channel
-                self.midi_channel =
-                    (self.midi_channel + (delta > 0 ? 1 : 15)) & 0x0F;
+                self.midi_channel = static_cast<uint8_t>(
+                    (self.midi_channel + UiHandler::encoder_velocity_delta(delta, 1, 2, 4) + 16) & 0x0F);
                 self.channel_dirty = true;
                 self.sequencer_dirty = true;
                 printf("MIDI Channel: %d\n", self.midi_channel + 1);

@@ -111,30 +111,30 @@ void UiHandler::fm_edit_handle_encoders(UiHandler &self) {
         Encoder *enc = &hw.encoders[i];
         int32_t delta = enc->delta;
 
-        if (delta != 0 && abs(delta) > 1) {
+        if (UiHandler::encoder_moved(delta)) {
             bool param_changed = false;
 
             switch (self.fm_edit_mode) {
             case 1: // ADSR mode
                 switch (i) {
                 case 0: // Attack
-                    op.attack =
-                        constrain(op.attack + (delta > 0 ? 1 : -1), 0, 127);
+                    op.attack = constrain(
+                        op.attack + UiHandler::encoder_velocity_delta(delta, 1, 4, 8), 0, 127);
                     param_changed = true;
                     break;
                 case 1: // Decay
-                    op.decay =
-                        constrain(op.decay + (delta > 0 ? 1 : -1), 0, 127);
+                    op.decay = constrain(
+                        op.decay + UiHandler::encoder_velocity_delta(delta, 1, 4, 8), 0, 127);
                     param_changed = true;
                     break;
                 case 2: // Sustain
-                    op.sustain =
-                        constrain(op.sustain + (delta > 0 ? 1 : -1), 0, 127);
+                    op.sustain = constrain(
+                        op.sustain + UiHandler::encoder_velocity_delta(delta, 1, 4, 8), 0, 127);
                     param_changed = true;
                     break;
                 case 3: // Release
-                    op.release =
-                        constrain(op.release + (delta > 0 ? 1 : -1), 0, 127);
+                    op.release = constrain(
+                        op.release + UiHandler::encoder_velocity_delta(delta, 1, 4, 8), 0, 127);
                     param_changed = true;
                     break;
                 }
@@ -143,24 +143,24 @@ void UiHandler::fm_edit_handle_encoders(UiHandler &self) {
             case 2: // Parameter mode
                 switch (i) {
                 case 0: // Ratio
-                    op.ratio =
-                        constrain(op.ratio + (delta > 0 ? 1 : -1), 1, 16);
+                    op.ratio = constrain(
+                        op.ratio + UiHandler::encoder_velocity_delta(delta, 1, 2, 4), 1, 16);
                     param_changed = true;
                     break;
                 case 1: // Feedback
-                    op.feedback =
-                        constrain(op.feedback + (delta > 0 ? 1 : -1), 0, 127);
+                    op.feedback = constrain(
+                        op.feedback + UiHandler::encoder_velocity_delta(delta, 1, 4, 8), 0, 127);
                     param_changed = true;
                     break;
                 case 2: // FM Depth
-                    op.fm_depth =
-                        constrain(op.fm_depth + (delta > 0 ? 1 : -1), 0, 127);
+                    op.fm_depth = constrain(
+                        op.fm_depth + UiHandler::encoder_velocity_delta(delta, 1, 4, 8), 0, 127);
                     param_changed = true;
                     break;
                 case 3: // Wave Type
                 {
                     int wave_val = static_cast<int>(op.wave_type);
-                    wave_val += (delta > 0 ? 1 : -1);
+                    wave_val += UiHandler::encoder_velocity_delta(delta, 1, 1, 1);
                     if (wave_val < 0)
                         wave_val = 3; // Wrap to last wave type
                     if (wave_val > 3)

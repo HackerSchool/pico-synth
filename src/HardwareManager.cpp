@@ -418,11 +418,11 @@ void HardwareManager::draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int 
     // Draw each setting with ON/OFF status
     char line1[28], line2[28], line3[28], line4[28];
 
-    const char* fx_names[] = {"Delay", "Distort", "Reverb", "Chorus"};
+    const char* fx_names[] = {"Delay", "Distort", "FDN Reverb", "Chorus", "S/C Reverb"};
     const char* name = "Unknown";
-    if (fx_id >= 0 && fx_id < 4) name = fx_names[fx_id];
+    if (fx_id >= 0 && fx_id < 5) name = fx_names[fx_id];
 
-    snprintf(line1, sizeof(line1), "Effect: %s %s", name, enabled ? "ON" : "OFF");
+    snprintf(line1, sizeof(line1), "%s - %s", name, enabled ? "ON" : "OFF");
 
     switch (fx_id) {
     case 0: // Delay
@@ -445,6 +445,11 @@ void HardwareManager::draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int 
         snprintf(line3, sizeof(line3), "Depth: %d", p2);
         snprintf(line4, sizeof(line4), "Mix: %d", mix);
         break;
+    case 4: // RevSC
+        snprintf(line2, sizeof(line2), "Time: %d", p1);
+        snprintf(line3, sizeof(line3), "Tone: %d", p2);
+        snprintf(line4, sizeof(line4), "Mix: %d", mix);
+        break;
     default:
         snprintf(line2, sizeof(line2), "Param1: %d", p1);
         snprintf(line3, sizeof(line3), "Param2: %d", p2);
@@ -452,7 +457,7 @@ void HardwareManager::draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int 
         break;
     }
 
-    ssd1306_draw_string(&disp, 8, 20, 1, line1);
+    ssd1306_draw_string(&disp, 8, 12, 1, line1);
     ssd1306_draw_string(&disp, 8, 28, 1, line2);
     ssd1306_draw_string(&disp, 8, 36, 1, line3);
     ssd1306_draw_string(&disp, 8, 44, 1, line4);

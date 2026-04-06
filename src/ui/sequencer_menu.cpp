@@ -11,17 +11,18 @@ void UiHandler::sequencer_handle_encoders(UiHandler &self) {
         int32_t delta = enc->delta;
 
         // Handle encoder rotations
-        if (delta != 0 && abs(delta) > 1) {
+        if (UiHandler::encoder_moved(delta)) {
             switch (i) {
             case 0:
                 // Tempo control (encoder 0)
-                if (delta > 0) {
-                    self.display_tempo += 5;
-                    if (self.display_tempo > self.max_tempo)
-                        self.display_tempo = self.max_tempo;
-                } else {
-                    if (self.display_tempo > 5)
-                        self.display_tempo -= 5;
+                {
+                    int tempo = static_cast<int>(self.display_tempo) +
+                                UiHandler::encoder_velocity_delta(delta, 1, 5, 20);
+                    if (tempo < 5) tempo = 5;
+                    if (tempo > static_cast<int>(self.max_tempo)) {
+                        tempo = static_cast<int>(self.max_tempo);
+                    }
+                    self.display_tempo = static_cast<uint32_t>(tempo);
                 }
                 sequencer.set_tempo(self.display_tempo);
                 self.sequencer_settings_dirty = true;

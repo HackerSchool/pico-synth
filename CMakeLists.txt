@@ -98,6 +98,7 @@ target_sources(${bin_name} PRIVATE
     src/synth/Delay.cpp
     src/synth/Distortion.cpp
     src/synth/Reverb.cpp
+    src/synth/ReverbSc.cpp
     src/synth/Chorus.cpp
 
     src/ui/Ui.cpp

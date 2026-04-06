@@ -12,6 +12,7 @@
 #include "Distortion.hpp"
 #include "Reverb.hpp"
 #include "Chorus.hpp"
+#include "ReverbSc.hpp"
 
 
 const int wave_shift = WAVE_SHIFT;
@@ -37,10 +38,13 @@ Synth::Synth() {
     distortion_effect = new Distortion();
     reverb_effect = new Reverb();
     chorus_effect = new Chorus();
+    reverb_sc_effect = new ReverbScFx();
     // default params
-    distortion_effect->set_params(0, 16000, 16384);
-    reverb_effect->set_params(250, 8192, 8192); // 250ms, medium damp, medium mix
-    chorus_effect->set_params(1, 4000, 8192);
+    distortion_effect->set_params(320, 18000, 12288);
+    // Use normalized parameters (0.0 - 1.0): room_size, damp, mix
+    reverb_effect->set_params(0.61f, 0.15f, 0.36f); // moderate room, light damp, medium mix
+    chorus_effect->set_params(320, 12000, 8192);
+    reverb_sc_effect->set_params(0.78f, 0.75f, 0.34f);
 
 }
 
@@ -103,6 +107,7 @@ Synth::~Synth() {
     if (distortion_effect) { delete distortion_effect; distortion_effect = nullptr; }
     if (reverb_effect) { delete reverb_effect; reverb_effect = nullptr; }
     if (chorus_effect) { delete chorus_effect; chorus_effect = nullptr; }
+    if (reverb_sc_effect) { delete reverb_sc_effect; reverb_sc_effect = nullptr; }
 }
 
 void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
@@ -154,7 +159,7 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
         }
     }
 
-    // Apply inline FX chain (order: Distortion -> Chorus -> Delay -> Reverb)
+    // Apply inline FX chain (order: Distortion -> Chorus -> Delay -> Reverb -> RevSC)
     if (fx_enabled[1] && distortion_effect) {
         distortion_effect->process(buffer.data(), SAMPLES_PER_BUFFER);
     }
@@ -169,6 +174,9 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
 
     if (fx_enabled[2] && reverb_effect) {
         reverb_effect->process(buffer.data(), SAMPLES_PER_BUFFER);
+    }
+    if (fx_enabled[4] && reverb_sc_effect) {
+        reverb_sc_effect->process(buffer.data(), SAMPLES_PER_BUFFER);
     }
 
     // low_pass.out(buffer.data(), buffer.size());
@@ -400,8 +408,31 @@ void Synth::note_off(uint8_t channel, uint8_t note, uint8_t velocity) {
 }
 
 void Synth::enable_fx(int fx_id, bool enabled) {
-    if (fx_id < 0 || fx_id >= 4) return;
+    if (fx_id < 0 || fx_id >= FX_SLOT_COUNT) return;
+    if (fx_enabled[fx_id] == enabled) return;
+
     fx_enabled[fx_id] = enabled;
+    if (enabled) return;
+
+    switch (fx_id) {
+    case 0:
+        delay_effect.reset();
+        break;
+    case 1:
+        if (distortion_effect) distortion_effect->reset();
+        break;
+    case 2:
+        if (reverb_effect) reverb_effect->reset();
+        break;
+    case 3:
+        if (chorus_effect) chorus_effect->reset();
+        break;
+    case 4:
+        if (reverb_sc_effect) reverb_sc_effect->reset();
+        break;
+    default:
+        break;
+    }
 }
 
 void Synth::set_fx_params(int fx_id, int p1, int p2, int mix) {
@@ -414,12 +445,40 @@ void Synth::set_fx_params(int fx_id, int p1, int p2, int mix) {
     case 1: // Distortion
         if (distortion_effect) distortion_effect->set_params(p1, p2, mix);
         break;
-    case 2: // Reverb
-        if (reverb_effect) reverb_effect->set_params(p1, p2, mix);
+    case 2: { // Reverb
+        if (reverb_effect) {
+            // UI provides: p1 = time/ms (0-1000), p2 = damp (Q15-ish 0-32000), mix = Q15-ish (0-32000)
+            float room_size = (float)p1 / 1000.0f;
+            if (room_size < 0.0f) room_size = 0.0f;
+            if (room_size > 1.0f) room_size = 1.0f;
+            float damp_f = (float)p2 / 32767.0f;
+            if (damp_f < 0.0f) damp_f = 0.0f;
+            if (damp_f > 1.0f) damp_f = 1.0f;
+            float mix_f = (float)mix / 32767.0f;
+            if (mix_f < 0.0f) mix_f = 0.0f;
+            if (mix_f > 1.0f) mix_f = 1.0f;
+            reverb_effect->set_params(room_size, damp_f, mix_f);
+        }
         break;
+    }
     case 3: // Chorus
         if (chorus_effect) chorus_effect->set_params(p1, p2, mix);
         break;
+    case 4: { // ReverbSc-inspired variant
+        if (reverb_sc_effect) {
+            float time_f = (float)p1 / 1000.0f;
+            if (time_f < 0.0f) time_f = 0.0f;
+            if (time_f > 1.0f) time_f = 1.0f;
+            float tone_f = (float)p2 / 32767.0f;
+            if (tone_f < 0.0f) tone_f = 0.0f;
+            if (tone_f > 1.0f) tone_f = 1.0f;
+            float mix_f = (float)mix / 32767.0f;
+            if (mix_f < 0.0f) mix_f = 0.0f;
+            if (mix_f > 1.0f) mix_f = 1.0f;
+            reverb_sc_effect->set_params(time_f, tone_f, mix_f);
+        }
+        break;
+    }
     default:
         break;
     }

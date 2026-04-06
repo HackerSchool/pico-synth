@@ -3,6 +3,16 @@
 #include "MidiHandler.hpp"
 #include "Sequencer.hpp"
 
+namespace {
+constexpr int kEncoderDebounceThreshold = 1;
+constexpr int kEncoderMediumThreshold = 3;
+constexpr int kEncoderFastThreshold = 5;
+
+inline int abs_int(int value) {
+    return value < 0 ? -value : value;
+}
+} // namespace
+
 const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
                              66, 68, 70, -1, 67, 69, 71, 72};
 
@@ -39,6 +49,14 @@ UiHandler::UiHandler(HardwareManager &hw, MidiHandler &midi_handler,
         choose_handle_encoders, main_handle_switches, choose_update_display};
     ui_dispatch_table[UI_STATE_SAMPLER] = {
         sampler_handle_encoders, main_handle_switches, sampler_update_display};
+
+    for (int fx_id = 0; fx_id < FX_COUNT; ++fx_id) {
+        synth.set_fx_params(fx_id,
+                            fx_params[fx_id].p1,
+                            fx_params[fx_id].p2,
+                            fx_params[fx_id].mix);
+        synth.enable_fx(fx_id, fx_enabled[fx_id]);
+    }
 }
 
 void UiHandler::update() {
@@ -49,6 +67,26 @@ void UiHandler::update() {
     tud_task(); // Service USB
     ui_dispatch_entry.handle_display(*this);
     tud_task(); // Service USB
+}
+
+bool UiHandler::encoder_moved(int32_t delta) {
+    return abs_int(static_cast<int>(delta)) > kEncoderDebounceThreshold;
+}
+
+int UiHandler::encoder_velocity_step(int32_t delta, int slow_step, int medium_step,
+                                     int fast_step) {
+    const int magnitude = abs_int(static_cast<int>(delta));
+
+    if (magnitude >= kEncoderFastThreshold) return fast_step;
+    if (magnitude >= kEncoderMediumThreshold) return medium_step;
+    return slow_step;
+}
+
+int UiHandler::encoder_velocity_delta(int32_t delta, int slow_step, int medium_step,
+                                      int fast_step) {
+    if (delta > 0) return encoder_velocity_step(delta, slow_step, medium_step, fast_step);
+    if (delta < 0) return -encoder_velocity_step(delta, slow_step, medium_step, fast_step);
+    return 0;
 }
 
 // // Helper functions
@@ -88,6 +126,7 @@ void UiHandler::set_fx_enabled(int fx_id, bool enabled){
 }
 
 uint8_t UiHandler::get_adsr_param(int param) {
+    (void)param;
     //     switch (param) {
     //     case 0:
     //         return channel_params[midi_channel].attack;

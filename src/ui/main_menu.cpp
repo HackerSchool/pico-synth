@@ -83,11 +83,11 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
         Encoder *enc = &hw.encoders[i];
         int32_t delta = enc->delta;
 
-        if (delta != 0 && abs(delta) > 1) {
+        if (UiHandler::encoder_moved(delta)) {
             switch (i) {
             case 0:
-                self.midi_channel =
-                    (self.midi_channel + (delta > 0 ? 1 : 15)) & 0x0F;
+                self.midi_channel = static_cast<uint8_t>(
+                    (self.midi_channel + UiHandler::encoder_velocity_delta(delta, 1, 2, 4) + 16) & 0x0F);
 
                 self.channel_dirty = true;
                 self.adsr_dirty = true;
@@ -95,8 +95,11 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
 
             case 1: {
                 Patch &patch = synth.patch_storage[self.midi_channel];
-                // patch.ops[1].fm_depth = 100;
-                patch.ops[1].ratio += delta;
+                int new_ratio = static_cast<int>(patch.ops[1].ratio) +
+                                UiHandler::encoder_velocity_delta(delta, 1, 2, 4);
+                if (new_ratio < 1) new_ratio = 1;
+                if (new_ratio > 16) new_ratio = 16;
+                patch.ops[1].ratio = static_cast<uint16_t>(new_ratio);
                 synth.active_patch[self.midi_channel].store(
                     &patch, std::memory_order_release);
                 synth.patch_dirty_flags.set(self.midi_channel);
@@ -124,7 +127,7 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
                     (self.filter_cutoff_msb << 7) | self.filter_cutoff_lsb;
                 int32_t new_cutoff_14bit =
                     current_cutoff_14bit +
-                    (delta > 0 ? 100 : -100); // Adjust step size as needed
+                    UiHandler::encoder_velocity_delta(delta, 100, 500, 1000);
 
                 // Clamp to 14-bit range
                 if (new_cutoff_14bit < 0)
@@ -165,7 +168,7 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
                 self.filter_type = (self.filter_type + 1) % 3;
 
                 // Map to MIDI values: 0-42=Off, 43-84=FIR, 85-127=Cheby
-                uint8_t midi_filter_value;
+                uint8_t midi_filter_value = 21;
                 switch (self.filter_type) {
                 case 0:
                     midi_filter_value = 21;
@@ -176,6 +179,8 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
                 case 2:
                     midi_filter_value = 106;
                     break; // Cheby (middle of 85-127 range)
+                default:
+                    break;
                 }
 
                 uint8_t packet[4] = {

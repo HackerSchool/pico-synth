@@ -8,15 +8,24 @@ void UiHandler::sampler_handle_encoders(UiHandler &self) {
         int32_t delta = enc->delta;
 
         // Handle encoder rotations (if needed for future features)
-        if (delta != 0 && abs(delta) > 1) {
+        if (UiHandler::encoder_moved(delta)) {
             switch (i) {
             case 0:
                 self.sampler_dirty = true;
                 break;
             case 1:
                 self.wav_files.print_files(); // Optional: print on startup
-                
-                self.sample_index = (self.sample_index + (delta > 0 ? 1 : -1) + 4) % (4);
+
+                if (self.wav_files.get_count() > 0) {
+                    int new_index = self.sample_index +
+                                    UiHandler::encoder_velocity_delta(delta, 1, 2, 4);
+                    const int file_count = self.wav_files.get_count();
+
+                    while (new_index < 0) new_index += file_count;
+                    while (new_index >= file_count) new_index -= file_count;
+
+                    self.sample_index = new_index;
+                }
                 
                 /*
                 printf("WAV files count: %d\n", self.wav_files.get_count());

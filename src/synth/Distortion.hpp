@@ -12,9 +12,15 @@ public:
     void reset();
 
 private:
-    int drive_q15; // simple drive parameter (Q15-ish)
-    int16_t thresh; // clipping threshold
-    int mix_q15; // wet mix in Q15
+    int input_gain_q12;
+    int clip_threshold;
+    int clip_threshold_inv_q15;
+    int makeup_gain_q12;
+    int mix_q15;
+    int tone_alpha_q15;
+    int32_t lp_state;
+    int32_t hp_prev_in;
+    int32_t hp_prev_out;
 };
 
 #endif // DISTORTION_HPP

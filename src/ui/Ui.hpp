@@ -6,6 +6,7 @@
 #include "Sampler.hpp"
 #include "Sequencer.hpp"
 #include "Synth.hpp"
+#include <array>
 #include <cstdint>
 
 // When adding a new state here watch out for the order
@@ -90,6 +91,12 @@ class UiHandler {
     void set_delay_param(int delay_ms, int feedback, int mix);
 
   private:
+    static bool encoder_moved(int32_t delta);
+    static int encoder_velocity_step(int32_t delta, int slow_step, int medium_step,
+                                     int fast_step);
+    static int encoder_velocity_delta(int32_t delta, int slow_step, int medium_step,
+                                      int fast_step);
+
     HardwareManager &hw;
     MidiHandler &midi;
     Sequencer &seq;
@@ -161,16 +168,30 @@ class UiHandler {
     // WAV file list for sampler
     WavFileList wav_files;
 
-    //FX variables
-    int delay_ms = 250;
-    int feedback = 10000;   // ~0.3 in Q1.15 format (9830/32767 ≈ 0.3)
-    int mix = 10000;        // ~0.3 in Q1.15 format
+    struct FxParams {
+        int p1;
+        int p2;
+        int mix;
+    };
+
+    enum FXType {
+        FX_DELAY = 0,
+        FX_DISTORTION = 1,
+        FX_REVERB = 2,
+        FX_CHORUS = 3,
+        FX_REVERB_SC = 4,
+        FX_COUNT = Synth::FX_SLOT_COUNT
+    };
+    std::array<FxParams, FX_COUNT> fx_params = {{
+        {250, 10000, 10000},  // Delay: time, feedback, mix
+        {500, 200, 30000},  // Distortion: drive, threshold, mix
+        {750, 300, 30000},   // Reverb: size, damp, mix
+        {450, 32000, 32000},   // Chorus: rate, depth, mix
+        {1000, 32000, 32000},  // RevSC: time, tone, mix
+    }};
     bool fx_dirty = true;
-    
-    // FX selection and enable flags
-    enum FXType { FX_DELAY = 0, FX_DISTORTION = 1, FX_REVERB = 2, FX_CHORUS = 3, FX_COUNT = 4 };
     int current_fx = FX_DELAY;
-    bool fx_enabled[FX_COUNT] = { true, false, false, false };
+    bool fx_enabled[FX_COUNT] = { true, false, false, false, false };
 
     // Generic FX control helper - forwards UI params to synth effects
     void set_fx_param(int p1, int p2, int mix);

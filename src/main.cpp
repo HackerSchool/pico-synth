@@ -31,6 +31,8 @@
 #include "ff.h"        // FatFS
 #include "hw_config.h" // SD card hardware config
 
+#include <cstring>
+
 static audio_buffer_pool *ap = nullptr;
 
 static queue_t midi_queue;
@@ -85,10 +87,12 @@ void audio_task(void) {
     if (!buffer)
         return;
 
-    int16_t *samples = (int16_t *)buffer->buffer->bytes;
+    uint8_t *sample_bytes = buffer->buffer->bytes;
     for (uint i = 0; i < buffer->max_sample_count; i++) {
-        samples[i * 2 + 0] = output[i];
-        samples[i * 2 + 1] = output[i];
+        const int16_t left = output[i];
+        const int16_t right = output[i];
+        std::memcpy(sample_bytes + (i * 4), &left, sizeof(left));
+        std::memcpy(sample_bytes + (i * 4) + sizeof(left), &right, sizeof(right));
     }
     buffer->sample_count = buffer->max_sample_count;
     give_audio_buffer(ap, buffer);
@@ -165,7 +169,7 @@ int main() {
         if (c >= 0) {
             if (c == 'q')
                 for (int i = 0; i < 512; i++) {
-                    printf("%f,\n\r", q24_to_float(sinc_table_fp[i]));
+                    printf("%f,\n\r", static_cast<double>(q24_to_float(sinc_table_fp[i])));
                 }
             if (c == 'b')
                 enter_bootsel_mode();

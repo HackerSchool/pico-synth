@@ -33,7 +33,7 @@ void Sequencer::schedule_next_alarm() {
     add_alarm_in_us(timer_interval, alarm_callback, this, true);
 }
 
-int64_t Sequencer::alarm_callback(alarm_id_t id, void *user_data) {
+int64_t Sequencer::alarm_callback(alarm_id_t /*id*/, void *user_data) {
     Sequencer *self = static_cast<Sequencer *>(user_data);
     self->step_flag = true;      // Set the flag
     self->schedule_next_alarm(); // Chain the next alarm
@@ -78,7 +78,9 @@ void Sequencer::pause() {
         }
     }
 }
-void Sequencer::play_from_step(uint8_t step) {}
+void Sequencer::play_from_step(uint8_t step) {
+    step_current = (step < SEQ_LEN) ? step : 0;
+}
 
 void Sequencer::play_step(uint8_t step) {
     if (step >= SEQ_LEN) {
@@ -120,8 +122,15 @@ void Sequencer::play_step(uint8_t step) {
         }
     }
 }
-void Sequencer::add_note_to_step(uint8_t step, uint8_t note) {}
-void Sequencer::remove_note_from_step(uint8_t step, uint8_t note) {}
+void Sequencer::add_note_to_step(uint8_t step, uint8_t note) {
+    (void)step;
+    (void)note;
+}
+
+void Sequencer::remove_note_from_step(uint8_t step, uint8_t note) {
+    (void)step;
+    (void)note;
+}
 
 void Sequencer::toggle_note_step(uint8_t step_, uint8_t note_,
                                  uint8_t channel_) {
@@ -159,9 +168,13 @@ void Sequencer::set_tempo(uint32_t new_tempo) {
     timer_interval = 60000000ULL / tempo;
 };
 
-void Sequencer::set_swing(uint32_t swing) {}
+void Sequencer::set_swing(uint32_t swing) {
+    this->swing = swing;
+}
 
-void Sequencer::get_notes_on_step(uint8_t step) {}
+void Sequencer::get_notes_on_step(uint8_t step) {
+    (void)step;
+}
 void Sequencer::get_notes() {}
 void Sequencer::get_tempo() {}
 void Sequencer::get_swing() {}

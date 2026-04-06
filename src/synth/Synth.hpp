@@ -13,6 +13,7 @@
 class Distortion;
 class Reverb;
 class Chorus;
+class ReverbScFx;
 
 #include "config.hpp"
 #include "tusb.h"
@@ -39,6 +40,8 @@ extern const WaveType channel_wave_map[16];
 
 class Synth {
   public:
+    static constexpr int FX_SLOT_COUNT = 5;
+
     Synth();
     ~Synth();
     void out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer);
@@ -65,7 +68,8 @@ class Synth {
     Distortion *distortion_effect = nullptr;
     Reverb *reverb_effect = nullptr;
     Chorus *chorus_effect = nullptr;
-    bool fx_enabled[4] = { true, false, false, false };
+    ReverbScFx *reverb_sc_effect = nullptr;
+    bool fx_enabled[FX_SLOT_COUNT] = { true, false, false, false, false };
     // std::array<ChannelParams, 16> channel_params;
 
     // patches

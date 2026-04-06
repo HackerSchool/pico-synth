@@ -18,7 +18,7 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
         int32_t delta = enc->delta;
 
         // Handle encoder rotations (if needed for future features)
-        if (delta != 0 && abs(delta) > 1) {
+        if (UiHandler::encoder_moved(delta)) {
             printf("D: %ld", delta);
             switch (i) {
             case 0:
@@ -34,7 +34,7 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                 encoder_accumulator += delta;
 
                 if (abs(encoder_accumulator) >= detent_threshold) {
-                    int dir = encoder_accumulator > 0 ? 1 : -1;
+                    int dir = UiHandler::encoder_velocity_delta(encoder_accumulator, 1, 1, 2);
                     encoder_accumulator = 0; // Reset after handling
 
                     self.chosen_index += dir;
