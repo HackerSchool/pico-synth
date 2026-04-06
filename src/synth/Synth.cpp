@@ -28,10 +28,13 @@ Synth::Synth() {
     }
     // Initialize patches for all 16 channels
     initialize_patches();
+    initialize_karplus_patches();
     
     // Initialize active_patch pointers to point to patch_storage
     for (int i = 0; i < 16; i++) {
         active_patch[i].store(&patch_storage[i], std::memory_order_release);
+        active_karplus_patch[i].store(&karplus_patch_storage[i],
+                                      std::memory_order_release);
     }
 
     // Allocate effect objects
@@ -133,6 +136,19 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
             }
             patch_dirty_flags.reset(ch);
         }
+
+        if (karplus_patch_dirty_flags.test(ch)) {
+            const KarplusPatch *p =
+                active_karplus_patch[ch].load(std::memory_order_acquire);
+            if (p) {
+                for (auto &v : karplus_voice) {
+                    if (v.is_active() && v.midi_channel == ch) {
+                        v.apply_patch(*p);
+                    }
+                }
+            }
+            karplus_patch_dirty_flags.reset(ch);
+        }
     }
 
     // set up the interpolator
@@ -148,17 +164,34 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
     interp_config_set_add_raw(&cfg1, true);
     interp_set_config(interp1, 0, &cfg1);
 
-    for (int i = 0; i < NUM_VOICES; i++) {
-        if (!voice[i].playing) {
-            continue;
+    switch (current_engine) {
+    case SynthEngine::FM:
+        for (int i = 0; i < NUM_VOICES; i++) {
+            if (!voice[i].playing) {
+                continue;
+            }
+            voice[i].out(flow_buffer);
+            for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
+                // divide by 8
+                buffer[k] += flow_buffer[k] >> 4;
+            }
         }
-        voice[i].out(flow_buffer);
-        for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
-            // divide by 8
-            buffer[k] += flow_buffer[k] >> 4;
+        break;
+    case SynthEngine::KarplusStrong:
+        for (int i = 0; i < KARPLUS_VOICE_COUNT; ++i) {
+            if (!karplus_voice[i].is_active()) {
+                continue;
+            }
+            karplus_voice[i].render(flow_buffer);
+            for (int k = 0; k < SAMPLES_PER_BUFFER; ++k) {
+                buffer[k] += flow_buffer[k] >> 3;
+            }
         }
+        break;
     }
+}
 
+void Synth::process_fx(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
     // Apply inline FX chain (order: Distortion -> Chorus -> Delay -> Reverb -> RevSC)
     if (fx_enabled[1] && distortion_effect) {
         distortion_effect->process(buffer.data(), SAMPLES_PER_BUFFER);
@@ -348,6 +381,33 @@ const WaveType channel_wave_map[16] = {
     Sawtooth, Sinc,   Sine,     Square,   Triangle, Sawtooth, Sinc,   Sine};
 
 void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
+    if (current_engine == SynthEngine::KarplusStrong) {
+        notes_playing_bitset.set(note);
+
+        const KarplusPatch *patch_ptr =
+            active_karplus_patch[channel].load(std::memory_order_acquire);
+        if (!patch_ptr) {
+            return;
+        }
+
+        for (int i = 0; i < KARPLUS_VOICE_COUNT; ++i) {
+            if (karplus_voice[i].matches(channel, note)) {
+                karplus_voice[i].start(note, channel, velocity, *patch_ptr);
+                return;
+            }
+        }
+
+        for (int i = 0; i < KARPLUS_VOICE_COUNT; ++i) {
+            if (!karplus_voice[i].is_active()) {
+                karplus_voice[i].start(note, channel, velocity, *patch_ptr);
+                return;
+            }
+        }
+
+        karplus_voice[0].start(note, channel, velocity, *patch_ptr);
+        return;
+    }
+
     // Check if note is already playing on this channel
     for (int i = 0; i < NUM_VOICES; i++) {
         if (voice[i].midi_note == note && voice[i].playing && !voice[i].steal &&
@@ -389,6 +449,17 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
 }
 
 void Synth::note_off(uint8_t channel, uint8_t note, uint8_t velocity) {
+    if (current_engine == SynthEngine::KarplusStrong) {
+        notes_playing_bitset.reset(note);
+
+        for (int i = 0; i < KARPLUS_VOICE_COUNT; ++i) {
+            if (karplus_voice[i].matches(channel, note)) {
+                karplus_voice[i].note_off();
+            }
+        }
+        return;
+    }
+
     // Check if note is playing
     // printf("I am in note off");
     for (int i = 0; i < NUM_VOICES; i++) {
@@ -405,6 +476,34 @@ void Synth::note_off(uint8_t channel, uint8_t note, uint8_t velocity) {
             break;
         }
     }
+}
+
+void Synth::clear_fm_voices() {
+    for (auto &v : voice) {
+        v.playing = false;
+        v.steal = false;
+        v.op[0].env.set_idle();
+        v.op[1].env.set_idle();
+        v.op[0].osc.reset_dco_pos();
+        v.op[1].osc.reset_dco_pos();
+    }
+}
+
+void Synth::clear_karplus_voices() {
+    for (auto &v : karplus_voice) {
+        v.reset();
+    }
+}
+
+void Synth::set_engine(SynthEngine engine) {
+    if (current_engine == engine) {
+        return;
+    }
+
+    clear_fm_voices();
+    clear_karplus_voices();
+    notes_playing_bitset.reset();
+    current_engine = engine;
 }
 
 void Synth::enable_fx(int fx_id, bool enabled) {
@@ -432,6 +531,19 @@ void Synth::enable_fx(int fx_id, bool enabled) {
         break;
     default:
         break;
+    }
+}
+
+void Synth::initialize_karplus_patches() {
+    for (int ch = 0; ch < 16; ++ch) {
+        KarplusPatch &patch = karplus_patch_storage[ch];
+        patch.impulse_type = KarplusImpulseType::WhiteNoise;
+        patch.filter_gain = 92;
+        patch.decay = 110;
+        patch.impulse_length = 72;
+        patch.pick_position = 32;
+        patch.dispersion = 24;
+        patch.body_resonance = 40;
     }
 }
 

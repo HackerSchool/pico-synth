@@ -31,6 +31,7 @@ set(project_name "pico-synth")
 project(${project_name} C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
+set(PICO_FLASH_SIZE_BYTES 4194304)
 
 
 #set(FAMILY rp2350)
@@ -94,6 +95,7 @@ target_sources(${bin_name} PRIVATE
     src/synth/Envelope.cpp
     src/synth/Synth.cpp
     src/synth/Operator.cpp
+    src/synth/KarplusStrong.cpp
     src/synth/Filter.cpp
     src/synth/Delay.cpp
     src/synth/Distortion.cpp
@@ -107,10 +109,13 @@ target_sources(${bin_name} PRIVATE
     src/ui/sequencer_menu.cpp
     src/ui/sequencer_edit_menu.cpp
     src/ui/choose_menu.cpp
+    src/ui/engine_select_menu.cpp
     src/ui/sampler_menu.cpp
     src/ui/draw_utils.cpp
     src/ui/fm_menu.cpp
+    src/ui/karplus_menu.cpp
     src/ui/fx_menu.cpp
+    src/ui/analog_menu.cpp
 
 
     src/audio.c
@@ -166,3 +171,12 @@ target_compile_definitions(${bin_name} PRIVATE
 
 # Extra outputs
 pico_add_extra_outputs(${bin_name})
+
+add_custom_command(TARGET ${bin_name} POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+        -DUF2_PATH=$<SHELL_PATH:${CMAKE_CURRENT_BINARY_DIR}/${bin_name}.uf2>
+        -DBIN_PATH=$<SHELL_PATH:${CMAKE_CURRENT_BINARY_DIR}/${bin_name}.bin>
+        -DFLASH_SIZE_BYTES=${PICO_FLASH_SIZE_BYTES}
+        -P ${CMAKE_CURRENT_LIST_DIR}/cmake/print_pico_image_size.cmake
+    VERBATIM
+)

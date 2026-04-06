@@ -61,25 +61,41 @@ const std::array<short int, 2048>& get_wavetable_for_channel(int channel) {
 void draw_waveform(ssd1306_t *display,
                    const std::array<int16_t, WAVE_TABLE_LEN> &table,
                    uint16_t x, uint16_t y,   // top-left corner
-                   uint16_t width, uint16_t height) {
+                   uint16_t width, uint16_t height, uint8_t cycles,
+                   uint16_t phase_offset) {
+    if (width < 2 || height == 0) {
+        return;
+    }
+
+    if (cycles == 0) {
+        cycles = 1;
+    }
 
     const int16_t midline = static_cast<int16_t>(y + height / 2);
-    const size_t samples = width; // one pixel per x column
+    const size_t samples = width;
+    const size_t phase = static_cast<size_t>(phase_offset) % WAVE_TABLE_LEN;
 
     for (size_t i = 0; i < samples - 1; ++i) {
-        // Sample two consecutive points
-        size_t index1 = (i * WAVE_TABLE_LEN) / samples;
-        size_t index2 = ((i + 1) * WAVE_TABLE_LEN) / samples;
+        const size_t index1 =
+            (phase + ((i * static_cast<size_t>(cycles) * WAVE_TABLE_LEN) /
+                      samples)) %
+            WAVE_TABLE_LEN;
+        const size_t index2 =
+            (phase +
+             ((((i + 1) * static_cast<size_t>(cycles) * WAVE_TABLE_LEN) /
+               samples))) %
+            WAVE_TABLE_LEN;
 
         int16_t value1 = table[index1];
         int16_t value2 = table[index2];
 
-        // Scale from [-32767, 32767] to [0, height]
-        int16_t y1 = static_cast<int16_t>(midline - (value1 * ((height-1) / 2)) / 32767);
-        int16_t y2 = static_cast<int16_t>(midline - (value2 * ((height-1) / 2)) / 32767);
+        const int16_t amplitude =
+            static_cast<int16_t>((height > 2) ? ((height - 2) / 2) : 1);
+        int16_t y1 =
+            static_cast<int16_t>(midline - (value1 * amplitude) / 32767);
+        int16_t y2 =
+            static_cast<int16_t>(midline - (value2 * amplitude) / 32767);
 
-        // Draw line from (x + i, y1) to (x + i + 1, y2)
-        // Removed the boolean parameter - ssd1306_draw_line only takes 5 parameters
         ssd1306_draw_line(display, x + i, y1, x + i + 1, y2);
     }
 }

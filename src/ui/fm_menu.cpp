@@ -26,14 +26,15 @@ void UiHandler::fm_edit_handle_switches(UiHandler &self) {
         if ((changes.note_on_mask >> i) & 1) {
             uint8_t note = key_to_midi[i];
 
-            // Switches 1-6: Select operator (switches 1-2 for 2 operators)
-            if (i >= 1 && i <= 6) {
-                if (i <= 2) { // Only operators 1-2 available
-                    self.selected_operator = i - 1; // 0-1
-                    self.fm_edit_mode = 0; // Back to operator selection
-                    self.fm_edit_dirty = true;
-                    printf("Selected operator: %d\n", self.selected_operator);
-                }
+            if (i == 3) {
+                UiHandler::randomize_current_engine_patch(self);
+            }
+            // Switches 1-2: Select operator
+            else if (i >= 1 && i <= 2) {
+                self.selected_operator = i - 1; // 0-1
+                self.fm_edit_mode = 0; // Back to operator selection
+                self.fm_edit_dirty = true;
+                printf("Selected operator: %d\n", self.selected_operator);
             }
             // Switch 7: ADSR edit mode
             else if (i == 7) {
@@ -162,8 +163,8 @@ void UiHandler::fm_edit_handle_encoders(UiHandler &self) {
                     int wave_val = static_cast<int>(op.wave_type);
                     wave_val += UiHandler::encoder_velocity_delta(delta, 1, 1, 1);
                     if (wave_val < 0)
-                        wave_val = 3; // Wrap to last wave type
-                    if (wave_val > 3)
+                        wave_val = static_cast<int>(WaveType::Sinc);
+                    if (wave_val > static_cast<int>(WaveType::Sinc))
                         wave_val = 0; // Wrap to first wave type
                     op.wave_type = static_cast<WaveType>(wave_val);
                     param_changed = true;
@@ -173,10 +174,7 @@ void UiHandler::fm_edit_handle_encoders(UiHandler &self) {
             }
 
             if (param_changed) {
-                // Update the active patch atomically
-                synth.active_patch[self.midi_channel].store(
-                    &patch, std::memory_order_release);
-                synth.patch_dirty_flags.set(self.midi_channel);
+                self.mark_fm_patch_updated(self.midi_channel);
                 self.fm_edit_dirty = true;
             }
         }
@@ -200,7 +198,7 @@ void UiHandler::fm_edit_handle_encoders(UiHandler &self) {
             case 3: // Encoder 4 button - back to previous menu
                 // Exit back to choose menu
                 self.ui_state = UI_STATE_CHOOSE;
-                self.chosen_index = (UI_STATE_FM_EDIT + 1 + NUM_USABLE_STATES) % NUM_USABLE_STATES;
+                self.chosen_index = UI_STATE_FM_EDIT;
                 self.fm_edit_dirty = true;
                 self.chosen_dirty = true;
                 printf("State: CHOOSE_STATE\n");

@@ -107,7 +107,8 @@ class HardwareManager {
     uint16_t curr_switches = 0;
 
     void draw_notes();
-    void draw_wave_type(uint8_t midi_channel, int8_t octave);
+    void draw_wave_type(uint8_t midi_channel, int8_t octave,
+                        uint16_t waveform_phase = 0);
     void draw_adsr(int current_adsr_param, uint8_t a, uint8_t d, uint8_t s,
                    uint8_t r);
     void draw_midi_settings(bool midi_out, bool midi_in, bool switches_in,
@@ -126,12 +127,25 @@ class HardwareManager {
                       uint8_t attack, uint8_t decay, uint8_t sustain,
                       uint8_t release, uint16_t ratio, uint16_t feedback,
                       uint16_t fm_depth);
+    void draw_karplus_main(uint8_t midi_channel, int8_t octave,
+                           KarplusImpulseType impulse_type,
+                           uint8_t filter_gain, uint8_t decay,
+                           uint8_t body_resonance,
+                           uint8_t last_note, uint16_t delay_samples,
+                           uint16_t waveform_phase = 0);
+    void draw_karplus_edit(uint8_t midi_channel, int8_t octave,
+                           uint8_t impulse_length, uint8_t pick_position,
+                           uint8_t dispersion, uint8_t body_resonance,
+                           uint8_t last_note, uint16_t delay_samples);
 
     void draw_choose_menu(int chosen_index);
+    void draw_engine_select_menu(int chosen_index, int active_engine_index);
 
     void draw_sampler_menu(const WavFileList& wav_files, int sample_index, int sample_channel);
 
     void draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int mix);
+    void draw_analog_menu(bool enabled, uint8_t frequency_tenths_hz,
+                          uint8_t dispersion_percent);
 
     void display_show();
     void display_clear();

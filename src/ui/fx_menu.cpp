@@ -62,8 +62,7 @@ void UiHandler::fx_handle_encoders(UiHandler &self) {
             }
 
             if (param_changed) {
-                const FxParams &params = self.fx_params[self.current_fx];
-                self.set_fx_param(params.p1, params.p2, params.mix);
+                self.mark_fx_params_updated(self.current_fx);
             }
         }
 
@@ -83,8 +82,7 @@ void UiHandler::fx_handle_encoders(UiHandler &self) {
                 break;
             case 3:
                 self.ui_state = UI_STATE_CHOOSE;
-                self.chosen_index =
-                    (UI_STATE_FX_EDIT + 1 + NUM_USABLE_STATES) % NUM_USABLE_STATES;
+                self.chosen_index = UI_STATE_FX_EDIT;
                 self.fx_dirty = true;
                 self.chosen_dirty = true;
                 printf("State: CHOOSE_STATE\n");

@@ -3,6 +3,7 @@
 
 #include "Envelope.hpp"
 #include "Filter.hpp"
+#include "KarplusStrong.hpp"
 #include "MidiHandler.hpp"
 #include "Operator.hpp"
 #include "Oscillator.hpp"
@@ -26,6 +27,11 @@ class ReverbScFx;
 
 extern const WaveType channel_wave_map[16];
 
+enum class SynthEngine : uint8_t {
+    FM = 0,
+    KarplusStrong = 1
+};
+
 // // Channel-specific parameters (16 MIDI channels)
 // struct ChannelParams {
 //     uint8_t attack = 5;
@@ -41,15 +47,18 @@ extern const WaveType channel_wave_map[16];
 class Synth {
   public:
     static constexpr int FX_SLOT_COUNT = 5;
+    static constexpr int KARPLUS_VOICE_COUNT = 8;
 
     Synth();
     ~Synth();
     void out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer);
+    void process_fx(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer);
 
     // TODO: make it into an array of buffers, max 6 should be enough for all
     // algos
     std::array<int16_t, SAMPLES_PER_BUFFER> flow_buffer{0};
     void initialize_patches();
+    void initialize_karplus_patches();
 
     void out_interp();
     std::array<int16_t, SAMPLES_PER_BUFFER> &get_output();
@@ -61,6 +70,8 @@ class Synth {
     void note_off(uint8_t channel, uint8_t note, uint8_t velocity);
     const char *get_notes_playing_names();
     std::bitset<128> get_notes_bitmask() const { return notes_playing_bitset; }
+    void set_engine(SynthEngine engine);
+    SynthEngine get_engine() const { return current_engine; }
 
     FilterFIR low_pass = FilterFIR(1000.f);
     FilterCheb low_pass_cheb = FilterCheb(5000.f, 0.5f, 44100.f);
@@ -78,9 +89,13 @@ class Synth {
         active_patch; // Synth reads from this (Core1-safe)
     std::bitset<16>
         patch_dirty_flags; // Core0 sets dirty bit when editing patch
+    std::array<KarplusPatch, 16> karplus_patch_storage;
+    std::array<std::atomic<KarplusPatch *>, 16> active_karplus_patch;
+    std::bitset<16> karplus_patch_dirty_flags;
 
     // voice arrays
     std::array<Voice, NUM_VOICES> voice;
+    std::array<KarplusVoice, KARPLUS_VOICE_COUNT> karplus_voice;
 
     void cycle_filter_type();
 
@@ -97,7 +112,11 @@ class Synth {
     FilterType current_filter_type = FILTER_OFF; // Default to Chebyshev
 
   private:
+    void clear_fm_voices();
+    void clear_karplus_voices();
+
     std::bitset<128> notes_playing_bitset;
+    SynthEngine current_engine = SynthEngine::FM;
 };
 
 #endif // !SYNTH_HPP

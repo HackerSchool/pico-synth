@@ -72,7 +72,7 @@ void audio_task(void) {
 
     sampler.out(sampler_buffer);
 
-    // Mix sampler with synth
+    // Mix sampler with synth, then run the shared FX chain on the full signal.
     for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
         int32_t mixed = (int32_t)output[i] + (int32_t)(sampler_buffer[i]>> 2);
         if (mixed > 32767)
@@ -81,6 +81,8 @@ void audio_task(void) {
             mixed = -32768;
         output[i] = (int16_t)mixed;
     }
+
+    synth.process_fx(output);
 
     // Send to audio buffer (your existing code)
     audio_buffer_t *buffer = take_audio_buffer(ap, true);
@@ -140,15 +142,15 @@ int main() {
     sampler.load_sample(2, "closehat.wav");
     sampler.load_sample(3, "crash.wav");
 
-    MidiHandler midi_handler = MidiHandler(midi_queue);
+    static MidiHandler midi_handler(midi_queue);
 
-    HardwareManager hw = HardwareManager();
+    static HardwareManager hw;
 
     hw.init();
 
-    Sequencer seq(midi_handler, sampler);
+    static Sequencer seq(midi_handler, sampler);
 
-    UiHandler ui = UiHandler(hw, midi_handler, seq, sampler, synth);
+    static UiHandler ui(hw, midi_handler, seq, sampler, synth);
 
     queue_init(&midi_queue, 4, 64);
     // queue_init(&sample_trigger_queue, sizeof(uint32_t), 16); // Add this line

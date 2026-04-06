@@ -3,6 +3,7 @@
 #include "Sampler.hpp"
 #include "Ui.hpp"
 #include "fixed_point.h"
+#include "pico/time.h"
 #include <cstdint>
 #include <cstdio>
 
@@ -10,6 +11,10 @@ const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
                              66, 68, 70, -1, 67, 69, 71, 72};
 
 void UiHandler::main_handle_switches(UiHandler &self) {
+    if (self.synth.get_engine() == SynthEngine::KarplusStrong) {
+        karplus_edit_handle_switches(self);
+        return;
+    }
 
     MidiHandler &midi = self.midi;
     Sampler &sampler = self.sampler;
@@ -42,6 +47,9 @@ void UiHandler::main_handle_switches(UiHandler &self) {
                         self.octave--;
                         self.channel_dirty = true;
                     }
+                    break;
+                case 3:
+                    UiHandler::randomize_current_engine_patch(self);
                     break;
                 case 11:
                     if (self.octave < 4) {
@@ -79,6 +87,11 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
     MidiHandler &midi = self.midi;
     Synth &synth = self.synth;
 
+    if (synth.get_engine() == SynthEngine::KarplusStrong) {
+        karplus_edit_handle_encoders(self);
+        return;
+    }
+
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         Encoder *enc = &hw.encoders[i];
         int32_t delta = enc->delta;
@@ -94,15 +107,17 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
                 break;
 
             case 1: {
+                if (synth.get_engine() != SynthEngine::FM) {
+                    break;
+                }
+
                 Patch &patch = synth.patch_storage[self.midi_channel];
                 int new_ratio = static_cast<int>(patch.ops[1].ratio) +
                                 UiHandler::encoder_velocity_delta(delta, 1, 2, 4);
                 if (new_ratio < 1) new_ratio = 1;
                 if (new_ratio > 16) new_ratio = 16;
                 patch.ops[1].ratio = static_cast<uint16_t>(new_ratio);
-                synth.active_patch[self.midi_channel].store(
-                    &patch, std::memory_order_release);
-                synth.patch_dirty_flags.set(self.midi_channel);
+                self.mark_fm_patch_updated(self.midi_channel);
                 // int param = self.current_adsr_param;
                 // // int16_t value =
                 // //     self.get_adsr_param(param) + (delta > 0 ? 1 : -1);
@@ -194,8 +209,7 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
 
             if (i == 3) {
                 self.ui_state = UI_STATE_CHOOSE;
-                self.chosen_index =
-                    (UI_STATE_MAIN + 1 + NUM_USABLE_STATES) % NUM_USABLE_STATES;
+                self.chosen_index = UI_STATE_MAIN;
                 self.main_dirty = true;
                 self.chosen_dirty = true;
                 printf("State: CHOOSE_STATE");
@@ -205,6 +219,11 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
 }
 
 void UiHandler::main_update_display(UiHandler &self) {
+    if (self.synth.get_engine() == SynthEngine::KarplusStrong) {
+        karplus_edit_update_display(self);
+        return;
+    }
+
     // Synth &synth = self.synth;
     HardwareManager &hw = self.hw;
     bool changed = false;
@@ -212,6 +231,15 @@ void UiHandler::main_update_display(UiHandler &self) {
     if (self.main_dirty) {
         hw.display_clear();
         self.main_dirty = false;
+    }
+
+    const uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+    if (now_ms - self.waveform_animation_last_ms >= 120) {
+        self.waveform_animation_last_ms = now_ms;
+        self.waveform_animation_phase =
+            static_cast<uint16_t>((self.waveform_animation_phase + 24) %
+                                  WAVE_TABLE_LEN);
+        self.channel_dirty = true;
     }
 
     // std::bitset<128> note_state = synth.get_notes_bitmask();
@@ -222,7 +250,9 @@ void UiHandler::main_update_display(UiHandler &self) {
     // }
     //
     if (self.channel_dirty) {
-        hw.draw_wave_type(self.midi_channel, self.octave);
+        hw.draw_wave_type(self.midi_channel, self.octave,
+                          self.waveform_animation_phase);
+        self.channel_dirty = false;
         changed = true;
     }
     // TODO: get synth state on the UI

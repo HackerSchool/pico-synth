@@ -67,7 +67,7 @@ void UiHandler::sequencer_handle_encoders(UiHandler &self) {
             case 3:
                 // Exit back to main menu
                 self.ui_state = UI_STATE_CHOOSE;
-                self.chosen_index = (UI_STATE_SEQUENCER + 1 + NUM_USABLE_STATES) % NUM_USABLE_STATES;
+                self.chosen_index = UI_STATE_SEQUENCER;
                 printf("State: CHOOSE_STATE\n");
                 self.chosen_dirty = true;
                 self.channel_dirty = true;

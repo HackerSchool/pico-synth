@@ -15,16 +15,19 @@ typedef enum UiState {
     UI_STATE_MAIN,          // = 0
     UI_STATE_FM_EDIT,       // = 1
     UI_STATE_FX_EDIT,       // = 2
-    UI_STATE_MIDI_SETTINGS, // = 3
-    UI_STATE_SEQUENCER,     // = 4
-    UI_STATE_SAMPLER,       // = 5
+    UI_STATE_ANALOG,        // = 3
+    UI_STATE_MIDI_SETTINGS, // = 4
+    UI_STATE_SEQUENCER,     // = 5
+    UI_STATE_SAMPLER,       // = 6
     UI_STATE_SEQUENCER_EDIT,
     UI_STATE_CHOOSE,
+    UI_STATE_ENGINE_SELECT,
+    UI_STATE_KARPLUS_EDIT,
     UI_STATE_COUNT // helpful for bounds checking
 } UiState;
 
 #define NUM_USABLE_STATES                                                      \
-    (6) // 6 states (MAIN, FM_EDIT, FX_EDIT, MIDI, SEQUENCER, SAMPLER) (states listed in
+    (7) // 7 states (MAIN, FM_EDIT, FX_EDIT, ANALOG, MIDI, SEQUENCER, SAMPLER) (states listed in
         // the menu)
 
 class UiHandler;
@@ -71,6 +74,10 @@ class UiHandler {
     static void choose_handle_encoders(UiHandler &self);
     static void choose_update_display(UiHandler &self);
 
+    // engine select state
+    static void engine_select_handle_encoders(UiHandler &self);
+    static void engine_select_update_display(UiHandler &self);
+
     // sampler state
     static void sampler_handle_encoders(UiHandler &self);
     static void sampler_update_display(UiHandler &self);
@@ -79,9 +86,14 @@ class UiHandler {
     static void fm_edit_handle_encoders(UiHandler &self);
     static void fm_edit_handle_switches(UiHandler &self);
     static void fm_edit_update_display(UiHandler &self);
+    static void karplus_edit_handle_encoders(UiHandler &self);
+    static void karplus_edit_handle_switches(UiHandler &self);
+    static void karplus_edit_update_display(UiHandler &self);
 
     static void fx_handle_encoders(UiHandler &self);
     static void fx_update_display(UiHandler &self);
+    static void analog_handle_encoders(UiHandler &self);
+    static void analog_update_display(UiHandler &self);
 
     // helpers:
 
@@ -96,6 +108,9 @@ class UiHandler {
                                      int fast_step);
     static int encoder_velocity_delta(int32_t delta, int slow_step, int medium_step,
                                       int fast_step);
+    static void randomize_current_engine_patch(UiHandler &self);
+    static void randomize_fm_patch(UiHandler &self);
+    static void randomize_karplus_patch(UiHandler &self);
 
     HardwareManager &hw;
     MidiHandler &midi;
@@ -129,6 +144,8 @@ class UiHandler {
     int8_t filter_type = 0; // 0=Off, 1=FIR, 2=Cheby
     bool filter_dirty = 1;
     bool main_dirty = 1;
+    uint32_t waveform_animation_last_ms = 0;
+    uint16_t waveform_animation_phase = 0;
 
     // midi state
     bool midi_in = false;             // midi into pico synth
@@ -156,10 +173,17 @@ class UiHandler {
     uint8_t fm_edit_mode = 0;      // 0=select op, 1=ADSR, 2=params
     bool fm_edit_dirty = true;
     uint8_t fm_param_index = 0; // 0=ratio, 1=feedback, 2=fm_depth, 3=wave_type
+    bool karplus_edit_dirty = true;
+    uint8_t karplus_last_note = 60;
+    uint16_t karplus_last_delay_samples = 0;
 
     // choose state~
     bool chosen_dirty = true;
     int chosen_index = 1;
+
+    // engine select state
+    bool engine_select_dirty = true;
+    int engine_select_index = 0;
 
     // sampler state
     bool sampler_dirty = true;
@@ -185,7 +209,7 @@ class UiHandler {
     std::array<FxParams, FX_COUNT> fx_params = {{
         {250, 10000, 10000},  // Delay: time, feedback, mix
         {500, 200, 30000},  // Distortion: drive, threshold, mix
-        {750, 300, 30000},   // Reverb: size, damp, mix
+        {300, 500, 30000},   // Reverb: size, damp, mix
         {450, 32000, 32000},   // Chorus: rate, depth, mix
         {1000, 32000, 32000},  // RevSC: time, tone, mix
     }};
@@ -193,9 +217,73 @@ class UiHandler {
     int current_fx = FX_DELAY;
     bool fx_enabled[FX_COUNT] = { true, false, false, false, false };
 
+    struct AnalogSettings {
+        bool enabled = false;
+        uint8_t frequency_tenths_hz = 4;
+        uint8_t dispersion_percent = 2;
+    } analog_settings;
+
+    struct AnalogOperatorOffsets {
+        int wave_type = 0;
+        int attack = 0;
+        int decay = 0;
+        int sustain = 0;
+        int release = 0;
+        int ratio = 0;
+        int feedback = 0;
+        int fm_depth = 0;
+    };
+
+    struct AnalogFmOffsets {
+        std::array<AnalogOperatorOffsets, OP_PER_VOICE> ops;
+    };
+
+    struct AnalogKarplusOffsets {
+        int impulse_type = 0;
+        int filter_gain = 0;
+        int decay = 0;
+        int impulse_length = 0;
+        int pick_position = 0;
+        int dispersion = 0;
+        int body_resonance = 0;
+    };
+
+    struct AnalogFxOffsets {
+        int p1 = 0;
+        int p2 = 0;
+        int mix = 0;
+    };
+
+    bool analog_dirty = true;
+    bool analog_reapply_pending = false;
+    bool analog_offsets_initialized = false;
+    bool analog_was_active = false;
+    uint32_t analog_transition_start_ms = 0;
+    std::array<Patch, 16> analog_patch_storage;
+    std::array<KarplusPatch, 16> analog_karplus_patch_storage;
+    std::array<FxParams, FX_COUNT> analog_fx_params{};
+    std::array<AnalogFmOffsets, 16> analog_fm_source_offsets{};
+    std::array<AnalogFmOffsets, 16> analog_fm_target_offsets{};
+    std::array<AnalogKarplusOffsets, 16> analog_karplus_source_offsets{};
+    std::array<AnalogKarplusOffsets, 16> analog_karplus_target_offsets{};
+    std::array<AnalogFxOffsets, FX_COUNT> analog_fx_source_offsets{};
+    std::array<AnalogFxOffsets, FX_COUNT> analog_fx_target_offsets{};
+
     // Generic FX control helper - forwards UI params to synth effects
     void set_fx_param(int p1, int p2, int mix);
     void set_fx_enabled(int fx_id, bool enabled);
+    void mark_fm_patch_updated(uint8_t channel);
+    void mark_karplus_patch_updated(uint8_t channel);
+    void mark_fx_params_updated(int fx_id);
+    void mark_all_fm_patches_updated();
+    void mark_all_karplus_patches_updated();
+    void mark_all_fx_params_updated();
+    uint32_t analog_update_interval_ms() const;
+    void randomize_analog_targets();
+    void capture_current_analog_offsets(float progress);
+    void apply_analog_variation(float progress);
+    void restore_base_parameters();
+    void update_analog_variation();
 };
 
 #endif // !UI_STATE_HPP

@@ -1,9 +1,11 @@
 #include "HardwareManager.hpp"
 #include "Wavetable.hpp"
 #include "fixed_point.h"
+#include "generated/engine_menu_bitmaps.hpp"
 #include "ssd1306.h"
 #include "ui/draw_utils.hpp"
 #include <cstdint>
+#include <cmath>
 #include <cstdio>
 
 uint8_t led_state_1 = 0xFF;
@@ -13,6 +15,137 @@ const uint8_t COL_PINS[4] = {0, 1, 6, 4};
 const uint8_t ROW_PINS[4] = {2, 3, 5, 7};
 
 uint8_t LED_MAP[16] = {1, 3, 4, 7, 0, 2, 5, 6, 0, 2, 4, 6, 1, 3, 5, 7};
+
+namespace {
+void draw_noise_preview(ssd1306_t *disp, int x, int y, int width, int height,
+                        uint16_t phase) {
+    uint32_t seed = 0x13579BDFu ^ (static_cast<uint32_t>(phase) * 747796405u);
+    const int midline = y + height / 2;
+    int prev_y = midline;
+
+    for (int i = 0; i < width; ++i) {
+        seed = (seed * 1664525u) + 1013904223u;
+        const int16_t sample = static_cast<int16_t>(seed >> 16);
+        const int point_y =
+            midline - ((static_cast<int32_t>(sample) * (height / 2 - 1)) /
+                       32767);
+        if (i > 0) {
+            ssd1306_draw_line(disp, x + i - 1, prev_y, x + i, point_y);
+        }
+        prev_y = point_y;
+    }
+}
+
+void draw_pink_noise_preview(ssd1306_t *disp, int x, int y, int width,
+                             int height, uint16_t phase) {
+    uint32_t seed = 0x2468ACE1u ^ (static_cast<uint32_t>(phase) * 2891336453u);
+    const int midline = y + height / 2;
+    int prev_y = midline;
+    int32_t smooth = 0;
+
+    for (int i = 0; i < width; ++i) {
+        seed = (seed * 1664525u) + 1013904223u;
+        const int16_t raw = static_cast<int16_t>(seed >> 16);
+        smooth = (smooth * 3 + raw) >> 2;
+        const int point_y =
+            midline - ((smooth * (height / 2 - 1)) / 32767);
+        if (i > 0) {
+            ssd1306_draw_line(disp, x + i - 1, prev_y, x + i, point_y);
+        }
+        prev_y = point_y;
+    }
+}
+
+void draw_chirp_preview(ssd1306_t *disp,
+                        const std::array<int16_t, WAVE_TABLE_LEN> &table, int x,
+                        int y, int width, int height, uint16_t phase) {
+    const int midline = y + height / 2;
+    uint32_t phase_q16 = static_cast<uint32_t>(phase % WAVE_TABLE_LEN) << 16;
+    const uint32_t min_step_q16 =
+        static_cast<uint32_t>((static_cast<uint64_t>(WAVE_TABLE_LEN) << 16) /
+                              static_cast<uint64_t>(width * 6));
+    const uint32_t max_step_q16 = min_step_q16 * 8u;
+    int prev_y = midline;
+
+    for (int i = 0; i < width; ++i) {
+        const uint32_t step_q16 =
+            min_step_q16 +
+            ((max_step_q16 - min_step_q16) * static_cast<uint32_t>(i)) /
+                static_cast<uint32_t>(width - 1);
+        phase_q16 += step_q16;
+
+        const int32_t env_q15 =
+            ((width - i) * static_cast<int32_t>(32767)) / width;
+        const int16_t sample =
+            table[(phase_q16 >> 16) & (WAVE_TABLE_LEN - 1)];
+        const int32_t shaped =
+            (static_cast<int32_t>(sample) * env_q15) >> 15;
+        const int point_y =
+            midline - ((shaped * (height / 2 - 1)) / 32767);
+        if (i > 0) {
+            ssd1306_draw_line(disp, x + i - 1, prev_y, x + i, point_y);
+        }
+        prev_y = point_y;
+    }
+}
+
+void draw_karplus_impulse_preview(ssd1306_t *disp, KarplusImpulseType type,
+                                  int x, int y, int width, int height,
+                                  uint16_t phase) {
+    switch (type) {
+    case KarplusImpulseType::WhiteNoise:
+        draw_noise_preview(disp, x, y, width, height, phase);
+        break;
+    case KarplusImpulseType::PinkNoise:
+        draw_pink_noise_preview(disp, x, y, width, height, phase);
+        break;
+    case KarplusImpulseType::SineChirp:
+        draw_chirp_preview(disp, sine_wave_table, x, y, width, height, phase);
+        break;
+    case KarplusImpulseType::SquareChirp:
+        draw_chirp_preview(disp, square_wave_table, x, y, width, height, phase);
+        break;
+    case KarplusImpulseType::SawChirp:
+        draw_chirp_preview(disp, sawtooth_wave_table, x, y, width, height,
+                           phase);
+        break;
+    case KarplusImpulseType::Click:
+        {
+            const int click_x = x + (static_cast<int>(phase) % width);
+            ssd1306_draw_line(disp, click_x, y + 1, click_x, y + height - 2);
+        }
+        break;
+    case KarplusImpulseType::MetallicBurst:
+        for (int i = 0; i < width; ++i) {
+            const int shifted_i = i + static_cast<int>(phase / 8);
+            const int top = y + ((shifted_i * 5) & 7);
+            const int bottom = y + height - 1 - (((shifted_i * 3) + 4) & 7);
+            if ((i & 1) == 0) {
+                ssd1306_draw_line(disp, x + i, top, x + i, bottom);
+            } else {
+                ssd1306_draw_pixel(disp, x + i, top);
+                ssd1306_draw_pixel(disp, x + i, bottom);
+            }
+        }
+        break;
+    case KarplusImpulseType::HandPan:
+        for (int i = 0; i < width; ++i) {
+            const int center =
+                y + height / 2 +
+                static_cast<int>((height / 3) *
+                                 std::sin((static_cast<float>(i + phase / 6) *
+                                           0.22f)));
+            const int upper = center - 3 - ((i / 7) & 1);
+            const int lower = center + 3 + ((i / 9) & 1);
+            ssd1306_draw_pixel(disp, x + i, center);
+            if ((i % 3) == 0) {
+                ssd1306_draw_line(disp, x + i, upper, x + i, lower);
+            }
+        }
+        break;
+    }
+}
+} // namespace
 
 // Initialize a quadrature encoder PIO state machine
 void init_encoder(Encoder *enc) {
@@ -202,7 +335,8 @@ void HardwareManager::draw_notes() {
     // ssd1306_draw_string(&disp, 8, 24, 1, synth.get_notes_playing_names());
 }
 
-void HardwareManager::draw_wave_type(uint8_t midi_channel, int8_t octave) {
+void HardwareManager::draw_wave_type(uint8_t midi_channel, int8_t octave,
+                                     uint16_t waveform_phase) {
     char buf[8]; // Enough for "16 Oct:+4\0"
     ssd1306_clear_square(&disp, 40, 0, 72, 8);
 
@@ -218,7 +352,7 @@ void HardwareManager::draw_wave_type(uint8_t midi_channel, int8_t octave) {
     // Draw waveform
     ssd1306_clear_square(&disp, 0, 8, 128, 24);
     draw_waveform(&disp, get_wavetable_for_channel(midi_channel), 0, 8, 128,
-                  24);
+                  24, 3, waveform_phase);
 }
 
 void HardwareManager::draw_adsr(int current_adsr_param, uint8_t a, uint8_t d,
@@ -330,7 +464,7 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
     ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Select Menu");
 
     const char* items[] = {
-        "Synth", "FM Edit", "FX Edit", "MIDI", "Sequencer", "Sampler"
+        "Engine", "Synth Edit", "FX Edit", "Analog", "MIDI", "Sequencer", "Sampler"
     };
     const int item_count = sizeof(items) / sizeof(items[0]);
 
@@ -346,10 +480,33 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
     // Draw current item (centered, larger font)
     ssd1306_draw_string(&disp, 8, 24, 2, items[chosen_index]);
 
-    if(chosen_index < 5){
+    if(chosen_index < item_count - 1){
         // Draw previous item (smaller font)
         ssd1306_draw_string(&disp, 8, 40, 1, items[next_index]);
     }
+}
+
+void HardwareManager::draw_engine_select_menu(int chosen_index,
+                                              int active_engine_index) {
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+    int asset_index = chosen_index;
+    if (asset_index < 0) {
+        asset_index = 0;
+    } else if (asset_index >=
+               static_cast<int>(engine_bitmaps::kEngineMenuAssetCount)) {
+        asset_index = static_cast<int>(engine_bitmaps::kEngineMenuAssetCount) - 1;
+    }
+
+    const engine_bitmaps::Asset &asset =
+        engine_bitmaps::kEngineMenuAssets[asset_index];
+
+    ssd1306_bmp_show_image(&disp, asset.data, static_cast<long>(asset.size));
+
+    ssd1306_clear_square(&disp, 0, 0, 128, 10);
+
+    char header[24];
+    snprintf(header, sizeof(header), "%s ENGINE", asset.label);
+    ssd1306_draw_string_inverted(&disp, 4, 0, 1, header);
 }
 
 /*
@@ -462,6 +619,29 @@ void HardwareManager::draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int 
     ssd1306_draw_string(&disp, 8, 36, 1, line3);
     ssd1306_draw_string(&disp, 8, 44, 1, line4);
 
+}
+
+void HardwareManager::draw_analog_menu(bool enabled, uint8_t frequency_tenths_hz,
+                                       uint8_t dispersion_percent) {
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+
+    ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Analog Settings");
+
+    char line1[24];
+    char line2[24];
+    char line3[24];
+    char line4[24];
+
+    snprintf(line1, sizeof(line1), "State: %s", enabled ? "ON" : "OFF");
+    snprintf(line2, sizeof(line2), "Freq: %u.%u Hz", frequency_tenths_hz / 10,
+             frequency_tenths_hz % 10);
+    snprintf(line3, sizeof(line3), "Disp: %u%%", dispersion_percent);
+    snprintf(line4, sizeof(line4), "Btn1 Toggle Btn4 Back");
+
+    ssd1306_draw_string(&disp, 8, 16, 1, line1);
+    ssd1306_draw_string(&disp, 8, 28, 1, line2);
+    ssd1306_draw_string(&disp, 8, 40, 1, line3);
+    ssd1306_draw_string(&disp, 8, 56, 1, line4);
 }
 
 // Implementation in HardwareManager
@@ -675,8 +855,8 @@ void HardwareManager::draw_fm_edit(uint8_t midi_channel,
     case 0: // Operator selection
     {
         // Wave type with icon/symbol
-        const char *wave_symbols[] = {"~", "/|", "▯", "△"};
-        const char *wave_names[] = {"Sine", "Saw", "Square", "Triangle"};
+        const char *wave_symbols[] = {"~", "#", "/\\", "/|", "*"};
+        const char *wave_names[] = {"Sine", "Square", "Triangle", "Saw", "Sinc"};
 
         char wave_line[20];
         snprintf(wave_line, sizeof(wave_line), "%s %s",
@@ -764,7 +944,7 @@ void HardwareManager::draw_fm_edit(uint8_t midi_channel,
     case 2: // Parameter mode
     {
         // Clean parameter layout
-        const char *wave_short[] = {"Sin", "Saw", "Sqr", "Tri"};
+        const char *wave_short[] = {"Sin", "Sqr", "Tri", "Saw", "Snc"};
 
         char line1[20];
         snprintf(line1, sizeof(line1), "Ratio  %d", ratio);
@@ -784,4 +964,85 @@ void HardwareManager::draw_fm_edit(uint8_t midi_channel,
         ssd1306_draw_string(&disp, 8, 52, 1, line4);
     } break;
     }
+}
+
+void HardwareManager::draw_karplus_main(uint8_t midi_channel, int8_t octave,
+                                        KarplusImpulseType impulse_type,
+                                        uint8_t filter_gain, uint8_t decay,
+                                        uint8_t body_resonance,
+                                        uint8_t last_note,
+                                        uint16_t delay_samples,
+                                        uint16_t waveform_phase) {
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+
+    char header[24];
+    snprintf(header, sizeof(header), "KS Main Ch%d", midi_channel + 1);
+    ssd1306_draw_string_inverted(&disp, 4, 0, 1, header);
+
+    char oct_str[8];
+    snprintf(oct_str, sizeof(oct_str), "Oct%+d", octave);
+    ssd1306_draw_string(&disp, 88, 2, 1, oct_str);
+
+    draw_karplus_impulse_preview(&disp, impulse_type, 6, 12, 116, 18,
+                                 waveform_phase);
+    ssd1306_draw_line(&disp, 4, 32, 124, 32);
+
+    char impulse_line[24];
+    snprintf(impulse_line, sizeof(impulse_line), "Imp %s",
+             karplus_impulse_to_string(impulse_type));
+    ssd1306_draw_string(&disp, 8, 36, 1, impulse_line);
+
+    char filter_line[16];
+    snprintf(filter_line, sizeof(filter_line), "Filt %3d", filter_gain);
+    ssd1306_draw_string(&disp, 8, 44, 1, filter_line);
+
+    char body_line[16];
+    snprintf(body_line, sizeof(body_line), "Body %3d", body_resonance);
+    ssd1306_draw_string(&disp, 70, 44, 1, body_line);
+
+    char note_name[8];
+    snprintf(note_name, sizeof(note_name), "%s", midi_note_names[last_note]);
+
+    char tune_line[32];
+    snprintf(tune_line, sizeof(tune_line), "D%3d %s %u", decay, note_name,
+             delay_samples);
+    ssd1306_draw_string(&disp, 8, 54, 1, tune_line);
+}
+
+void HardwareManager::draw_karplus_edit(uint8_t midi_channel, int8_t octave,
+                                        uint8_t impulse_length,
+                                        uint8_t pick_position,
+                                        uint8_t dispersion,
+                                        uint8_t body_resonance,
+                                        uint8_t last_note,
+                                        uint16_t delay_samples) {
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+
+    char header[24];
+    snprintf(header, sizeof(header), "KS Edit Ch%d", midi_channel + 1);
+    ssd1306_draw_string_inverted(&disp, 4, 0, 1, header);
+
+    char oct_str[8];
+    snprintf(oct_str, sizeof(oct_str), "Oct%+d", octave);
+    ssd1306_draw_string(&disp, 88, 2, 1, oct_str);
+
+    char line1[22];
+    snprintf(line1, sizeof(line1), "Len %3d  Pick %3d", impulse_length,
+             pick_position);
+    ssd1306_draw_string(&disp, 8, 18, 1, line1);
+
+    char line2[22];
+    snprintf(line2, sizeof(line2), "Disp %3d", dispersion);
+    ssd1306_draw_string(&disp, 8, 30, 1, line2);
+
+    char line3[22];
+    snprintf(line3, sizeof(line3), "Body %3d", body_resonance);
+    ssd1306_draw_string(&disp, 8, 42, 1, line3);
+
+    char note_name[8];
+    snprintf(note_name, sizeof(note_name), "%s", midi_note_names[last_note]);
+
+    char line4[28];
+    snprintf(line4, sizeof(line4), "Note %s Dly %u", note_name, delay_samples);
+    ssd1306_draw_string(&disp, 8, 54, 1, line4);
 }
