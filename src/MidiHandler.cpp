@@ -20,7 +20,11 @@ void MidiHandler::midi_task() {
 
     while (tud_midi_available()) {
         tud_midi_packet_read(packet);
-        queue_add_blocking(&midi_queue, packet);
+        // Use queue_try_add to avoid blocking on full queue
+        // Dropping MIDI is better than freezing the UI
+        if (!queue_try_add(&midi_queue, packet)) {
+            // Queue full - MIDI packet dropped, but system remains responsive
+        }
     }
 }
 

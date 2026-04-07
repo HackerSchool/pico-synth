@@ -15,6 +15,10 @@ void UiHandler::main_handle_switches(UiHandler &self) {
         karplus_edit_handle_switches(self);
         return;
     }
+    if (self.synth.get_engine() == SynthEngine::Modal) {
+        modal_edit_handle_switches(self);
+        return;
+    }
 
     MidiHandler &midi = self.midi;
     Sampler &sampler = self.sampler;
@@ -89,6 +93,10 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
 
     if (synth.get_engine() == SynthEngine::KarplusStrong) {
         karplus_edit_handle_encoders(self);
+        return;
+    }
+    if (synth.get_engine() == SynthEngine::Modal) {
+        modal_edit_handle_encoders(self);
         return;
     }
 
@@ -221,6 +229,10 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
 void UiHandler::main_update_display(UiHandler &self) {
     if (self.synth.get_engine() == SynthEngine::KarplusStrong) {
         karplus_edit_update_display(self);
+        return;
+    }
+    if (self.synth.get_engine() == SynthEngine::Modal) {
+        modal_edit_update_display(self);
         return;
     }
 

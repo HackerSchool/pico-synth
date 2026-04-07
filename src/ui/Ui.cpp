@@ -107,6 +107,10 @@ UiHandler::UiHandler(HardwareManager &hw, MidiHandler &midi_handler,
         karplus_edit_handle_encoders,
         karplus_edit_handle_switches,
         karplus_edit_update_display};
+    ui_dispatch_table[UI_STATE_MODAL_EDIT] = {
+        modal_edit_handle_encoders,
+        modal_edit_handle_switches,
+        modal_edit_update_display};
     ui_dispatch_table[UI_STATE_FX_EDIT] = {
         fx_handle_encoders, main_handle_switches, fx_update_display};
     ui_dispatch_table[UI_STATE_ANALOG] = {
@@ -174,10 +178,16 @@ void UiHandler::randomize_current_engine_patch(UiHandler &self) {
     stir_ui_random((static_cast<uint32_t>(self.hw.curr_switches) << 16) ^
                    static_cast<uint32_t>(self.midi_channel) ^
                    (static_cast<uint32_t>(self.octave & 0xFF) << 8) ^
-                   static_cast<uint32_t>(self.karplus_last_note));
+                   (static_cast<uint32_t>(self.karplus_last_note) << 8) ^
+                   static_cast<uint32_t>(self.modal_last_note));
 
     if (self.synth.get_engine() == SynthEngine::KarplusStrong) {
         randomize_karplus_patch(self);
+        return;
+    }
+
+    if (self.synth.get_engine() == SynthEngine::Modal) {
+        randomize_modal_patch(self);
         return;
     }
 
@@ -233,7 +243,7 @@ void UiHandler::randomize_karplus_patch(UiHandler &self) {
     KarplusPatch &patch = self.synth.karplus_patch_storage[self.midi_channel];
 
     patch.impulse_type = static_cast<KarplusImpulseType>(
-        random_range_inclusive(0, 7));
+        random_range_inclusive(0, 6));
     patch.filter_gain = static_cast<uint8_t>(random_range_inclusive(28, 127));
     patch.decay = static_cast<uint8_t>(random_range_inclusive(88, 127));
     patch.impulse_length =
@@ -244,15 +254,6 @@ void UiHandler::randomize_karplus_patch(UiHandler &self) {
     patch.body_resonance =
         static_cast<uint8_t>(random_range_inclusive(0, 127));
 
-    if (patch.impulse_type == KarplusImpulseType::HandPan) {
-        patch.filter_gain = static_cast<uint8_t>(random_range_inclusive(72, 102));
-        patch.decay = static_cast<uint8_t>(random_range_inclusive(110, 127));
-        patch.impulse_length = static_cast<uint8_t>(random_range_inclusive(12, 26));
-        patch.pick_position = static_cast<uint8_t>(random_range_inclusive(6, 20));
-        patch.dispersion = static_cast<uint8_t>(random_range_inclusive(44, 84));
-        patch.body_resonance = static_cast<uint8_t>(random_range_inclusive(96, 127));
-    }
-
     self.mark_karplus_patch_updated(self.midi_channel);
 
     self.main_dirty = true;
@@ -260,6 +261,26 @@ void UiHandler::randomize_karplus_patch(UiHandler &self) {
     self.karplus_edit_dirty = true;
 
     printf("Randomized Karplus patch on channel %d\n",
+           self.midi_channel + 1);
+}
+
+void UiHandler::randomize_modal_patch(UiHandler &self) {
+    ModalPatch &patch = self.synth.modal_patch_storage[self.midi_channel];
+
+    patch.structure = static_cast<uint8_t>(random_range_inclusive(0, 127));
+    patch.brightness = static_cast<uint8_t>(random_range_inclusive(28, 127));
+    patch.damping = static_cast<uint8_t>(random_range_inclusive(48, 127));
+    patch.position = static_cast<uint8_t>(random_range_inclusive(8, 118));
+    patch.exciter_type = static_cast<ModalExciterType>(
+        random_range_inclusive(0, 3));
+
+    self.mark_modal_patch_updated(self.midi_channel);
+
+    self.main_dirty = true;
+    self.channel_dirty = true;
+    self.modal_edit_dirty = true;
+
+    printf("Randomized Modal patch on channel %d\n",
            self.midi_channel + 1);
 }
 
@@ -325,6 +346,19 @@ void UiHandler::mark_karplus_patch_updated(uint8_t channel) {
     synth.karplus_patch_dirty_flags.set(channel);
 }
 
+void UiHandler::mark_modal_patch_updated(uint8_t channel) {
+    if (channel >= synth.modal_patch_storage.size()) return;
+
+    if (analog_settings.enabled) {
+        analog_reapply_pending = true;
+    } else {
+        synth.active_modal_patch[channel].store(&synth.modal_patch_storage[channel],
+                                                std::memory_order_release);
+    }
+
+    synth.modal_patch_dirty_flags.set(channel);
+}
+
 void UiHandler::mark_fx_params_updated(int fx_id) {
     if (fx_id < 0 || fx_id >= FX_COUNT) return;
 
@@ -349,6 +383,12 @@ void UiHandler::mark_all_karplus_patches_updated() {
     }
 }
 
+void UiHandler::mark_all_modal_patches_updated() {
+    for (uint8_t channel = 0; channel < synth.modal_patch_storage.size(); ++channel) {
+        mark_modal_patch_updated(channel);
+    }
+}
+
 void UiHandler::mark_all_fx_params_updated() {
     for (int fx_id = 0; fx_id < FX_COUNT; ++fx_id) {
         mark_fx_params_updated(fx_id);
@@ -366,7 +406,7 @@ uint32_t UiHandler::analog_update_interval_ms() const {
 void UiHandler::randomize_analog_targets() {
     const uint8_t dispersion = analog_settings.dispersion_percent;
     const int max_wave_type = static_cast<int>(WaveType::Sinc);
-    const int max_impulse_type = 7;
+    const int max_impulse_type = 6;
 
     for (size_t ch = 0; ch < analog_fm_target_offsets.size(); ++ch) {
         AnalogFmOffsets &fm_offsets = analog_fm_target_offsets[ch];
@@ -407,6 +447,19 @@ void UiHandler::randomize_analog_targets() {
             -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
         karplus_offsets.body_resonance = random_range_inclusive(
             -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+
+        AnalogModalOffsets &modal_offsets = analog_modal_target_offsets[ch];
+        modal_offsets.structure = random_range_inclusive(
+            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+        modal_offsets.brightness = random_range_inclusive(
+            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+        modal_offsets.damping = random_range_inclusive(
+            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+        modal_offsets.position = random_range_inclusive(
+            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+        modal_offsets.exciter_type = random_range_inclusive(
+            -dispersion_span(3, dispersion, false),
+            dispersion_span(3, dispersion, false));
     }
 
     for (size_t fx_id = 0; fx_id < analog_fx_target_offsets.size(); ++fx_id) {
@@ -468,6 +521,22 @@ void UiHandler::capture_current_analog_offsets(float progress) {
             lerp_int(source.dispersion, target.dispersion, clamped_progress);
         source.body_resonance = lerp_int(source.body_resonance,
                                          target.body_resonance, clamped_progress);
+    }
+
+    for (size_t ch = 0; ch < analog_modal_source_offsets.size(); ++ch) {
+        AnalogModalOffsets &source = analog_modal_source_offsets[ch];
+        const AnalogModalOffsets &target = analog_modal_target_offsets[ch];
+
+        source.structure =
+            lerp_int(source.structure, target.structure, clamped_progress);
+        source.brightness =
+            lerp_int(source.brightness, target.brightness, clamped_progress);
+        source.damping =
+            lerp_int(source.damping, target.damping, clamped_progress);
+        source.position =
+            lerp_int(source.position, target.position, clamped_progress);
+        source.exciter_type =
+            lerp_int(source.exciter_type, target.exciter_type, clamped_progress);
     }
 
     for (size_t fx_id = 0; fx_id < analog_fx_source_offsets.size(); ++fx_id) {
@@ -543,7 +612,7 @@ void UiHandler::apply_analog_variation(float progress) {
         effective_patch.impulse_type = static_cast<KarplusImpulseType>(clamp_int(
             static_cast<int>(effective_patch.impulse_type) +
                 lerp_int(source.impulse_type, target.impulse_type, clamped_progress),
-            0, 7));
+            0, 6));
         effective_patch.filter_gain = clamp_u8(
             static_cast<int>(effective_patch.filter_gain) +
                 lerp_int(source.filter_gain, target.filter_gain, clamped_progress),
@@ -572,6 +641,38 @@ void UiHandler::apply_analog_variation(float progress) {
         synth.active_karplus_patch[ch].store(&analog_karplus_patch_storage[ch],
                                              std::memory_order_release);
         synth.karplus_patch_dirty_flags.set(ch);
+    }
+
+    for (size_t ch = 0; ch < analog_modal_patch_storage.size(); ++ch) {
+        analog_modal_patch_storage[ch] = synth.modal_patch_storage[ch];
+        ModalPatch &effective_patch = analog_modal_patch_storage[ch];
+        const AnalogModalOffsets &source = analog_modal_source_offsets[ch];
+        const AnalogModalOffsets &target = analog_modal_target_offsets[ch];
+
+        effective_patch.structure = clamp_u8(
+            static_cast<int>(effective_patch.structure) +
+                lerp_int(source.structure, target.structure, clamped_progress),
+            0, 127);
+        effective_patch.brightness = clamp_u8(
+            static_cast<int>(effective_patch.brightness) +
+                lerp_int(source.brightness, target.brightness, clamped_progress),
+            0, 127);
+        effective_patch.damping = clamp_u8(
+            static_cast<int>(effective_patch.damping) +
+                lerp_int(source.damping, target.damping, clamped_progress),
+            0, 127);
+        effective_patch.position = clamp_u8(
+            static_cast<int>(effective_patch.position) +
+                lerp_int(source.position, target.position, clamped_progress),
+            0, 127);
+        effective_patch.exciter_type = static_cast<ModalExciterType>(clamp_int(
+            static_cast<int>(effective_patch.exciter_type) +
+                lerp_int(source.exciter_type, target.exciter_type, clamped_progress),
+            0, 3));
+
+        synth.active_modal_patch[ch].store(&analog_modal_patch_storage[ch],
+                                           std::memory_order_release);
+        synth.modal_patch_dirty_flags.set(ch);
     }
 
     for (int fx_id = 0; fx_id < FX_COUNT; ++fx_id) {
@@ -608,6 +709,12 @@ void UiHandler::restore_base_parameters() {
         synth.active_karplus_patch[ch].store(&synth.karplus_patch_storage[ch],
                                              std::memory_order_release);
         synth.karplus_patch_dirty_flags.set(ch);
+    }
+
+    for (size_t ch = 0; ch < synth.modal_patch_storage.size(); ++ch) {
+        synth.active_modal_patch[ch].store(&synth.modal_patch_storage[ch],
+                                           std::memory_order_release);
+        synth.modal_patch_dirty_flags.set(ch);
     }
 
     for (int fx_id = 0; fx_id < FX_COUNT; ++fx_id) {

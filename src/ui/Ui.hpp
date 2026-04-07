@@ -23,6 +23,7 @@ typedef enum UiState {
     UI_STATE_CHOOSE,
     UI_STATE_ENGINE_SELECT,
     UI_STATE_KARPLUS_EDIT,
+    UI_STATE_MODAL_EDIT,
     UI_STATE_COUNT // helpful for bounds checking
 } UiState;
 
@@ -89,6 +90,9 @@ class UiHandler {
     static void karplus_edit_handle_encoders(UiHandler &self);
     static void karplus_edit_handle_switches(UiHandler &self);
     static void karplus_edit_update_display(UiHandler &self);
+    static void modal_edit_handle_encoders(UiHandler &self);
+    static void modal_edit_handle_switches(UiHandler &self);
+    static void modal_edit_update_display(UiHandler &self);
 
     static void fx_handle_encoders(UiHandler &self);
     static void fx_update_display(UiHandler &self);
@@ -111,6 +115,7 @@ class UiHandler {
     static void randomize_current_engine_patch(UiHandler &self);
     static void randomize_fm_patch(UiHandler &self);
     static void randomize_karplus_patch(UiHandler &self);
+    static void randomize_modal_patch(UiHandler &self);
 
     HardwareManager &hw;
     MidiHandler &midi;
@@ -176,6 +181,8 @@ class UiHandler {
     bool karplus_edit_dirty = true;
     uint8_t karplus_last_note = 60;
     uint16_t karplus_last_delay_samples = 0;
+    bool modal_edit_dirty = true;
+    uint8_t modal_last_note = 60;
 
     // choose state~
     bool chosen_dirty = true;
@@ -248,6 +255,14 @@ class UiHandler {
         int body_resonance = 0;
     };
 
+    struct AnalogModalOffsets {
+        int structure = 0;
+        int brightness = 0;
+        int damping = 0;
+        int position = 0;
+        int exciter_type = 0;
+    };
+
     struct AnalogFxOffsets {
         int p1 = 0;
         int p2 = 0;
@@ -261,11 +276,14 @@ class UiHandler {
     uint32_t analog_transition_start_ms = 0;
     std::array<Patch, 16> analog_patch_storage;
     std::array<KarplusPatch, 16> analog_karplus_patch_storage;
+    std::array<ModalPatch, 16> analog_modal_patch_storage;
     std::array<FxParams, FX_COUNT> analog_fx_params{};
     std::array<AnalogFmOffsets, 16> analog_fm_source_offsets{};
     std::array<AnalogFmOffsets, 16> analog_fm_target_offsets{};
     std::array<AnalogKarplusOffsets, 16> analog_karplus_source_offsets{};
     std::array<AnalogKarplusOffsets, 16> analog_karplus_target_offsets{};
+    std::array<AnalogModalOffsets, 16> analog_modal_source_offsets{};
+    std::array<AnalogModalOffsets, 16> analog_modal_target_offsets{};
     std::array<AnalogFxOffsets, FX_COUNT> analog_fx_source_offsets{};
     std::array<AnalogFxOffsets, FX_COUNT> analog_fx_target_offsets{};
 
@@ -274,9 +292,11 @@ class UiHandler {
     void set_fx_enabled(int fx_id, bool enabled);
     void mark_fm_patch_updated(uint8_t channel);
     void mark_karplus_patch_updated(uint8_t channel);
+    void mark_modal_patch_updated(uint8_t channel);
     void mark_fx_params_updated(int fx_id);
     void mark_all_fm_patches_updated();
     void mark_all_karplus_patches_updated();
+    void mark_all_modal_patches_updated();
     void mark_all_fx_params_updated();
     uint32_t analog_update_interval_ms() const;
     void randomize_analog_targets();

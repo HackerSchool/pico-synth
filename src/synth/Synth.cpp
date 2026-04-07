@@ -29,12 +29,15 @@ Synth::Synth() {
     // Initialize patches for all 16 channels
     initialize_patches();
     initialize_karplus_patches();
+    initialize_modal_patches();
     
     // Initialize active_patch pointers to point to patch_storage
     for (int i = 0; i < 16; i++) {
         active_patch[i].store(&patch_storage[i], std::memory_order_release);
         active_karplus_patch[i].store(&karplus_patch_storage[i],
                                       std::memory_order_release);
+        active_modal_patch[i].store(&modal_patch_storage[i],
+                                    std::memory_order_release);
     }
 
     // Allocate effect objects
@@ -118,6 +121,7 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
     // cleanup voices
     for (int i = 0; i < NUM_VOICES; i++) {
         if (voice[i].playing && voice[i].is_idle()) {
+            // Use volatile assignment to prevent compiler optimizations that could race
             voice[i].playing = false;
             voice[i].steal = false;
         }
@@ -148,6 +152,19 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
                 }
             }
             karplus_patch_dirty_flags.reset(ch);
+        }
+
+        if (modal_patch_dirty_flags.test(ch)) {
+            const ModalPatch *p =
+                active_modal_patch[ch].load(std::memory_order_acquire);
+            if (p) {
+                for (auto &v : modal_voice) {
+                    if (v.is_active() && v.midi_channel == ch) {
+                        v.apply_patch(*p);
+                    }
+                }
+            }
+            modal_patch_dirty_flags.reset(ch);
         }
     }
 
@@ -183,6 +200,17 @@ void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
                 continue;
             }
             karplus_voice[i].render(flow_buffer);
+            for (int k = 0; k < SAMPLES_PER_BUFFER; ++k) {
+                buffer[k] += flow_buffer[k] >> 3;
+            }
+        }
+        break;
+    case SynthEngine::Modal:
+        for (int i = 0; i < MODAL_VOICE_COUNT; ++i) {
+            if (!modal_voice[i].is_active()) {
+                continue;
+            }
+            modal_voice[i].render(flow_buffer);
             for (int k = 0; k < SAMPLES_PER_BUFFER; ++k) {
                 buffer[k] += flow_buffer[k] >> 3;
             }
@@ -408,6 +436,33 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
         return;
     }
 
+    if (current_engine == SynthEngine::Modal) {
+        notes_playing_bitset.set(note);
+
+        const ModalPatch *patch_ptr =
+            active_modal_patch[channel].load(std::memory_order_acquire);
+        if (!patch_ptr) {
+            return;
+        }
+
+        for (int i = 0; i < MODAL_VOICE_COUNT; ++i) {
+            if (modal_voice[i].matches(channel, note)) {
+                modal_voice[i].start(note, channel, velocity, *patch_ptr);
+                return;
+            }
+        }
+
+        for (int i = 0; i < MODAL_VOICE_COUNT; ++i) {
+            if (!modal_voice[i].is_active()) {
+                modal_voice[i].start(note, channel, velocity, *patch_ptr);
+                return;
+            }
+        }
+
+        modal_voice[0].start(note, channel, velocity, *patch_ptr);
+        return;
+    }
+
     // Check if note is already playing on this channel
     for (int i = 0; i < NUM_VOICES; i++) {
         if (voice[i].midi_note == note && voice[i].playing && !voice[i].steal &&
@@ -421,12 +476,12 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
     // Find a free voice
     for (int i = 0; i < NUM_VOICES; i++) {
         if (!voice[i].playing) {
-            // Check if voice belonged to a different channel before
-            // bool channel_changed = (voice[i].midi_channel != channel);
-
+            // Initialize voice state first
             voice[i].midi_channel = channel;
-            voice[i].playing = true;
             voice[i].midi_note = note;
+            // Use volatile write and memory barrier to ensure visibility to core 1
+            __sync_synchronize();  // Memory barrier
+            voice[i].playing = true;
             notes_playing_bitset.set(note);
             
             // if (channel_changed) {
@@ -455,6 +510,17 @@ void Synth::note_off(uint8_t channel, uint8_t note, uint8_t velocity) {
         for (int i = 0; i < KARPLUS_VOICE_COUNT; ++i) {
             if (karplus_voice[i].matches(channel, note)) {
                 karplus_voice[i].note_off();
+            }
+        }
+        return;
+    }
+
+    if (current_engine == SynthEngine::Modal) {
+        notes_playing_bitset.reset(note);
+
+        for (int i = 0; i < MODAL_VOICE_COUNT; ++i) {
+            if (modal_voice[i].matches(channel, note)) {
+                modal_voice[i].note_off();
             }
         }
         return;
@@ -495,6 +561,12 @@ void Synth::clear_karplus_voices() {
     }
 }
 
+void Synth::clear_modal_voices() {
+    for (auto &v : modal_voice) {
+        v.reset();
+    }
+}
+
 void Synth::set_engine(SynthEngine engine) {
     if (current_engine == engine) {
         return;
@@ -502,6 +574,7 @@ void Synth::set_engine(SynthEngine engine) {
 
     clear_fm_voices();
     clear_karplus_voices();
+    clear_modal_voices();
     notes_playing_bitset.reset();
     current_engine = engine;
 }
@@ -544,6 +617,17 @@ void Synth::initialize_karplus_patches() {
         patch.pick_position = 32;
         patch.dispersion = 24;
         patch.body_resonance = 40;
+    }
+}
+
+void Synth::initialize_modal_patches() {
+    for (int ch = 0; ch < 16; ++ch) {
+        ModalPatch &patch = modal_patch_storage[ch];
+        patch.structure = 14;
+        patch.brightness = 92;
+        patch.damping = 100;
+        patch.position = 34;
+        patch.exciter_type = ModalExciterType::SoftStrike;
     }
 }
 

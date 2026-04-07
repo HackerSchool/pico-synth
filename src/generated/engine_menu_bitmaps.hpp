@@ -2,6 +2,7 @@
 
 #include "generated/engine_bitmaps/fm_bitmap.hpp"
 #include "generated/engine_bitmaps/karplus_bitmap.hpp"
+#include "generated/engine_bitmaps/modal_bitmap.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -17,6 +18,7 @@ struct Asset {
 inline constexpr Asset kEngineMenuAssets[] = {
     {fm_bitmap, fm_bitmap_len, "FM"},
     {karplus_bitmap, karplus_bitmap_len, "KARPLUS"},
+    {modal_bitmap, modal_bitmap_len, "MODAL"},
 };
 
 inline constexpr std::size_t kEngineMenuAssetCount =

@@ -4,6 +4,7 @@
 #include "Envelope.hpp"
 #include "Filter.hpp"
 #include "KarplusStrong.hpp"
+#include "Modal.hpp"
 #include "MidiHandler.hpp"
 #include "Operator.hpp"
 #include "Oscillator.hpp"
@@ -29,7 +30,8 @@ extern const WaveType channel_wave_map[16];
 
 enum class SynthEngine : uint8_t {
     FM = 0,
-    KarplusStrong = 1
+    KarplusStrong = 1,
+    Modal = 2
 };
 
 // // Channel-specific parameters (16 MIDI channels)
@@ -48,6 +50,7 @@ class Synth {
   public:
     static constexpr int FX_SLOT_COUNT = 5;
     static constexpr int KARPLUS_VOICE_COUNT = 8;
+    static constexpr int MODAL_VOICE_COUNT = 8;
 
     Synth();
     ~Synth();
@@ -59,6 +62,7 @@ class Synth {
     std::array<int16_t, SAMPLES_PER_BUFFER> flow_buffer{0};
     void initialize_patches();
     void initialize_karplus_patches();
+    void initialize_modal_patches();
 
     void out_interp();
     std::array<int16_t, SAMPLES_PER_BUFFER> &get_output();
@@ -92,10 +96,14 @@ class Synth {
     std::array<KarplusPatch, 16> karplus_patch_storage;
     std::array<std::atomic<KarplusPatch *>, 16> active_karplus_patch;
     std::bitset<16> karplus_patch_dirty_flags;
+    std::array<ModalPatch, 16> modal_patch_storage;
+    std::array<std::atomic<ModalPatch *>, 16> active_modal_patch;
+    std::bitset<16> modal_patch_dirty_flags;
 
     // voice arrays
     std::array<Voice, NUM_VOICES> voice;
     std::array<KarplusVoice, KARPLUS_VOICE_COUNT> karplus_voice;
+    std::array<ModalVoice, MODAL_VOICE_COUNT> modal_voice;
 
     void cycle_filter_type();
 
@@ -114,6 +122,7 @@ class Synth {
   private:
     void clear_fm_voices();
     void clear_karplus_voices();
+    void clear_modal_voices();
 
     std::bitset<128> notes_playing_bitset;
     SynthEngine current_engine = SynthEngine::FM;

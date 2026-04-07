@@ -31,6 +31,11 @@ ASSET_CONFIG = {
         "symbol": "karplus_bitmap",
         "label": "KARPLUS",
     },
+    "modal": {
+        "file_stem": "modal_bitmap",
+        "symbol": "modal_bitmap",
+        "label": "MODAL",
+    },
 }
 
 

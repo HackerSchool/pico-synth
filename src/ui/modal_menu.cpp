@@ -1,11 +1,10 @@
 #include "Ui.hpp"
-#include "draw_utils.hpp"
 #include "pico/time.h"
 
 namespace {
 const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
                              66, 68, 70, -1, 67, 69, 71, 72};
-constexpr int kKarplusImpulseCount = 7;
+constexpr int kModalExciterCount = 4;
 
 template <typename T> T constrain(T value, T min_val, T max_val) {
     if (value < min_val) return min_val;
@@ -14,7 +13,7 @@ template <typename T> T constrain(T value, T min_val, T max_val) {
 }
 } // namespace
 
-void UiHandler::karplus_edit_handle_switches(UiHandler &self) {
+void UiHandler::modal_edit_handle_switches(UiHandler &self) {
     MidiHandler &midi = self.midi;
     Sampler &sampler = self.sampler;
 
@@ -29,16 +28,14 @@ void UiHandler::karplus_edit_handle_switches(UiHandler &self) {
             if (note != 255) {
                 const uint8_t midi_note =
                     static_cast<uint8_t>(note + (12 * self.octave));
-                self.karplus_last_note = midi_note;
-                self.karplus_last_delay_samples =
-                    KarplusVoice::tuned_delay_samples_for_note(midi_note);
-                self.karplus_edit_dirty = true;
+                self.modal_last_note = midi_note;
+                self.modal_edit_dirty = true;
 
                 if (self.midi_channel == 5) {
                     sampler.trigger_player(note - 60);
                 } else if (self.switches_in) {
                     uint8_t packet[4];
-                    packet[0] = 0x09; // CIN = Note On, Cable 0
+                    packet[0] = 0x09;
                     packet[1] = 0x90 | (self.midi_channel & 0x0F);
                     packet[2] = midi_note;
                     packet[3] = 0x7F;
@@ -49,7 +46,7 @@ void UiHandler::karplus_edit_handle_switches(UiHandler &self) {
                 case 0:
                     if (self.octave > -5) {
                         self.octave--;
-                        self.karplus_edit_dirty = true;
+                        self.modal_edit_dirty = true;
                     }
                     break;
                 case 3:
@@ -58,7 +55,7 @@ void UiHandler::karplus_edit_handle_switches(UiHandler &self) {
                 case 11:
                     if (self.octave < 4) {
                         self.octave++;
-                        self.karplus_edit_dirty = true;
+                        self.modal_edit_dirty = true;
                     }
                     break;
                 default:
@@ -71,7 +68,7 @@ void UiHandler::karplus_edit_handle_switches(UiHandler &self) {
             const uint8_t note = key_to_midi[i];
             if (note != 255 && self.switches_in) {
                 uint8_t packet[4];
-                packet[0] = 0x08; // CIN = Note Off, Cable 0
+                packet[0] = 0x08;
                 packet[1] = 0x80 | (self.midi_channel & 0x0F);
                 packet[2] = static_cast<uint8_t>(note + (12 * self.octave));
                 packet[3] = 0x7F;
@@ -83,11 +80,11 @@ void UiHandler::karplus_edit_handle_switches(UiHandler &self) {
     self.prev_switches = curr;
 }
 
-void UiHandler::karplus_edit_handle_encoders(UiHandler &self) {
+void UiHandler::modal_edit_handle_encoders(UiHandler &self) {
     HardwareManager &hw = self.hw;
     Synth &synth = self.synth;
-    KarplusPatch &patch = synth.karplus_patch_storage[self.midi_channel];
-    const bool advanced_page = self.ui_state == UI_STATE_KARPLUS_EDIT;
+    ModalPatch &patch = synth.modal_patch_storage[self.midi_channel];
+    const bool advanced_page = self.ui_state == UI_STATE_MODAL_EDIT;
 
     for (int i = 0; i < NUM_ENCODERS; ++i) {
         Encoder *enc = &hw.encoders[i];
@@ -98,34 +95,30 @@ void UiHandler::karplus_edit_handle_encoders(UiHandler &self) {
 
             if (!advanced_page) {
                 switch (i) {
-                case 0: {
-                    int impulse_index = static_cast<int>(patch.impulse_type);
-                    impulse_index +=
-                        UiHandler::encoder_velocity_delta(delta, 1, 1, 1);
-                    if (impulse_index < 0) impulse_index = kKarplusImpulseCount - 1;
-                    if (impulse_index >= kKarplusImpulseCount) impulse_index = 0;
-                    patch.impulse_type =
-                        static_cast<KarplusImpulseType>(impulse_index);
+                case 0:
+                    patch.structure = static_cast<uint8_t>(constrain(
+                        static_cast<int>(patch.structure) +
+                            UiHandler::encoder_velocity_delta(delta, 1, 4, 8),
+                        0, 127));
                     param_changed = true;
                     break;
-                }
                 case 1:
-                    patch.filter_gain = static_cast<uint8_t>(constrain(
-                        static_cast<int>(patch.filter_gain) +
+                    patch.brightness = static_cast<uint8_t>(constrain(
+                        static_cast<int>(patch.brightness) +
                             UiHandler::encoder_velocity_delta(delta, 1, 4, 8),
                         0, 127));
                     param_changed = true;
                     break;
                 case 2:
-                    patch.decay = static_cast<uint8_t>(constrain(
-                        static_cast<int>(patch.decay) +
+                    patch.damping = static_cast<uint8_t>(constrain(
+                        static_cast<int>(patch.damping) +
                             UiHandler::encoder_velocity_delta(delta, 1, 4, 8),
                         0, 127));
                     param_changed = true;
                     break;
                 case 3:
-                    patch.body_resonance = static_cast<uint8_t>(constrain(
-                        static_cast<int>(patch.body_resonance) +
+                    patch.position = static_cast<uint8_t>(constrain(
+                        static_cast<int>(patch.position) +
                             UiHandler::encoder_velocity_delta(delta, 1, 4, 8),
                         0, 127));
                     param_changed = true;
@@ -135,30 +128,34 @@ void UiHandler::karplus_edit_handle_encoders(UiHandler &self) {
                 }
             } else {
                 switch (i) {
-                case 0:
-                    patch.impulse_length = static_cast<uint8_t>(constrain(
-                        static_cast<int>(patch.impulse_length) +
-                            UiHandler::encoder_velocity_delta(delta, 1, 4, 8),
-                        0, 127));
+                case 0: {
+                    int exciter_index = static_cast<int>(patch.exciter_type);
+                    exciter_index +=
+                        UiHandler::encoder_velocity_delta(delta, 1, 1, 1);
+                    if (exciter_index < 0) exciter_index = kModalExciterCount - 1;
+                    if (exciter_index >= kModalExciterCount) exciter_index = 0;
+                    patch.exciter_type =
+                        static_cast<ModalExciterType>(exciter_index);
                     param_changed = true;
                     break;
+                }
                 case 1:
-                    patch.pick_position = static_cast<uint8_t>(constrain(
-                        static_cast<int>(patch.pick_position) +
+                    patch.structure = static_cast<uint8_t>(constrain(
+                        static_cast<int>(patch.structure) +
                             UiHandler::encoder_velocity_delta(delta, 1, 4, 8),
                         0, 127));
                     param_changed = true;
                     break;
                 case 2:
-                    patch.dispersion = static_cast<uint8_t>(constrain(
-                        static_cast<int>(patch.dispersion) +
+                    patch.brightness = static_cast<uint8_t>(constrain(
+                        static_cast<int>(patch.brightness) +
                             UiHandler::encoder_velocity_delta(delta, 1, 4, 8),
                         0, 127));
                     param_changed = true;
                     break;
                 case 3:
-                    patch.body_resonance = static_cast<uint8_t>(constrain(
-                        static_cast<int>(patch.body_resonance) +
+                    patch.damping = static_cast<uint8_t>(constrain(
+                        static_cast<int>(patch.damping) +
                             UiHandler::encoder_velocity_delta(delta, 1, 4, 8),
                         0, 127));
                     param_changed = true;
@@ -169,8 +166,8 @@ void UiHandler::karplus_edit_handle_encoders(UiHandler &self) {
             }
 
             if (param_changed) {
-                self.mark_karplus_patch_updated(self.midi_channel);
-                self.karplus_edit_dirty = true;
+                self.mark_modal_patch_updated(self.midi_channel);
+                self.modal_edit_dirty = true;
             }
         }
 
@@ -180,41 +177,26 @@ void UiHandler::karplus_edit_handle_encoders(UiHandler &self) {
                 self.chosen_index = UI_STATE_FM_EDIT;
                 self.chosen_dirty = true;
             }
-            self.karplus_edit_dirty = true;
+            self.modal_edit_dirty = true;
         }
     }
 }
 
-void UiHandler::karplus_edit_update_display(UiHandler &self) {
-    if (self.ui_state != UI_STATE_KARPLUS_EDIT) {
-        const uint32_t now_ms = to_ms_since_boot(get_absolute_time());
-        if (now_ms - self.waveform_animation_last_ms >= 120) {
-            self.waveform_animation_last_ms = now_ms;
-            self.waveform_animation_phase =
-                static_cast<uint16_t>((self.waveform_animation_phase + 24) %
-                                      WAVE_TABLE_LEN);
-            self.karplus_edit_dirty = true;
-        }
-    }
-
-    if (self.karplus_edit_dirty) {
-        KarplusPatch &patch = self.synth.karplus_patch_storage[self.midi_channel];
-        if (self.ui_state == UI_STATE_KARPLUS_EDIT) {
-            self.hw.draw_karplus_edit(self.midi_channel, self.octave,
-                                      patch.impulse_length,
-                                      patch.pick_position, patch.dispersion,
-                                      patch.body_resonance,
-                                      self.karplus_last_note,
-                                      self.karplus_last_delay_samples);
+void UiHandler::modal_edit_update_display(UiHandler &self) {
+    if (self.modal_edit_dirty) {
+        ModalPatch &patch = self.synth.modal_patch_storage[self.midi_channel];
+        if (self.ui_state == UI_STATE_MODAL_EDIT) {
+            self.hw.draw_modal_edit(self.midi_channel, self.octave,
+                                    patch.exciter_type, patch.structure,
+                                    patch.brightness, patch.damping,
+                                    patch.position, self.modal_last_note);
         } else {
-            self.hw.draw_karplus_main(self.midi_channel, self.octave,
-                                      patch.impulse_type, patch.filter_gain,
-                                      patch.decay, patch.body_resonance,
-                                      self.karplus_last_note,
-                                      self.karplus_last_delay_samples,
-                                      self.waveform_animation_phase);
+            self.hw.draw_modal_main(self.midi_channel, self.octave,
+                                    patch.structure, patch.brightness,
+                                    patch.damping, patch.position,
+                                    patch.exciter_type, self.modal_last_note);
         }
         self.hw.display_show();
-        self.karplus_edit_dirty = false;
+        self.modal_edit_dirty = false;
     }
 }

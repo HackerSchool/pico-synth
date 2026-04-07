@@ -239,6 +239,11 @@ void SamplePlayer::render_buffer(std::array<int16_t, SAMPLES_PER_BUFFER>& buffer
             buffer_pos += samples_to_copy * 2;
         } else {
             // Stereo - mix down to mono (simple average). This range fits in int16.
+            // Validate we won't read past the buffer boundaries
+            if ((buffer_pos + samples_to_copy * 4) > buffer_valid) {
+                // Malformed WAV - insufficient data for stereo conversion
+                samples_to_copy = (buffer_valid - buffer_pos) >> 2;
+            }
             for (size_t i = 0; i < samples_to_copy; i++) {
                 int32_t left = src[i * 2];
                 int32_t right = src[i * 2 + 1];

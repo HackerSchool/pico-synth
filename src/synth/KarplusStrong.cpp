@@ -12,19 +12,6 @@ constexpr uint16_t kDispersionMaxQ15 = 19661; // ~0.60
 constexpr uint16_t kBodyMixMaxQ15 = 16384;    // 0.5
 constexpr uint16_t kBodyFeedbackBaseQ15 = 18022; // ~0.55
 constexpr uint16_t kBodyFeedbackRangeQ15 = 9830; // +0.30
-constexpr float kPi = 3.14159265358979323846f;
-constexpr float kHandpanModeRatios[KarplusVoice::MODAL_MODE_COUNT] = {
-    1.000f, 1.500f, 2.010f, 2.420f, 2.980f, 3.760f, 4.620f, 5.480f
-};
-constexpr float kHandpanModeGains[KarplusVoice::MODAL_MODE_COUNT] = {
-    1.000f, 0.920f, 0.540f, 0.280f, 0.180f, 0.110f, 0.070f, 0.045f
-};
-constexpr float kHandpanModeBandwidthHz[KarplusVoice::MODAL_MODE_COUNT] = {
-    4.5f, 5.5f, 7.0f, 9.5f, 13.0f, 18.0f, 24.0f, 31.0f
-};
-constexpr float kHandpanModeDetune[KarplusVoice::MODAL_MODE_COUNT] = {
-    0.000f, -0.006f, 0.008f, -0.011f, 0.015f, -0.020f, 0.026f, -0.031f
-};
 
 inline int16_t clamp_i16(int32_t value) {
     if (value > INT16_MAX) return INT16_MAX;
@@ -53,11 +40,6 @@ inline uint16_t scale_param_q15(uint8_t value, uint16_t max_q15) {
                                  127u);
 }
 
-inline float clamp_float(float value, float min_value, float max_value) {
-    if (value < min_value) return min_value;
-    if (value > max_value) return max_value;
-    return value;
-}
 } // namespace
 
 const char *karplus_impulse_to_string(KarplusImpulseType type) {
@@ -76,23 +58,29 @@ const char *karplus_impulse_to_string(KarplusImpulseType type) {
         return "Click";
     case KarplusImpulseType::MetallicBurst:
         return "Metal Burst";
-    case KarplusImpulseType::HandPan:
-        return "HandPan";
     default:
         return "Unknown";
     }
 }
 
 uint16_t KarplusVoice::tuned_delay_samples_for_note(uint8_t midi_note) {
+    // Clamp MIDI note to valid range
     if (midi_note > MIDI_MAX) midi_note = MIDI_MAX;
+    
     const float freq = midi_frequencies[midi_note];
     if (freq <= 0.0f) return 2;
 
     const float tuned_delay =
         (static_cast<float>(SAMPLE_RATE) / freq) - 0.5f;
     int delay = static_cast<int>(tuned_delay);
+    
+    // Guard against invalid delay values
     if (delay < 2) delay = 2;
     if (delay >= MAX_DELAY_SAMPLES) delay = MAX_DELAY_SAMPLES - 1;
+    
+    // Ensure delay is never 0 to prevent division by zero in modulo operations
+    if (delay <= 0) delay = 2;
+    
     return static_cast<uint16_t>(delay);
 }
 
@@ -102,7 +90,6 @@ bool KarplusVoice::matches(uint8_t channel, uint8_t note) const {
 
 void KarplusVoice::apply_patch(const KarplusPatch &patch) {
     impulse_type = patch.impulse_type;
-    handpan_enabled = (impulse_type == KarplusImpulseType::HandPan);
     filter_gain_q15 = filter_gain_to_q15(patch.filter_gain);
     decay_q15 = decay_to_q15(patch.decay);
     impulse_length_samples = static_cast<uint16_t>(
@@ -124,28 +111,14 @@ void KarplusVoice::apply_patch(const KarplusPatch &patch) {
 
     const float freq = midi_frequencies[midi_note];
     float body_freq = freq * 1.9f;
-    if (handpan_enabled) {
-        const float body = static_cast<float>(patch.body_resonance) / 127.0f;
-        const float body_shaped = std::sqrt(body);
-        body_mix_q15 = static_cast<uint16_t>(
-            clamp_float(12000.0f + (body_shaped * 18500.0f), 0.0f, 32767.0f));
-        body_feedback_q15 = static_cast<uint16_t>(
-            clamp_float(28100.0f + (body_shaped * 3900.0f), 0.0f, 32760.0f));
-        body_freq = freq * (0.62f + (0.14f * body));
-        if (body_freq < 95.0f) body_freq = 95.0f;
-        if (body_freq > 520.0f) body_freq = 520.0f;
-    } else {
-        if (body_freq < 180.0f) body_freq = 180.0f;
-        if (body_freq > 1200.0f) body_freq = 1200.0f;
-    }
+    if (body_freq < 180.0f) body_freq = 180.0f;
+    if (body_freq > 1200.0f) body_freq = 1200.0f;
     int body_delay = static_cast<int>((static_cast<float>(SAMPLE_RATE) /
                                        body_freq) +
                                       0.5f);
     if (body_delay < 4) body_delay = 4;
     if (body_delay >= MAX_BODY_SAMPLES) body_delay = MAX_BODY_SAMPLES - 1;
     body_delay_samples = body_delay;
-
-    configure_handpan_modes(patch);
 }
 
 void KarplusVoice::start(uint8_t midi_note_, uint8_t midi_channel_,
@@ -161,8 +134,6 @@ void KarplusVoice::start(uint8_t midi_note_, uint8_t midi_channel_,
     body_line.fill(0);
     body_write_index = 0;
     silent_samples = 0;
-    handpan_excitation_length = 0;
-    handpan_excitation_index = 0;
     active = true;
     released = false;
     rng_state = 0x9E3779B9u ^ (static_cast<uint32_t>(midi_note_) << 16) ^
@@ -173,9 +144,6 @@ void KarplusVoice::start(uint8_t midi_note_, uint8_t midi_channel_,
 }
 
 void KarplusVoice::note_off() {
-    if (handpan_enabled) {
-        return;
-    }
     released = true;
 }
 
@@ -190,14 +158,6 @@ void KarplusVoice::reset() {
     body_line.fill(0);
     body_delay_samples = 16;
     body_write_index = 0;
-    handpan_excitation_length = 0;
-    handpan_excitation_index = 0;
-    handpan_mode_c1.fill(0.0f);
-    handpan_mode_c2.fill(0.0f);
-    handpan_mode_b0.fill(0.0f);
-    handpan_mode_y1.fill(0.0f);
-    handpan_mode_y2.fill(0.0f);
-    handpan_enabled = false;
     active = false;
     released = false;
     silent_samples = 0;
@@ -262,52 +222,6 @@ void KarplusVoice::excite(uint8_t velocity) {
                 ((mix * env_q15) >> 15) * amplitude_q15 >> 15);
         }
         apply_pick_position();
-        break;
-    case KarplusImpulseType::HandPan:
-        delay_line.fill(0);
-        handpan_excitation_index = 0;
-        handpan_excitation_length = static_cast<uint16_t>(
-            8 + ((static_cast<uint32_t>(impulse_length_samples) * 3u) / 2u));
-        if (handpan_excitation_length < 12) handpan_excitation_length = 12;
-        if (handpan_excitation_length > 160) handpan_excitation_length = 160;
-
-        {
-            int32_t previous = 0;
-            int32_t smooth_noise = 0;
-            for (int i = 0; i < handpan_excitation_length; ++i) {
-                rng_state = (rng_state * 1664525u) + 1013904223u;
-                const int16_t noise =
-                    static_cast<int16_t>((rng_state >> 16) ^ (rng_state & 0xFFFFu));
-                smooth_noise =
-                    ((smooth_noise * 5) + static_cast<int32_t>(noise) * 3) >> 3;
-                const int16_t metallic =
-                    sine_wave_table[(i * 29u) & (WAVE_TABLE_LEN - 1)];
-                const int32_t env_q15 =
-                    ((static_cast<int32_t>(handpan_excitation_length - i) *
-                      static_cast<int32_t>(kQ15Max)) /
-                     handpan_excitation_length);
-                const int32_t raw =
-                    ((((smooth_noise * 5) +
-                       (static_cast<int32_t>(metallic) * 2)) >> 3) *
-                     amplitude_q15) >>
-                    15;
-                const int32_t differentiated = raw - ((previous * 3) >> 2);
-                previous = raw;
-                delay_line[i] =
-                    clamp_i16((differentiated * env_q15) >> 15);
-            }
-        }
-
-        for (int i = handpan_excitation_length; i < delay_samples; ++i) {
-            delay_line[i] = 0;
-        }
-
-        if (handpan_excitation_length > 1) {
-            delay_line[0] = clamp_i16(static_cast<int32_t>(delay_line[0]) +
-                                      static_cast<int32_t>(amplitude_q15));
-        }
-
-        apply_pick_position_to_buffer(handpan_excitation_length);
         break;
     }
 }
@@ -433,115 +347,9 @@ int16_t KarplusVoice::apply_body_resonator(int16_t sample) {
                       15));
 }
 
-void KarplusVoice::configure_handpan_modes(const KarplusPatch &patch) {
-    handpan_mode_y1.fill(0.0f);
-    handpan_mode_y2.fill(0.0f);
-    handpan_excitation_index = 0;
-
-    if (!handpan_enabled) {
-        handpan_mode_c1.fill(0.0f);
-        handpan_mode_c2.fill(0.0f);
-        handpan_mode_b0.fill(0.0f);
-        return;
-    }
-
-    const float note_frequency = midi_frequencies[midi_note];
-    const float brightness_param =
-        static_cast<float>(patch.filter_gain) / 127.0f;
-    const float brightness =
-        0.22f + (1.02f * std::sqrt(brightness_param));
-    const float sustain_param =
-        static_cast<float>(patch.decay) / 127.0f;
-    const float sustain = std::sqrt(sustain_param);
-    const float metallicity =
-        static_cast<float>(patch.dispersion) / 127.0f;
-    const float b0_scale =
-        0.030f + (0.026f * brightness);
-    const float bandwidth_scale =
-        0.92f - (0.84f * sustain);
-
-    for (int i = 0; i < MODAL_MODE_COUNT; ++i) {
-        float ratio = kHandpanModeRatios[i] *
-                      (1.0f + (kHandpanModeDetune[i] * metallicity));
-        float mode_frequency = note_frequency * ratio;
-
-        if (mode_frequency > (static_cast<float>(SAMPLE_RATE) * 0.45f)) {
-            handpan_mode_c1[i] = 0.0f;
-            handpan_mode_c2[i] = 0.0f;
-            handpan_mode_b0[i] = 0.0f;
-            continue;
-        }
-
-        float bandwidth_hz =
-            kHandpanModeBandwidthHz[i] * bandwidth_scale;
-        bandwidth_hz *= 0.92f + (0.26f * metallicity);
-        if (i < 2) {
-            bandwidth_hz *= 0.52f;
-        }
-        if (bandwidth_hz < 0.75f) bandwidth_hz = 0.75f;
-
-        const float radius =
-            std::exp((-kPi * bandwidth_hz) /
-                     static_cast<float>(SAMPLE_RATE));
-        const float omega =
-            2.0f * kPi * mode_frequency / static_cast<float>(SAMPLE_RATE);
-
-        handpan_mode_c1[i] = 2.0f * radius * std::cos(omega);
-        handpan_mode_c2[i] = -(radius * radius);
-        handpan_mode_b0[i] =
-            kHandpanModeGains[i] * b0_scale * (1.0f + (0.04f * metallicity));
-    }
-}
-
-int16_t KarplusVoice::render_handpan_sample() {
-    if (!handpan_enabled) {
-        return 0;
-    }
-
-    float excitation = 0.0f;
-    if (handpan_excitation_index < handpan_excitation_length) {
-        excitation =
-            static_cast<float>(delay_line[handpan_excitation_index++]) / 32768.0f;
-    }
-
-    const float release_scale = released ? 0.99997f : 1.0f;
-    float modal_sum = 0.0f;
-
-    for (int i = 0; i < MODAL_MODE_COUNT; ++i) {
-        const float y =
-            (handpan_mode_b0[i] * excitation) +
-            (handpan_mode_c1[i] * handpan_mode_y1[i]) +
-            (handpan_mode_c2[i] * handpan_mode_y2[i]);
-        handpan_mode_y2[i] = handpan_mode_y1[i] * release_scale;
-        handpan_mode_y1[i] = y * release_scale;
-        modal_sum += y;
-    }
-
-    return clamp_i16(static_cast<int32_t>(modal_sum * 31500.0f));
-}
-
 void KarplusVoice::render(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
     buffer.fill(0);
     if (!active) return;
-
-    if (handpan_enabled) {
-        for (int i = 0; i < SAMPLES_PER_BUFFER; ++i) {
-            const int16_t modal_sample = render_handpan_sample();
-            const int16_t voiced_sample = apply_body_resonator(modal_sample);
-            buffer[i] = voiced_sample;
-
-            if (abs_int(voiced_sample) < 8) {
-                ++silent_samples;
-                if (silent_samples > static_cast<uint32_t>(SAMPLE_RATE)) {
-                    active = false;
-                    break;
-                }
-            } else {
-                silent_samples = 0;
-            }
-        }
-        return;
-    }
 
     const uint16_t loop_decay_q15 =
         released && decay_q15 > kReleaseDecayQ15 ? kReleaseDecayQ15 : decay_q15;

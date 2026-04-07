@@ -149,8 +149,10 @@ void Reverb::process(int16_t* buffer, int buffer_size) {
             DelayLine& line = lines[line_index];
             const int32_t mod_offset =
                 static_cast<int32_t>((static_cast<int64_t>(triangle_q15(line.mod_phase)) * line.mod_depth) >> 15);
+            // Guard against index underflow: add buffer size before subtracting to handle wraparound
+            const int32_t delay_with_mod = static_cast<int32_t>(line.delay) + mod_offset;
             const size_t read_idx =
-                (line.idx - static_cast<size_t>(static_cast<int32_t>(line.delay) + mod_offset)) & LINE_MASK;
+                (line.idx + (LINE_BUF_SIZE - static_cast<size_t>(delay_with_mod))) & LINE_MASK;
 
             delayed[line_index] = line.buf[read_idx];
             filtered[line_index] = static_cast<int32_t>(

@@ -2,7 +2,9 @@
 #include <pico/types.h>
 #include <stdio.h>
 #include <pico/stdlib.h>
+#include <pico/time.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "pico/audio.h"
 #include "pico/bootrom.h"
@@ -11,6 +13,7 @@
 
 #include "hardware/clocks.h"
 #include "hardware/pll.h"
+#include "hardware/regs/addressmap.h"
 #include "hardware/structs/clocks.h"
 
 #include "fixed_point.h"
@@ -32,6 +35,7 @@
 #include "hw_config.h" // SD card hardware config
 
 #include <cstring>
+#include <limits>
 
 static audio_buffer_pool *ap = nullptr;
 
@@ -43,6 +47,64 @@ Sampler sampler;
 
 std::array<int16_t, SAMPLES_PER_BUFFER> output;
 std::array<int16_t, SAMPLES_PER_BUFFER> sampler_buffer;
+
+static volatile uintptr_t core0_min_sp = std::numeric_limits<uintptr_t>::max();
+static volatile uintptr_t core1_min_sp = std::numeric_limits<uintptr_t>::max();
+
+static inline uintptr_t current_stack_pointer() {
+    volatile uint8_t stack_probe = 0;
+    return reinterpret_cast<uintptr_t>(&stack_probe);
+}
+
+static inline void sample_stack_usage_core0() {
+    const uintptr_t sp = current_stack_pointer();
+    if (sp < core0_min_sp) {
+        core0_min_sp = sp;
+    }
+}
+
+static inline void sample_stack_usage_core1() {
+    const uintptr_t sp = current_stack_pointer();
+    if (sp < core1_min_sp) {
+        core1_min_sp = sp;
+    }
+}
+
+static void print_ram_usage_percent() {
+    uintptr_t min_sp = core0_min_sp;
+    if (core1_min_sp < min_sp) {
+        min_sp = core1_min_sp;
+    }
+    if (min_sp == std::numeric_limits<uintptr_t>::max()) {
+        min_sp = current_stack_pointer();
+    }
+
+    const uintptr_t ram_base = static_cast<uintptr_t>(SRAM_BASE);
+    const uintptr_t ram_end = static_cast<uintptr_t>(SRAM_END);
+    if (min_sp < ram_base) min_sp = ram_base;
+    if (min_sp > ram_end) min_sp = ram_end;
+
+    // Low-memory usage grows upward (.data/.bss/heap), stack grows downward.
+    uintptr_t heap_top = reinterpret_cast<uintptr_t>(sbrk(0));
+    if (heap_top == static_cast<uintptr_t>(-1)) {
+        heap_top = ram_base;
+    }
+    if (heap_top < ram_base) heap_top = ram_base;
+    if (heap_top > ram_end) heap_top = ram_end;
+
+    const uint32_t ram_total = static_cast<uint32_t>(ram_end - ram_base);
+    uint32_t ram_used = static_cast<uint32_t>((heap_top - ram_base) +
+                                              (ram_end - min_sp));
+    if (ram_used > ram_total) ram_used = ram_total;
+    const float ram_percent =
+        ram_total == 0 ? 0.0f
+                       : (100.0f * static_cast<float>(ram_used) /
+                          static_cast<float>(ram_total));
+
+    printf("RAM: %.1f%% (%lu/%lu bytes)\n", static_cast<double>(ram_percent),
+           static_cast<unsigned long>(ram_used),
+           static_cast<unsigned long>(ram_total));
+}
 
 void enter_bootsel_mode() {
     reset_usb_boot(0, 0); // Jump to BOOTSEL (UF2) mode
@@ -73,8 +135,9 @@ void audio_task(void) {
     sampler.out(sampler_buffer);
 
     // Mix sampler with synth, then run the shared FX chain on the full signal.
+    // Use 64-bit accumulation to prevent overflow from multiple voices
     for (uint i = 0; i < SAMPLES_PER_BUFFER; i++) {
-        int32_t mixed = (int32_t)output[i] + (int32_t)(sampler_buffer[i]>> 2);
+        int64_t mixed = (int64_t)output[i] + (int64_t)(sampler_buffer[i] >> 2);
         if (mixed > 32767)
             mixed = 32767;
         if (mixed < -32768)
@@ -88,6 +151,13 @@ void audio_task(void) {
     audio_buffer_t *buffer = take_audio_buffer(ap, true);
     if (!buffer)
         return;
+
+    // Ensure buffer size matches our audio generation size to prevent overflow
+    if (buffer->max_sample_count != SAMPLES_PER_BUFFER) {
+        panic("Audio buffer size mismatch: expected %lu, got %lu",
+              (unsigned long)SAMPLES_PER_BUFFER,
+              (unsigned long)buffer->max_sample_count);
+    }
 
     uint8_t *sample_bytes = buffer->buffer->bytes;
     for (uint i = 0; i < buffer->max_sample_count; i++) {
@@ -103,6 +173,7 @@ void audio_task(void) {
 void audio_loop(void) {
 
     while (true) {
+        sample_stack_usage_core1();
         uint8_t msg[4];
         while (queue_try_remove(&midi_queue, msg)) {
             synth.process_midi_packet(msg);
@@ -130,6 +201,9 @@ int main() {
 
     // Initialize I2S audio output
     ap = audio_init();
+    if (!ap) {
+        panic("audio_init() failed - unable to initialize audio buffer pool");
+    }
 
     setup_gpios();
 
@@ -155,8 +229,10 @@ int main() {
     queue_init(&midi_queue, 4, 64);
     // queue_init(&sample_trigger_queue, sizeof(uint32_t), 16); // Add this line
     multicore_launch_core1(audio_loop);
+    uint32_t last_ram_print_ms = to_ms_since_boot(get_absolute_time());
 
     while (true) {
+        sample_stack_usage_core0();
         // Handle USB tasks
         tud_task();
 
@@ -166,6 +242,12 @@ int main() {
         hw.update();
         ui.update();
         seq.update();
+
+        const uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+        if (now_ms - last_ram_print_ms >= 2000) {
+            last_ram_print_ms = now_ms;
+            print_ram_usage_percent();
+        }
 
         int c = getchar_timeout_us(0);
         if (c >= 0) {

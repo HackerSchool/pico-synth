@@ -128,21 +128,6 @@ void draw_karplus_impulse_preview(ssd1306_t *disp, KarplusImpulseType type,
             }
         }
         break;
-    case KarplusImpulseType::HandPan:
-        for (int i = 0; i < width; ++i) {
-            const int center =
-                y + height / 2 +
-                static_cast<int>((height / 3) *
-                                 std::sin((static_cast<float>(i + phase / 6) *
-                                           0.22f)));
-            const int upper = center - 3 - ((i / 7) & 1);
-            const int lower = center + 3 + ((i / 9) & 1);
-            ssd1306_draw_pixel(disp, x + i, center);
-            if ((i % 3) == 0) {
-                ssd1306_draw_line(disp, x + i, upper, x + i, lower);
-            }
-        }
-        break;
     }
 }
 } // namespace
@@ -169,18 +154,27 @@ void init_encoder(Encoder *enc) {
 
 uint16_t scan_key_state(i2c_inst_t *i2c) {
     uint16_t state = 0;
+    // 10ms timeout for I2C operations to prevent hanging
+    const absolute_time_t timeout = make_timeout_time_ms(10);
 
     for (int col = 0; col < 4; col++) {
         uint8_t data = 0xFF;
         data &= ~(1 << COL_PINS[col]); // Drive this column LOW
 
-        // Send to PCF8574
-        i2c_write_blocking(i2c, PCF8574_KEYPAD_ADDR, &data, 1, true);
-        // sleep_us(5); // let signals settle
+        // Send to PCF8574 with timeout
+        int write_result = i2c_write_blocking_until(i2c, PCF8574_KEYPAD_ADDR, &data, 1, true, timeout);
+        if (write_result != 1) {
+            // I2C write failed - return all zeros (safe state)
+            return 0;
+        }
 
-        // Read state
-        uint8_t val;
-        i2c_read_blocking(i2c, PCF8574_KEYPAD_ADDR, &val, 1, false);
+        // Read state with timeout
+        uint8_t val = 0xFF;
+        int read_result = i2c_read_blocking_until(i2c, PCF8574_KEYPAD_ADDR, &val, 1, false, timeout);
+        if (read_result != 1) {
+            // I2C read failed - return all zeros (safe state)
+            return 0;
+        }
 
         for (int row = 0; row < 4; row++) {
             if (!(val & (1 << ROW_PINS[row]))) {
@@ -194,7 +188,6 @@ uint16_t scan_key_state(i2c_inst_t *i2c) {
     uint8_t reset = 0xFF;
     i2c_write_blocking(i2c, PCF8574_KEYPAD_ADDR, &reset, 1, false);
 
-    // printf("scan_key_state result: 0x%04X\n", state);
     return state;
 }
 
@@ -220,13 +213,13 @@ void update_led(i2c_inst_t *i2c, int key, bool on) {
 
     // Write updated state to PCF8574
     uint8_t data = *led_state;
-    i2c_write_blocking(i2c, addr, &data, 1, false);
-    // int result = i2c_write_blocking(i2c, addr, &data, 1, false);
-    // if (result < 0) {
-    //     // printf("I2C write FAILED to 0x%02X\n", addr);
-    // } else {
-    //     printf("Wrote 0x%02X to PCF8574 @ 0x%02X\n", data, addr);
-    // }
+    // Add timeout to prevent hanging
+    const absolute_time_t timeout = make_timeout_time_ms(10);
+    int result = i2c_write_blocking_until(i2c, addr, &data, 1, false, timeout);
+    if (result != 1) {
+        // I2C write failed - log but don't crash
+        // (LED feedback is not critical)
+    }
 }
 
 void update_leds_from_keys(i2c_inst_t *i2c, uint16_t prev_state,
@@ -1044,5 +1037,73 @@ void HardwareManager::draw_karplus_edit(uint8_t midi_channel, int8_t octave,
 
     char line4[28];
     snprintf(line4, sizeof(line4), "Note %s Dly %u", note_name, delay_samples);
+    ssd1306_draw_string(&disp, 8, 54, 1, line4);
+}
+
+void HardwareManager::draw_modal_main(uint8_t midi_channel, int8_t octave,
+                                      uint8_t structure, uint8_t brightness,
+                                      uint8_t damping, uint8_t position,
+                                      ModalExciterType exciter_type,
+                                      uint8_t last_note) {
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+
+    char header[24];
+    snprintf(header, sizeof(header), "Modal Ch%d", midi_channel + 1);
+    ssd1306_draw_string_inverted(&disp, 4, 0, 1, header);
+
+    char oct_str[8];
+    snprintf(oct_str, sizeof(oct_str), "Oct%+d", octave);
+    ssd1306_draw_string(&disp, 88, 2, 1, oct_str);
+
+    char line1[24];
+    snprintf(line1, sizeof(line1), "Struct %3d %s", structure,
+             modal_structure_to_string(structure));
+    ssd1306_draw_string(&disp, 8, 16, 1, line1);
+
+    char line2[24];
+    snprintf(line2, sizeof(line2), "Bright %3d  Damp %3d", brightness, damping);
+    ssd1306_draw_string(&disp, 8, 28, 1, line2);
+
+    char line3[24];
+    snprintf(line3, sizeof(line3), "Pos %3d  Exc %s", position,
+             modal_exciter_to_string(exciter_type));
+    ssd1306_draw_string(&disp, 8, 40, 1, line3);
+
+    char line4[28];
+    snprintf(line4, sizeof(line4), "Note %s", midi_note_names[last_note]);
+    ssd1306_draw_string(&disp, 8, 54, 1, line4);
+}
+
+void HardwareManager::draw_modal_edit(uint8_t midi_channel, int8_t octave,
+                                      ModalExciterType exciter_type,
+                                      uint8_t structure, uint8_t brightness,
+                                      uint8_t damping, uint8_t position,
+                                      uint8_t last_note) {
+    ssd1306_clear_square(&disp, 0, 0, 128, 64);
+
+    char header[24];
+    snprintf(header, sizeof(header), "Modal Edit %d", midi_channel + 1);
+    ssd1306_draw_string_inverted(&disp, 4, 0, 1, header);
+
+    char oct_str[8];
+    snprintf(oct_str, sizeof(oct_str), "Oct%+d", octave);
+    ssd1306_draw_string(&disp, 88, 2, 1, oct_str);
+
+    char line1[24];
+    snprintf(line1, sizeof(line1), "Exc %s  Pos %3d",
+             modal_exciter_to_string(exciter_type), position);
+    ssd1306_draw_string(&disp, 8, 16, 1, line1);
+
+    char line2[24];
+    snprintf(line2, sizeof(line2), "Struct %3d", structure);
+    ssd1306_draw_string(&disp, 8, 28, 1, line2);
+
+    char line3[24];
+    snprintf(line3, sizeof(line3), "Bright %3d Damp %3d", brightness, damping);
+    ssd1306_draw_string(&disp, 8, 40, 1, line3);
+
+    char line4[28];
+    snprintf(line4, sizeof(line4), "%s  %s", modal_structure_to_string(structure),
+             midi_note_names[last_note]);
     ssd1306_draw_string(&disp, 8, 54, 1, line4);
 }

@@ -77,6 +77,9 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                         self.synth.get_engine() ==
                             SynthEngine::KarplusStrong) {
                         target_state = UI_STATE_KARPLUS_EDIT;
+                    } else if (self.chosen_index == UI_STATE_FM_EDIT &&
+                               self.synth.get_engine() == SynthEngine::Modal) {
+                        target_state = UI_STATE_MODAL_EDIT;
                     }
 
                     self.ui_state = target_state;
@@ -91,6 +94,7 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                     self.sampler_dirty = true;
                     self.fm_edit_dirty = true;
                     self.karplus_edit_dirty = true;
+                    self.modal_edit_dirty = true;
                     self.fx_dirty = true;
                     self.analog_dirty = true;
                 }

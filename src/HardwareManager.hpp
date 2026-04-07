@@ -137,6 +137,14 @@ class HardwareManager {
                            uint8_t impulse_length, uint8_t pick_position,
                            uint8_t dispersion, uint8_t body_resonance,
                            uint8_t last_note, uint16_t delay_samples);
+    void draw_modal_main(uint8_t midi_channel, int8_t octave,
+                         uint8_t structure, uint8_t brightness,
+                         uint8_t damping, uint8_t position,
+                         ModalExciterType exciter_type, uint8_t last_note);
+    void draw_modal_edit(uint8_t midi_channel, int8_t octave,
+                         ModalExciterType exciter_type, uint8_t structure,
+                         uint8_t brightness, uint8_t damping,
+                         uint8_t position, uint8_t last_note);
 
     void draw_choose_menu(int chosen_index);
     void draw_engine_select_menu(int chosen_index, int active_engine_index);

@@ -13,8 +13,7 @@ enum class KarplusImpulseType : uint8_t {
     SquareChirp = 3,
     SawChirp = 4,
     Click = 5,
-    MetallicBurst = 6,
-    HandPan = 7
+    MetallicBurst = 6
 };
 
 const char *karplus_impulse_to_string(KarplusImpulseType type);
@@ -32,7 +31,6 @@ struct KarplusPatch {
 class KarplusVoice {
   public:
     static constexpr int MAX_DELAY_SAMPLES = 6144;
-    static constexpr int MODAL_MODE_COUNT = 8;
 
     void start(uint8_t midi_note_, uint8_t midi_channel_, uint8_t velocity_,
                const KarplusPatch &patch);
@@ -58,8 +56,6 @@ class KarplusVoice {
     void apply_pick_position_to_buffer(int total_samples);
     int16_t apply_dispersion(int16_t sample);
     int16_t apply_body_resonator(int16_t sample);
-    void configure_handpan_modes(const KarplusPatch &patch);
-    int16_t render_handpan_sample();
 
     std::array<int16_t, MAX_DELAY_SAMPLES> delay_line{};
     static constexpr int MAX_BODY_SAMPLES = 256;
@@ -81,17 +77,9 @@ class KarplusVoice {
     uint16_t body_mix_q15 = 0;
     uint16_t body_feedback_q15 = 0;
     KarplusImpulseType impulse_type = KarplusImpulseType::WhiteNoise;
-    bool handpan_enabled = false;
     bool active = false;
     bool released = false;
     uint32_t silent_samples = 0;
-    uint16_t handpan_excitation_length = 0;
-    uint16_t handpan_excitation_index = 0;
-    std::array<float, MODAL_MODE_COUNT> handpan_mode_c1{};
-    std::array<float, MODAL_MODE_COUNT> handpan_mode_c2{};
-    std::array<float, MODAL_MODE_COUNT> handpan_mode_b0{};
-    std::array<float, MODAL_MODE_COUNT> handpan_mode_y1{};
-    std::array<float, MODAL_MODE_COUNT> handpan_mode_y2{};
 };
 
 #endif // KARPLUS_STRONG_HPP

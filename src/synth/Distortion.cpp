@@ -24,9 +24,12 @@ static inline int32_t cubic_soft_clip_q15(int32_t x_q15) {
     if (x_q15 >= 32768) return 21845;
     if (x_q15 <= -32768) return -21845;
 
-    const int32_t x2 = static_cast<int32_t>((static_cast<int64_t>(x_q15) * x_q15) >> 15);
-    const int32_t x3 = static_cast<int32_t>((static_cast<int64_t>(x2) * x_q15) >> 15);
-    return x_q15 - (x3 / 3);
+    // Use 64-bit intermediate to avoid overflow and precision loss
+    const int64_t x_q15_64 = static_cast<int64_t>(x_q15);
+    const int64_t x2_q30 = (x_q15_64 * x_q15_64) >> 15;  // Keep extra precision in Q30
+    const int64_t x3_q45 = (x2_q30 * x_q15_64) >> 15;     // x3 in Q45
+    const int32_t x3_q15 = static_cast<int32_t>(x3_q45 >> 30);  // Convert back to Q15
+    return x_q15 - (x3_q15 / 3);
 }
 
 Distortion::Distortion()
