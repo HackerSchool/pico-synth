@@ -344,16 +344,10 @@ void Sampler::out(std::array<int16_t, SAMPLES_PER_BUFFER>& buffer) {
 }
 
 // WAV File List Implementation
-WavFileList::WavFileList() : count(0), capacity(MAX_WAV_FILES) {
-    filenames = new std::string[capacity];
-}
-
-WavFileList::~WavFileList() {
-    delete[] filenames;
-}
+WavFileList::WavFileList() : count(0) {}
 
 bool WavFileList::add_file(const std::string& filename) {
-    if (count >= capacity) return false;
+    if (count >= static_cast<int>(filenames.size())) return false;
     filenames[count] = filename;
     ++count;
     return true;

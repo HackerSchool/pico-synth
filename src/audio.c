@@ -1,8 +1,7 @@
-#include "pico/stdlib.h"
 #include "audio.h"
+#include "pico/stdlib.h"
 
 struct audio_buffer_pool *audio_init() {
-
 	static audio_format_t audio_format = {
 			.format = AUDIO_BUFFER_FORMAT_PCM_S16,
 			.sample_freq = SAMPLE_RATE,
@@ -16,7 +15,6 @@ struct audio_buffer_pool *audio_init() {
 
 	struct audio_buffer_pool *producer_pool =
 		audio_new_producer_pool(&producer_format, 3, SAMPLES_PER_BUFFER);
-	bool __unused ok;
 	const struct audio_format *output_format;
 
 	struct audio_i2s_config config = {
@@ -31,16 +29,10 @@ struct audio_buffer_pool *audio_init() {
 		panic("PicoAudio: Unable to open audio device.\n");
 	}
 
-	ok = audio_i2s_connect(producer_pool);
-	assert(ok);
+	if (!audio_i2s_connect(producer_pool)) {
+		panic("PicoAudio: Unable to connect audio producer.\n");
+	}
 	audio_i2s_set_enabled(true);
-
-// #if CONFIG_HW_PICOADK == 1
-// 	// set gpio 25 (dac soft mute) to output and set to 1 (unmute)
-// 	gpio_init(25);
-// 	gpio_set_dir(25, GPIO_OUT);
-// 	gpio_put(25, 1);
-// #endif
 
 	return producer_pool;
 }

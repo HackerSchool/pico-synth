@@ -20,26 +20,23 @@ void UiHandler::main_handle_switches(UiHandler &self) {
         return;
     }
 
-    MidiHandler &midi = self.midi;
-    Sampler &sampler = self.sampler;
-
     uint16_t curr = self.hw.curr_switches;
     KeyChanges changes = compute_key_changes(self.prev_switches, curr);
     update_leds_from_keys(i2c1, self.prev_switches, curr);
 
     for (int i = 0; i < 16; ++i) {
         if ((changes.note_on_mask >> i) & 1) {
+            if (i == 3) {
+                self.begin_randomizer_hold();
+                continue;
+            }
+
             uint8_t note = key_to_midi[i];
             if (note != 255) {
-                if (self.midi_channel == 5) {
-                    sampler.trigger_player(note - 60);
-                } else if (self.switches_in) {
-                    uint8_t packet[4];
-                    packet[0] = 0x09; // CIN = Note On, Cable 0
-                    packet[1] = 0x90 | (self.midi_channel & 0x0F); // Status
-                    packet[2] = note + 12 * self.octave;
-                    packet[3] = 0x7F; // Velocity
-                    midi.midi_receive_note(packet);
+                if (self.switches_in) {
+                    const uint8_t midi_note =
+                        static_cast<uint8_t>(note + (12 * self.octave));
+                    self.track_switch_note_on(i, self.midi_channel, midi_note);
                 }
                 // if (self.midi_out)
                 //     midi.midi_send_note(note, 12 * self.octave, 127, true);
@@ -51,9 +48,6 @@ void UiHandler::main_handle_switches(UiHandler &self) {
                         self.octave--;
                         self.channel_dirty = true;
                     }
-                    break;
-                case 3:
-                    UiHandler::randomize_current_engine_patch(self);
                     break;
                 case 11:
                     if (self.octave < 4) {
@@ -67,18 +61,16 @@ void UiHandler::main_handle_switches(UiHandler &self) {
             }
         }
         if ((changes.note_off_mask >> i) & 1) {
+            if (i == 3) {
+                self.end_randomizer_hold();
+                continue;
+            }
+
             uint8_t note = key_to_midi[i];
             if (note != 255) {
-                if (self.switches_in) {
-                    uint8_t packet[4];
-                    packet[0] = 0x08; // CIN = Note Off, Cable 0
-                    packet[1] = 0x80 | (self.midi_channel & 0x0F);
-                    packet[2] = note + 12 * self.octave;
-                    packet[3] = 0x7F; // Velocity
-                    midi.midi_receive_note(packet);
-                }
+                self.release_tracked_switch_note(i);
                 if (self.midi_out)
-                    midi.midi_send_note(note, 0, false);
+                    self.midi.midi_send_note(note, 0, false);
             }
         }
     }
@@ -181,6 +173,12 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
         }
 
         if (!enc->button_state && enc->button_edge) {
+            if (i == 0 && synth.get_engine() == SynthEngine::FM) {
+                self.release_all_tracked_switch_notes();
+                self.ui_state = UI_STATE_FM_EDIT;
+                self.fm_edit_dirty = true;
+                continue;
+            }
             if (i == 1) {
 
                 self.current_adsr_param = (self.current_adsr_param + 1) % 4;
@@ -216,6 +214,7 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
             }
 
             if (i == 3) {
+                self.release_all_tracked_switch_notes();
                 self.ui_state = UI_STATE_CHOOSE;
                 self.chosen_index = UI_STATE_MAIN;
                 self.main_dirty = true;
@@ -227,6 +226,10 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
 }
 
 void UiHandler::main_update_display(UiHandler &self) {
+    if (self.preset_browse_overlay_active()) {
+        return;
+    }
+
     if (self.synth.get_engine() == SynthEngine::KarplusStrong) {
         karplus_edit_update_display(self);
         return;

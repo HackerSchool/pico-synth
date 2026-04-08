@@ -1,6 +1,11 @@
 #include "HardwareManager.hpp"
 #include "Ui.hpp"
 
+namespace {
+const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
+                             66, 68, 70, -1, 67, 69, 71, 72};
+} // namespace
+
 void UiHandler::sampler_handle_encoders(UiHandler &self) {
     HardwareManager &hw = self.hw;
     for (int i = 0; i < NUM_ENCODERS; ++i) {
@@ -14,8 +19,6 @@ void UiHandler::sampler_handle_encoders(UiHandler &self) {
                 self.sampler_dirty = true;
                 break;
             case 1:
-                self.wav_files.print_files(); // Optional: print on startup
-
                 if (self.wav_files.get_count() > 0) {
                     int new_index = self.sample_index +
                                     UiHandler::encoder_velocity_delta(delta, 1, 2, 4);
@@ -75,7 +78,34 @@ void UiHandler::sampler_handle_encoders(UiHandler &self) {
     }
 }
 
+void UiHandler::sampler_handle_switches(UiHandler &self) {
+    const uint16_t curr = self.hw.curr_switches;
+    KeyChanges changes = compute_key_changes(self.prev_switches, curr);
+    update_leds_from_keys(i2c1, self.prev_switches, curr);
+
+    for (int i = 0; i < 16; ++i) {
+        if ((changes.note_on_mask >> i) & 1) {
+            const int note = key_to_midi[i];
+            if (note == 255) {
+                continue;
+            }
+
+            const int player_id = note - 60;
+            if (player_id >= 0 &&
+                player_id < static_cast<int>(self.sampler.get_num_players())) {
+                self.sampler.trigger_player(static_cast<uint8_t>(player_id));
+            }
+        }
+    }
+
+    self.prev_switches = curr;
+}
+
 void UiHandler::sampler_update_display(UiHandler &self) {
+    if (self.preset_browse_overlay_active()) {
+        return;
+    }
+
     HardwareManager &hw = self.hw;
 
     if (self.sampler_dirty) {

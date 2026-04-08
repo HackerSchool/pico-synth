@@ -9,8 +9,6 @@ const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
 
 void UiHandler::sequencer_note_edit_handle_switches(UiHandler &self) {
     Sequencer &sequencer = self.seq;
-    MidiHandler &midi = self.midi;
-    Sampler &sampler = self.sampler;
     uint16_t curr = self.hw.curr_switches;
 
     KeyChanges changes = compute_key_changes(self.prev_switches, curr);
@@ -38,18 +36,9 @@ void UiHandler::sequencer_note_edit_handle_switches(UiHandler &self) {
 
                 // play note
                 if (self.switches_in) {
-
-                    if (self.midi_channel == 5) {
-                        sampler.trigger_player(note - 60);
-                    } else {
-
-                        uint8_t packet[4];
-                        packet[0] = 0x09; // CIN = Note On, Cable 0
-                        packet[1] = 0x90 | (self.midi_channel & 0x0F); // Status
-                        packet[2] = note + 12 * self.octave;
-                        packet[3] = 0x7F; // Velocity
-                        midi.midi_receive_note(packet);
-                    }
+                    const uint8_t midi_note =
+                        static_cast<uint8_t>(note + (12 * self.octave));
+                    self.track_switch_note_on(i, self.midi_channel, midi_note);
                 }
                 // if (self.midi_out)
                 //     midi.midi_send_note(note, 127, true);
@@ -99,14 +88,7 @@ void UiHandler::sequencer_note_edit_handle_switches(UiHandler &self) {
         if ((changes.note_off_mask >> i) & 1) {
             uint8_t note = key_to_midi[i];
             if (note != 255) {
-                if (self.switches_in) {
-                    uint8_t packet[4];
-                    packet[0] = 0x08; // CIN = Note Off, Cable 0
-                    packet[1] = 0x80 | (self.midi_channel & 0x0F);
-                    packet[2] = note + 12 * self.octave;
-                    packet[3] = 0x7F; // Velocity
-                    midi.midi_receive_note(packet);
-                }
+                self.release_tracked_switch_note(i);
                 // if (self.midi_out)
                 //     midi.midi_send_note(note, 0, false);
             }
@@ -168,12 +150,14 @@ void UiHandler::sequencer_note_edit_handle_encoders(UiHandler &self) {
                 break;
 
             case 2:                                   // Next Sequencer Menu
+                self.release_all_tracked_switch_notes();
                 self.ui_state = UI_STATE_SEQUENCER;   // or whatever the next
                 self.sequencer_settings_dirty = true; // sequencer menu is
                 printf("State: SEQUENCER_TEMPO\n");
                 break;
 
             case 3: // Go to next menu (back to main?)
+                self.release_all_tracked_switch_notes();
                 self.ui_state = UI_STATE_CHOOSE;
                 self.chosen_index = UI_STATE_SEQUENCER;
                 printf("State: MAIN\n");
@@ -189,6 +173,10 @@ void UiHandler::sequencer_note_edit_handle_encoders(UiHandler &self) {
 }
 
 void UiHandler::sequencer_note_edit_update_display(UiHandler &self) {
+    if (self.preset_browse_overlay_active()) {
+        return;
+    }
+
     HardwareManager &hw = self.hw;
     Sequencer &sequencer = self.seq;
     bool changed = false;

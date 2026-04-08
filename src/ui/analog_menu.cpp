@@ -74,6 +74,10 @@ void UiHandler::analog_handle_encoders(UiHandler &self) {
 }
 
 void UiHandler::analog_update_display(UiHandler &self) {
+    if (self.preset_browse_overlay_active()) {
+        return;
+    }
+
     if (self.analog_dirty) {
         self.hw.draw_analog_menu(self.analog_settings.enabled,
                                  self.analog_settings.frequency_hundredths_hz,

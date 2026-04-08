@@ -89,6 +89,7 @@ target_sources(${bin_name} PRIVATE
     src/HardwareManager.cpp
     src/Sequencer.cpp
     src/Sampler.cpp
+    src/Preset.cpp
 
     src/synth/Wavetable.cpp
     src/synth/Oscillator.cpp

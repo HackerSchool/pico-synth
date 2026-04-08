@@ -95,6 +95,10 @@ void UiHandler::fx_handle_encoders(UiHandler &self) {
 }
 
 void UiHandler::fx_update_display(UiHandler &self) {
+    if (self.preset_browse_overlay_active()) {
+        return;
+    }
+
     HardwareManager &hw = self.hw;
 
     if (self.fx_dirty) {

@@ -74,6 +74,7 @@ class Synth {
     void note_off(uint8_t channel, uint8_t note, uint8_t velocity);
     const char *get_notes_playing_names();
     std::bitset<128> get_notes_bitmask() const { return notes_playing_bitset; }
+    void reset_runtime_state();
     void set_engine(SynthEngine engine);
     SynthEngine get_engine() const { return current_engine; }
 

@@ -8,7 +8,10 @@ namespace {
 constexpr int kEncoderDebounceThreshold = 1;
 constexpr int kEncoderMediumThreshold = 3;
 constexpr int kEncoderFastThreshold = 5;
+constexpr int kPresetDetentThreshold = 4;
 constexpr uint32_t kUiRandomSeed = 0xC0DE5EEDu;
+constexpr int16_t kInvalidTrackedNote = -1;
+constexpr int8_t kInvalidTrackedChannel = -1;
 
 uint32_t ui_random_state = kUiRandomSeed;
 
@@ -64,6 +67,29 @@ float clamp_float(float value, float min_value, float max_value) {
     return value;
 }
 
+uint8_t synth_filter_value_from_ui(int8_t filter_type) {
+    switch (filter_type) {
+    case 1:
+        return 64;
+    case 2:
+        return 106;
+    default:
+        return 21;
+    }
+}
+
+float filter_cutoff_from_14bit(std::uint16_t value_14bit) {
+    const float normalized =
+        static_cast<float>(value_14bit) / 16383.0f;
+    return 40.0f + (normalized * 11960.0f);
+}
+
+float filter_q_from_14bit(std::uint16_t value_14bit) {
+    const float normalized =
+        static_cast<float>(value_14bit) / 16383.0f;
+    return 0.5f + (normalized * 7.5f);
+}
+
 int lerp_int(int start_value, int end_value, float progress) {
     return start_value + static_cast<int>(
                              (end_value - start_value) * progress);
@@ -86,52 +112,49 @@ const int key_to_midi[16] = {-1, 61, 63, -1, 60, 62, 64, 65,
 UiHandler::UiHandler(HardwareManager &hw, MidiHandler &midi_handler,
                      Sequencer &seq, Sampler &sampler, Synth &synth)
     : hw(hw), midi(midi_handler), seq(seq), sampler(sampler), synth(synth) {
+    const auto register_state = [this](UiState state,
+                                       EncoderHandler handle_encoders,
+                                       SwitchHandler handle_switches,
+                                       DisplayHandler handle_display) {
+        ui_dispatch_table[state] = {handle_encoders, handle_switches,
+                                    handle_display};
+    };
+
     karplus_last_delay_samples =
         KarplusVoice::tuned_delay_samples_for_note(karplus_last_note);
+    tracked_switch_notes.fill(kInvalidTrackedNote);
+    tracked_switch_channels.fill(kInvalidTrackedChannel);
 
-    // List all WAV files and store them
     wav_files = sampler.list_wav_files(true); // recursive
-    wav_files.print_files();                  // Optional: print on startup
+    wav_files.print_files();
 
-    // Optional: Load first file by default
-    // if (wav_files.get_count() > 0) {
-    //    sampler.load_sample_by_index(0, 0); // Load first file into player 0
-    //}
-
-    ui_dispatch_table[UI_STATE_MAIN] = {
-        main_handle_encoders, main_handle_switches, main_update_display};
-    ui_dispatch_table[UI_STATE_FM_EDIT] = {fm_edit_handle_encoders,
-                                           fm_edit_handle_switches,
-                                           fm_edit_update_display};
-    ui_dispatch_table[UI_STATE_KARPLUS_EDIT] = {
-        karplus_edit_handle_encoders,
-        karplus_edit_handle_switches,
-        karplus_edit_update_display};
-    ui_dispatch_table[UI_STATE_MODAL_EDIT] = {
-        modal_edit_handle_encoders,
-        modal_edit_handle_switches,
-        modal_edit_update_display};
-    ui_dispatch_table[UI_STATE_FX_EDIT] = {
-        fx_handle_encoders, main_handle_switches, fx_update_display};
-    ui_dispatch_table[UI_STATE_ANALOG] = {
-        analog_handle_encoders, main_handle_switches, analog_update_display};
-    ui_dispatch_table[UI_STATE_MIDI_SETTINGS] = {
-        midi_handle_encoders, main_handle_switches, midi_update_display};
-    ui_dispatch_table[UI_STATE_SEQUENCER] = {sequencer_handle_encoders,
-                                             main_handle_switches,
-                                             sequencer_update_display};
-    ui_dispatch_table[UI_STATE_SEQUENCER_EDIT] = {
-        sequencer_note_edit_handle_encoders,
-        sequencer_note_edit_handle_switches,
-        sequencer_note_edit_update_display};
-    ui_dispatch_table[UI_STATE_CHOOSE] = {
-        choose_handle_encoders, main_handle_switches, choose_update_display};
-    ui_dispatch_table[UI_STATE_ENGINE_SELECT] = {
-        engine_select_handle_encoders,
-        main_handle_switches,
-        engine_select_update_display};
-    ui_dispatch_table[UI_STATE_SAMPLER] = {
-        sampler_handle_encoders, main_handle_switches, sampler_update_display};
+    register_state(UI_STATE_MAIN, main_handle_encoders, main_handle_switches,
+                   main_update_display);
+    register_state(UI_STATE_FM_EDIT, fm_edit_handle_encoders,
+                   fm_edit_handle_switches, fm_edit_update_display);
+    register_state(UI_STATE_KARPLUS_EDIT, karplus_edit_handle_encoders,
+                   karplus_edit_handle_switches,
+                   karplus_edit_update_display);
+    register_state(UI_STATE_MODAL_EDIT, modal_edit_handle_encoders,
+                   modal_edit_handle_switches, modal_edit_update_display);
+    register_state(UI_STATE_FX_EDIT, fx_handle_encoders, main_handle_switches,
+                   fx_update_display);
+    register_state(UI_STATE_ANALOG, analog_handle_encoders,
+                   main_handle_switches, analog_update_display);
+    register_state(UI_STATE_MIDI_SETTINGS, midi_handle_encoders,
+                   main_handle_switches, midi_update_display);
+    register_state(UI_STATE_SEQUENCER, sequencer_handle_encoders,
+                   main_handle_switches, sequencer_update_display);
+    register_state(UI_STATE_SEQUENCER_EDIT,
+                   sequencer_note_edit_handle_encoders,
+                   sequencer_note_edit_handle_switches,
+                   sequencer_note_edit_update_display);
+    register_state(UI_STATE_CHOOSE, choose_handle_encoders,
+                   main_handle_switches, choose_update_display);
+    register_state(UI_STATE_ENGINE_SELECT, engine_select_handle_encoders,
+                   main_handle_switches, engine_select_update_display);
+    register_state(UI_STATE_SAMPLER, sampler_handle_encoders,
+                   sampler_handle_switches, sampler_update_display);
 
     for (int fx_id = 0; fx_id < FX_COUNT; ++fx_id) {
         synth.set_fx_params(fx_id,
@@ -140,9 +163,13 @@ UiHandler::UiHandler(HardwareManager &hw, MidiHandler &midi_handler,
                             fx_params[fx_id].mix);
         synth.enable_fx(fx_id, fx_enabled[fx_id]);
     }
+
+    preset_manager.load_factory_presets(sampler);
+    prev_switches = hw.curr_switches;
 }
 
 void UiHandler::update() {
+    preprocess_preset_browse();
     UiDispatchEntry ui_dispatch_entry = ui_dispatch_table[ui_state];
     ui_dispatch_entry.handle_encoders(*this);
     tud_task(); // Service USB
@@ -151,11 +178,61 @@ void UiHandler::update() {
     update_analog_variation();
     tud_task(); // Service USB
     ui_dispatch_entry.handle_display(*this);
+    update_preset_browse_display();
     tud_task(); // Service USB
 }
 
 bool UiHandler::encoder_moved(int32_t delta) {
     return abs_int(static_cast<int>(delta)) > kEncoderDebounceThreshold;
+}
+
+void UiHandler::send_note_message(bool note_on, uint8_t channel, uint8_t note,
+                                  uint8_t velocity) {
+    uint8_t packet[4];
+    packet[0] = note_on ? 0x09 : 0x08;
+    packet[1] =
+        static_cast<uint8_t>((note_on ? 0x90 : 0x80) | (channel & 0x0F));
+    packet[2] = note;
+    packet[3] = velocity;
+    midi.midi_receive_note(packet);
+}
+
+void UiHandler::track_switch_note_on(int key_index, uint8_t channel, uint8_t note,
+                                     uint8_t velocity) {
+    if (key_index < 0 ||
+        key_index >= static_cast<int>(tracked_switch_notes.size())) {
+        return;
+    }
+
+    release_tracked_switch_note(key_index, velocity);
+    tracked_switch_notes[key_index] = note;
+    tracked_switch_channels[key_index] = static_cast<int8_t>(channel);
+    send_note_message(true, channel, note, velocity);
+}
+
+void UiHandler::release_tracked_switch_note(int key_index, uint8_t velocity) {
+    if (key_index < 0 ||
+        key_index >= static_cast<int>(tracked_switch_notes.size())) {
+        return;
+    }
+
+    const int16_t note = tracked_switch_notes[key_index];
+    const int8_t channel = tracked_switch_channels[key_index];
+    if (note == kInvalidTrackedNote || channel == kInvalidTrackedChannel) {
+        return;
+    }
+
+    send_note_message(false, static_cast<uint8_t>(channel),
+                      static_cast<uint8_t>(note), velocity);
+    tracked_switch_notes[key_index] = kInvalidTrackedNote;
+    tracked_switch_channels[key_index] = kInvalidTrackedChannel;
+}
+
+void UiHandler::release_all_tracked_switch_notes(uint8_t velocity) {
+    for (int i = 0; i < static_cast<int>(tracked_switch_notes.size()); ++i) {
+        release_tracked_switch_note(i, velocity);
+    }
+    prev_switches = hw.curr_switches;
 }
 
 int UiHandler::encoder_velocity_step(int32_t delta, int slow_step, int medium_step,
@@ -192,6 +269,205 @@ int UiHandler::analog_encoder_delta(int32_t delta, int current_value_hundredths)
     const int previous_value =
         current_value_hundredths > 0 ? current_value_hundredths - 1 : 0;
     return -analog_value_step(previous_value);
+}
+
+void UiHandler::invalidate_all_displays() {
+    main_dirty = true;
+    channel_dirty = true;
+    adsr_dirty = true;
+    filter_dirty = true;
+    midi_settings_dirty = true;
+    sequencer_settings_dirty = true;
+    sequencer_dirty = true;
+    chosen_dirty = true;
+    engine_select_dirty = true;
+    sampler_dirty = true;
+    fm_edit_dirty = true;
+    karplus_edit_dirty = true;
+    modal_edit_dirty = true;
+    fx_dirty = true;
+    analog_dirty = true;
+}
+
+void UiHandler::begin_randomizer_hold() {
+    if (randomizer_hold_active) {
+        return;
+    }
+
+    randomizer_hold_active = true;
+    preset_browse_engaged = false;
+    preset_browse_accumulator = 0;
+    preset_browse_index = preset_loaded_index >= 0 ? preset_loaded_index : 0;
+}
+
+bool UiHandler::apply_factory_preset(int preset_index) {
+    PresetState state{};
+    if (!preset_manager.load_factory_preset(preset_index, sampler, state)) {
+        return false;
+    }
+
+    apply_preset_state(state, preset_index);
+    return true;
+}
+
+void UiHandler::apply_preset_state(const PresetState &state, int preset_index) {
+    release_all_tracked_switch_notes();
+    sampler.stop_all();
+    synth.reset_runtime_state();
+    synth.set_engine(state.engine);
+
+    switch (state.engine) {
+    case SynthEngine::KarplusStrong:
+        for (std::size_t channel = 0; channel < synth.karplus_patch_storage.size();
+             ++channel) {
+            synth.karplus_patch_storage[channel] = state.karplus_patch;
+            synth.active_karplus_patch[channel].store(
+                &synth.karplus_patch_storage[channel], std::memory_order_release);
+            synth.karplus_patch_dirty_flags.set(channel);
+        }
+        break;
+    case SynthEngine::Modal:
+        for (std::size_t channel = 0; channel < synth.modal_patch_storage.size();
+             ++channel) {
+            synth.modal_patch_storage[channel] = state.modal_patch;
+            synth.active_modal_patch[channel].store(
+                &synth.modal_patch_storage[channel], std::memory_order_release);
+            synth.modal_patch_dirty_flags.set(channel);
+        }
+        break;
+    case SynthEngine::FM:
+    default:
+        for (std::size_t channel = 0; channel < synth.patch_storage.size(); ++channel) {
+            synth.patch_storage[channel] = state.fm_patch;
+            synth.active_patch[channel].store(
+                &synth.patch_storage[channel], std::memory_order_release);
+            synth.patch_dirty_flags.set(channel);
+        }
+        break;
+    }
+
+    for (int fx_id = 0; fx_id < FX_COUNT; ++fx_id) {
+        fx_params[fx_id].p1 = state.fx[fx_id].p1;
+        fx_params[fx_id].p2 = state.fx[fx_id].p2;
+        fx_params[fx_id].mix = state.fx[fx_id].mix;
+        fx_enabled[fx_id] = state.fx[fx_id].enabled;
+        synth.set_fx_params(fx_id, fx_params[fx_id].p1, fx_params[fx_id].p2,
+                            fx_params[fx_id].mix);
+        synth.enable_fx(fx_id, fx_enabled[fx_id]);
+    }
+
+    analog_settings.enabled = state.analog_enabled;
+    analog_settings.frequency_hundredths_hz =
+        state.analog_frequency_hundredths_hz;
+    analog_settings.dispersion_hundredths_percent =
+        state.analog_dispersion_hundredths_percent;
+    analog_offsets_initialized = false;
+    analog_reapply_pending = true;
+    analog_was_active = false;
+    analog_transition_start_ms = to_ms_since_boot(get_absolute_time());
+
+    filter_type = static_cast<int8_t>(state.filter_type);
+    filter_cutoff_msb = state.filter_cutoff_msb;
+    filter_cutoff_lsb = state.filter_cutoff_lsb;
+    filter_q_msb = state.filter_q_msb;
+    filter_q_lsb = state.filter_q_lsb;
+
+    synth.set_filter_type(synth_filter_value_from_ui(filter_type));
+    const std::uint16_t cutoff_14bit =
+        static_cast<std::uint16_t>((filter_cutoff_msb << 7) | filter_cutoff_lsb);
+    const std::uint16_t q_14bit =
+        static_cast<std::uint16_t>((filter_q_msb << 7) | filter_q_lsb);
+    synth.set_filter_cutoff(filter_cutoff_from_14bit(cutoff_14bit),
+                            filter_q_from_14bit(q_14bit));
+
+    engine_select_index = static_cast<int>(state.engine);
+    preset_loaded_index = preset_index;
+    preset_browse_index = preset_index;
+
+    if (ui_state == UI_STATE_FM_EDIT || ui_state == UI_STATE_KARPLUS_EDIT ||
+        ui_state == UI_STATE_MODAL_EDIT || ui_state == UI_STATE_ENGINE_SELECT) {
+        ui_state = UI_STATE_MAIN;
+    }
+
+    invalidate_all_displays();
+    printf("Preset applied: %s\n", state.title);
+}
+
+void UiHandler::end_randomizer_hold() {
+    if (!randomizer_hold_active) {
+        return;
+    }
+
+    randomizer_hold_active = false;
+    preset_browse_accumulator = 0;
+
+    const bool should_apply =
+        preset_browse_engaged && preset_manager.get_factory_preset_count() > 0;
+    preset_browse_engaged = false;
+
+    if (should_apply) {
+        if (!apply_factory_preset(preset_browse_index)) {
+            invalidate_all_displays();
+        }
+        return;
+    }
+
+    randomize_current_engine_patch(*this);
+}
+
+void UiHandler::preprocess_preset_browse() {
+    const bool randomizer_held = (hw.curr_switches & (1u << 3)) != 0;
+    if (!randomizer_held) {
+        return;
+    }
+
+    begin_randomizer_hold();
+
+    Encoder &preset_encoder = hw.encoders[3];
+    const int32_t delta = preset_encoder.delta;
+    preset_encoder.delta = 0;
+
+    if (!encoder_moved(delta) || preset_manager.get_factory_preset_count() <= 0) {
+        return;
+    }
+
+    preset_browse_accumulator += delta;
+    if (abs_int(static_cast<int>(preset_browse_accumulator)) <
+        kPresetDetentThreshold) {
+        return;
+    }
+
+    const int dir =
+        encoder_velocity_delta(preset_browse_accumulator, 1, 1, 1);
+    preset_browse_accumulator = 0;
+    if (dir == 0) {
+        return;
+    }
+
+    preset_browse_index =
+        preset_manager.wrap_factory_preset_index(preset_browse_index + dir);
+    preset_browse_engaged = true;
+}
+
+void UiHandler::update_preset_browse_display() {
+    if (!randomizer_hold_active || !preset_browse_engaged) {
+        return;
+    }
+
+    const PresetManager::Metadata *metadata =
+        preset_manager.get_factory_preset(preset_browse_index);
+    const engine_bitmaps::Asset *asset =
+        preset_manager.get_factory_preset_asset(preset_browse_index);
+    if (metadata == nullptr || asset == nullptr) {
+        return;
+    }
+
+    hw.draw_bitmap_select_menu(asset->data, asset->size, metadata->title);
+    hw.display_show();
+}
+
+bool UiHandler::preset_browse_overlay_active() const {
+    return randomizer_hold_active && preset_browse_engaged;
 }
 
 void UiHandler::randomize_current_engine_patch(UiHandler &self) {
@@ -304,25 +580,6 @@ void UiHandler::randomize_modal_patch(UiHandler &self) {
            self.midi_channel + 1);
 }
 
-// // Helper functions
-// void UiHandler::set_adsr_param(int param, uint8_t value) {
-//     switch (param) {
-//     case 0:
-//         channel_params[midi_channel].attack = value;
-//         break;
-//     case 1:
-//         channel_params[midi_channel].decay = value;
-//         break;
-//     case 2:
-//         channel_params[midi_channel].sustain = value << 8;
-//         break;
-//     case 3:
-//         channel_params[midi_channel].release = value;
-//         break;
-//     }
-// }
-//
-
 void UiHandler::set_delay_param(int delay_ms, int feedback, int mix){
     synth.delay_effect.set_delay_ms(delay_ms);
     synth.delay_effect.set_feedback(feedback);
@@ -427,171 +684,228 @@ uint32_t UiHandler::analog_update_interval_ms() const {
 void UiHandler::randomize_analog_targets() {
     const int max_wave_type = static_cast<int>(WaveType::Sinc);
     const int max_impulse_type = 6;
+    const auto random_offset = [&](int range, bool allow_minimum_step = true) {
+        const int span = dispersion_span(
+            range, analog_settings.dispersion_hundredths_percent,
+            allow_minimum_step);
+        return random_range_inclusive(-span, span);
+    };
 
     for (size_t ch = 0; ch < analog_fm_target_offsets.size(); ++ch) {
         AnalogFmOffsets &fm_offsets = analog_fm_target_offsets[ch];
         for (size_t op_index = 0; op_index < fm_offsets.ops.size(); ++op_index) {
             AnalogOperatorOffsets &op_offsets = fm_offsets.ops[op_index];
-            op_offsets.wave_type = random_range_inclusive(
-                -dispersion_span(max_wave_type, analog_settings.dispersion_hundredths_percent, false),
-                dispersion_span(max_wave_type, analog_settings.dispersion_hundredths_percent, false));
-            op_offsets.attack = random_range_inclusive(
-                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-            op_offsets.decay = random_range_inclusive(
-                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-            op_offsets.sustain = random_range_inclusive(
-                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-            op_offsets.release = random_range_inclusive(
-                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-            op_offsets.ratio = random_range_inclusive(
-                -dispersion_span(15, analog_settings.dispersion_hundredths_percent),
-                dispersion_span(15, analog_settings.dispersion_hundredths_percent));
-            op_offsets.feedback = random_range_inclusive(
-                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-            op_offsets.fm_depth = random_range_inclusive(
-                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
+            op_offsets.wave_type = random_offset(max_wave_type, false);
+            op_offsets.attack = random_offset(127);
+            op_offsets.decay = random_offset(127);
+            op_offsets.sustain = random_offset(127);
+            op_offsets.release = random_offset(127);
+            op_offsets.ratio = random_offset(15);
+            op_offsets.feedback = random_offset(127);
+            op_offsets.fm_depth = random_offset(127);
         }
 
         AnalogKarplusOffsets &karplus_offsets = analog_karplus_target_offsets[ch];
-        karplus_offsets.impulse_type = random_range_inclusive(
-            -dispersion_span(max_impulse_type, analog_settings.dispersion_hundredths_percent, false),
-            dispersion_span(max_impulse_type, analog_settings.dispersion_hundredths_percent, false));
-        karplus_offsets.filter_gain = random_range_inclusive(
-            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-        karplus_offsets.decay = random_range_inclusive(
-            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-        karplus_offsets.impulse_length = random_range_inclusive(
-            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-        karplus_offsets.pick_position = random_range_inclusive(
-            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-        karplus_offsets.dispersion = random_range_inclusive(
-            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-        karplus_offsets.body_resonance = random_range_inclusive(
-            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
+        karplus_offsets.impulse_type = random_offset(max_impulse_type, false);
+        karplus_offsets.filter_gain = random_offset(127);
+        karplus_offsets.decay = random_offset(127);
+        karplus_offsets.impulse_length = random_offset(127);
+        karplus_offsets.pick_position = random_offset(127);
+        karplus_offsets.dispersion = random_offset(127);
+        karplus_offsets.body_resonance = random_offset(127);
 
         AnalogModalOffsets &modal_offsets = analog_modal_target_offsets[ch];
-        modal_offsets.structure = random_range_inclusive(
-            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-        modal_offsets.brightness = random_range_inclusive(
-            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-        modal_offsets.damping = random_range_inclusive(
-            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-        modal_offsets.position = random_range_inclusive(
-            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
-        modal_offsets.exciter_type = random_range_inclusive(
-            -dispersion_span(3, analog_settings.dispersion_hundredths_percent, false),
-            dispersion_span(3, analog_settings.dispersion_hundredths_percent, false));
+        modal_offsets.structure = random_offset(127);
+        modal_offsets.brightness = random_offset(127);
+        modal_offsets.damping = random_offset(127);
+        modal_offsets.position = random_offset(127);
+        modal_offsets.exciter_type = random_offset(3, false);
     }
 
     for (size_t fx_id = 0; fx_id < analog_fx_target_offsets.size(); ++fx_id) {
         AnalogFxOffsets &fx_offsets = analog_fx_target_offsets[fx_id];
-        const int p1_range = 1000;
-        const int p2_range = 32000;
-        const int mix_range = 32000;
-        fx_offsets.p1 = random_range_inclusive(
-            -dispersion_span(p1_range, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(p1_range, analog_settings.dispersion_hundredths_percent));
-        fx_offsets.p2 = random_range_inclusive(
-            -dispersion_span(p2_range, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(p2_range, analog_settings.dispersion_hundredths_percent));
-        fx_offsets.mix = random_range_inclusive(
-            -dispersion_span(mix_range, analog_settings.dispersion_hundredths_percent),
-            dispersion_span(mix_range, analog_settings.dispersion_hundredths_percent));
+        fx_offsets.p1 = random_offset(1000);
+        fx_offsets.p2 = random_offset(32000);
+        fx_offsets.mix = random_offset(32000);
     }
 }
 
 void UiHandler::capture_current_analog_offsets(float progress) {
     const float clamped_progress = clamp_float(progress, 0.0f, 1.0f);
+    const auto interpolate = [clamped_progress](int current, int target) {
+        return lerp_int(current, target, clamped_progress);
+    };
+    const auto capture_operator_offsets =
+        [&](AnalogOperatorOffsets &source,
+            const AnalogOperatorOffsets &target) {
+            source.wave_type = interpolate(source.wave_type, target.wave_type);
+            source.attack = interpolate(source.attack, target.attack);
+            source.decay = interpolate(source.decay, target.decay);
+            source.sustain = interpolate(source.sustain, target.sustain);
+            source.release = interpolate(source.release, target.release);
+            source.ratio = interpolate(source.ratio, target.ratio);
+            source.feedback = interpolate(source.feedback, target.feedback);
+            source.fm_depth = interpolate(source.fm_depth, target.fm_depth);
+        };
+    const auto capture_karplus_offsets =
+        [&](AnalogKarplusOffsets &source,
+            const AnalogKarplusOffsets &target) {
+            source.impulse_type =
+                interpolate(source.impulse_type, target.impulse_type);
+            source.filter_gain =
+                interpolate(source.filter_gain, target.filter_gain);
+            source.decay = interpolate(source.decay, target.decay);
+            source.impulse_length =
+                interpolate(source.impulse_length, target.impulse_length);
+            source.pick_position =
+                interpolate(source.pick_position, target.pick_position);
+            source.dispersion =
+                interpolate(source.dispersion, target.dispersion);
+            source.body_resonance =
+                interpolate(source.body_resonance, target.body_resonance);
+        };
+    const auto capture_modal_offsets =
+        [&](AnalogModalOffsets &source, const AnalogModalOffsets &target) {
+            source.structure = interpolate(source.structure, target.structure);
+            source.brightness =
+                interpolate(source.brightness, target.brightness);
+            source.damping = interpolate(source.damping, target.damping);
+            source.position = interpolate(source.position, target.position);
+            source.exciter_type =
+                interpolate(source.exciter_type, target.exciter_type);
+        };
+    const auto capture_fx_offsets = [&](AnalogFxOffsets &source,
+                                        const AnalogFxOffsets &target) {
+        source.p1 = interpolate(source.p1, target.p1);
+        source.p2 = interpolate(source.p2, target.p2);
+        source.mix = interpolate(source.mix, target.mix);
+    };
 
     for (size_t ch = 0; ch < analog_fm_source_offsets.size(); ++ch) {
         AnalogFmOffsets &source = analog_fm_source_offsets[ch];
         const AnalogFmOffsets &target = analog_fm_target_offsets[ch];
 
         for (size_t op_index = 0; op_index < source.ops.size(); ++op_index) {
-            AnalogOperatorOffsets &src_op = source.ops[op_index];
-            const AnalogOperatorOffsets &target_op = target.ops[op_index];
-
-            src_op.wave_type = lerp_int(src_op.wave_type, target_op.wave_type,
-                                        clamped_progress);
-            src_op.attack =
-                lerp_int(src_op.attack, target_op.attack, clamped_progress);
-            src_op.decay = lerp_int(src_op.decay, target_op.decay, clamped_progress);
-            src_op.sustain =
-                lerp_int(src_op.sustain, target_op.sustain, clamped_progress);
-            src_op.release =
-                lerp_int(src_op.release, target_op.release, clamped_progress);
-            src_op.ratio = lerp_int(src_op.ratio, target_op.ratio, clamped_progress);
-            src_op.feedback =
-                lerp_int(src_op.feedback, target_op.feedback, clamped_progress);
-            src_op.fm_depth =
-                lerp_int(src_op.fm_depth, target_op.fm_depth, clamped_progress);
+            capture_operator_offsets(source.ops[op_index], target.ops[op_index]);
         }
     }
 
     for (size_t ch = 0; ch < analog_karplus_source_offsets.size(); ++ch) {
-        AnalogKarplusOffsets &source = analog_karplus_source_offsets[ch];
-        const AnalogKarplusOffsets &target = analog_karplus_target_offsets[ch];
-
-        source.impulse_type =
-            lerp_int(source.impulse_type, target.impulse_type, clamped_progress);
-        source.filter_gain =
-            lerp_int(source.filter_gain, target.filter_gain, clamped_progress);
-        source.decay = lerp_int(source.decay, target.decay, clamped_progress);
-        source.impulse_length = lerp_int(source.impulse_length, target.impulse_length,
-                                         clamped_progress);
-        source.pick_position = lerp_int(source.pick_position, target.pick_position,
-                                        clamped_progress);
-        source.dispersion =
-            lerp_int(source.dispersion, target.dispersion, clamped_progress);
-        source.body_resonance = lerp_int(source.body_resonance,
-                                         target.body_resonance, clamped_progress);
+        capture_karplus_offsets(analog_karplus_source_offsets[ch],
+                                analog_karplus_target_offsets[ch]);
     }
 
     for (size_t ch = 0; ch < analog_modal_source_offsets.size(); ++ch) {
-        AnalogModalOffsets &source = analog_modal_source_offsets[ch];
-        const AnalogModalOffsets &target = analog_modal_target_offsets[ch];
-
-        source.structure =
-            lerp_int(source.structure, target.structure, clamped_progress);
-        source.brightness =
-            lerp_int(source.brightness, target.brightness, clamped_progress);
-        source.damping =
-            lerp_int(source.damping, target.damping, clamped_progress);
-        source.position =
-            lerp_int(source.position, target.position, clamped_progress);
-        source.exciter_type =
-            lerp_int(source.exciter_type, target.exciter_type, clamped_progress);
+        capture_modal_offsets(analog_modal_source_offsets[ch],
+                              analog_modal_target_offsets[ch]);
     }
 
     for (size_t fx_id = 0; fx_id < analog_fx_source_offsets.size(); ++fx_id) {
-        AnalogFxOffsets &source = analog_fx_source_offsets[fx_id];
-        const AnalogFxOffsets &target = analog_fx_target_offsets[fx_id];
-
-        source.p1 = lerp_int(source.p1, target.p1, clamped_progress);
-        source.p2 = lerp_int(source.p2, target.p2, clamped_progress);
-        source.mix = lerp_int(source.mix, target.mix, clamped_progress);
+        capture_fx_offsets(analog_fx_source_offsets[fx_id],
+                           analog_fx_target_offsets[fx_id]);
     }
 }
 
 void UiHandler::apply_analog_variation(float progress) {
     const int max_wave_type = static_cast<int>(WaveType::Sinc);
     const float clamped_progress = clamp_float(progress, 0.0f, 1.0f);
+    const auto interpolate = [clamped_progress](int source, int target) {
+        return lerp_int(source, target, clamped_progress);
+    };
+    const auto apply_operator_offsets =
+        [&](OperatorParams &effective_op, const AnalogOperatorOffsets &source,
+            const AnalogOperatorOffsets &target) {
+            effective_op.wave_type = static_cast<WaveType>(clamp_int(
+                static_cast<int>(effective_op.wave_type) +
+                    interpolate(source.wave_type, target.wave_type),
+                0, max_wave_type));
+            effective_op.attack = clamp_u8(
+                static_cast<int>(effective_op.attack) +
+                    interpolate(source.attack, target.attack),
+                0, 127);
+            effective_op.decay = clamp_u8(
+                static_cast<int>(effective_op.decay) +
+                    interpolate(source.decay, target.decay),
+                0, 127);
+            effective_op.sustain = clamp_u8(
+                static_cast<int>(effective_op.sustain) +
+                    interpolate(source.sustain, target.sustain),
+                0, 127);
+            effective_op.release = clamp_u8(
+                static_cast<int>(effective_op.release) +
+                    interpolate(source.release, target.release),
+                0, 127);
+            effective_op.ratio = clamp_u16(
+                static_cast<int>(effective_op.ratio) +
+                    interpolate(source.ratio, target.ratio),
+                1, 16);
+            effective_op.feedback = clamp_u16(
+                static_cast<int>(effective_op.feedback) +
+                    interpolate(source.feedback, target.feedback),
+                0, 127);
+            effective_op.fm_depth = clamp_u16(
+                static_cast<int>(effective_op.fm_depth) +
+                    interpolate(source.fm_depth, target.fm_depth),
+                0, 127);
+        };
+    const auto apply_karplus_offsets =
+        [&](KarplusPatch &effective_patch, const AnalogKarplusOffsets &source,
+            const AnalogKarplusOffsets &target) {
+            effective_patch.impulse_type =
+                static_cast<KarplusImpulseType>(clamp_int(
+                    static_cast<int>(effective_patch.impulse_type) +
+                        interpolate(source.impulse_type, target.impulse_type),
+                    0, 6));
+            effective_patch.filter_gain = clamp_u8(
+                static_cast<int>(effective_patch.filter_gain) +
+                    interpolate(source.filter_gain, target.filter_gain),
+                0, 127);
+            effective_patch.decay = clamp_u8(
+                static_cast<int>(effective_patch.decay) +
+                    interpolate(source.decay, target.decay),
+                0, 127);
+            effective_patch.impulse_length = clamp_u8(
+                static_cast<int>(effective_patch.impulse_length) +
+                    interpolate(source.impulse_length, target.impulse_length),
+                0, 127);
+            effective_patch.pick_position = clamp_u8(
+                static_cast<int>(effective_patch.pick_position) +
+                    interpolate(source.pick_position, target.pick_position),
+                0, 127);
+            effective_patch.dispersion = clamp_u8(
+                static_cast<int>(effective_patch.dispersion) +
+                    interpolate(source.dispersion, target.dispersion),
+                0, 127);
+            effective_patch.body_resonance = clamp_u8(
+                static_cast<int>(effective_patch.body_resonance) +
+                    interpolate(source.body_resonance, target.body_resonance),
+                0, 127);
+        };
+    const auto apply_modal_offsets =
+        [&](ModalPatch &effective_patch, const AnalogModalOffsets &source,
+            const AnalogModalOffsets &target) {
+            effective_patch.structure = clamp_u8(
+                static_cast<int>(effective_patch.structure) +
+                    interpolate(source.structure, target.structure),
+                0, 127);
+            effective_patch.brightness = clamp_u8(
+                static_cast<int>(effective_patch.brightness) +
+                    interpolate(source.brightness, target.brightness),
+                0, 127);
+            effective_patch.damping = clamp_u8(
+                static_cast<int>(effective_patch.damping) +
+                    interpolate(source.damping, target.damping),
+                0, 127);
+            effective_patch.position = clamp_u8(
+                static_cast<int>(effective_patch.position) +
+                    interpolate(source.position, target.position),
+                0, 127);
+            effective_patch.exciter_type =
+                static_cast<ModalExciterType>(clamp_int(
+                    static_cast<int>(effective_patch.exciter_type) +
+                        interpolate(source.exciter_type, target.exciter_type),
+                    0, 3));
+        };
 
     for (size_t ch = 0; ch < analog_patch_storage.size(); ++ch) {
         analog_patch_storage[ch] = synth.patch_storage[ch];
@@ -600,42 +914,9 @@ void UiHandler::apply_analog_variation(float progress) {
         const AnalogFmOffsets &target_offsets = analog_fm_target_offsets[ch];
 
         for (size_t op_index = 0; op_index < source_offsets.ops.size(); ++op_index) {
-            OperatorParams &effective_op = effective_patch.ops[op_index];
-            const AnalogOperatorOffsets &source = source_offsets.ops[op_index];
-            const AnalogOperatorOffsets &target = target_offsets.ops[op_index];
-
-            effective_op.wave_type = static_cast<WaveType>(clamp_int(
-                static_cast<int>(effective_op.wave_type) +
-                    lerp_int(source.wave_type, target.wave_type, clamped_progress),
-                0, max_wave_type));
-            effective_op.attack = clamp_u8(
-                static_cast<int>(effective_op.attack) +
-                    lerp_int(source.attack, target.attack, clamped_progress),
-                0, 127);
-            effective_op.decay = clamp_u8(
-                static_cast<int>(effective_op.decay) +
-                    lerp_int(source.decay, target.decay, clamped_progress),
-                0, 127);
-            effective_op.sustain = clamp_u8(
-                static_cast<int>(effective_op.sustain) +
-                    lerp_int(source.sustain, target.sustain, clamped_progress),
-                0, 127);
-            effective_op.release = clamp_u8(
-                static_cast<int>(effective_op.release) +
-                    lerp_int(source.release, target.release, clamped_progress),
-                0, 127);
-            effective_op.ratio = clamp_u16(
-                static_cast<int>(effective_op.ratio) +
-                    lerp_int(source.ratio, target.ratio, clamped_progress),
-                1, 16);
-            effective_op.feedback = clamp_u16(
-                static_cast<int>(effective_op.feedback) +
-                    lerp_int(source.feedback, target.feedback, clamped_progress),
-                0, 127);
-            effective_op.fm_depth = clamp_u16(
-                static_cast<int>(effective_op.fm_depth) +
-                    lerp_int(source.fm_depth, target.fm_depth, clamped_progress),
-                0, 127);
+            apply_operator_offsets(effective_patch.ops[op_index],
+                                   source_offsets.ops[op_index],
+                                   target_offsets.ops[op_index]);
         }
 
         synth.active_patch[ch].store(&analog_patch_storage[ch],
@@ -649,34 +930,7 @@ void UiHandler::apply_analog_variation(float progress) {
         const AnalogKarplusOffsets &source = analog_karplus_source_offsets[ch];
         const AnalogKarplusOffsets &target = analog_karplus_target_offsets[ch];
 
-        effective_patch.impulse_type = static_cast<KarplusImpulseType>(clamp_int(
-            static_cast<int>(effective_patch.impulse_type) +
-                lerp_int(source.impulse_type, target.impulse_type, clamped_progress),
-            0, 6));
-        effective_patch.filter_gain = clamp_u8(
-            static_cast<int>(effective_patch.filter_gain) +
-                lerp_int(source.filter_gain, target.filter_gain, clamped_progress),
-            0, 127);
-        effective_patch.decay = clamp_u8(
-            static_cast<int>(effective_patch.decay) +
-                lerp_int(source.decay, target.decay, clamped_progress),
-            0, 127);
-        effective_patch.impulse_length = clamp_u8(
-            static_cast<int>(effective_patch.impulse_length) +
-                lerp_int(source.impulse_length, target.impulse_length, clamped_progress),
-            0, 127);
-        effective_patch.pick_position = clamp_u8(
-            static_cast<int>(effective_patch.pick_position) +
-                lerp_int(source.pick_position, target.pick_position, clamped_progress),
-            0, 127);
-        effective_patch.dispersion = clamp_u8(
-            static_cast<int>(effective_patch.dispersion) +
-                lerp_int(source.dispersion, target.dispersion, clamped_progress),
-            0, 127);
-        effective_patch.body_resonance = clamp_u8(
-            static_cast<int>(effective_patch.body_resonance) +
-                lerp_int(source.body_resonance, target.body_resonance, clamped_progress),
-            0, 127);
+        apply_karplus_offsets(effective_patch, source, target);
 
         synth.active_karplus_patch[ch].store(&analog_karplus_patch_storage[ch],
                                              std::memory_order_release);
@@ -689,26 +943,7 @@ void UiHandler::apply_analog_variation(float progress) {
         const AnalogModalOffsets &source = analog_modal_source_offsets[ch];
         const AnalogModalOffsets &target = analog_modal_target_offsets[ch];
 
-        effective_patch.structure = clamp_u8(
-            static_cast<int>(effective_patch.structure) +
-                lerp_int(source.structure, target.structure, clamped_progress),
-            0, 127);
-        effective_patch.brightness = clamp_u8(
-            static_cast<int>(effective_patch.brightness) +
-                lerp_int(source.brightness, target.brightness, clamped_progress),
-            0, 127);
-        effective_patch.damping = clamp_u8(
-            static_cast<int>(effective_patch.damping) +
-                lerp_int(source.damping, target.damping, clamped_progress),
-            0, 127);
-        effective_patch.position = clamp_u8(
-            static_cast<int>(effective_patch.position) +
-                lerp_int(source.position, target.position, clamped_progress),
-            0, 127);
-        effective_patch.exciter_type = static_cast<ModalExciterType>(clamp_int(
-            static_cast<int>(effective_patch.exciter_type) +
-                lerp_int(source.exciter_type, target.exciter_type, clamped_progress),
-            0, 3));
+        apply_modal_offsets(effective_patch, source, target);
 
         synth.active_modal_patch[ch].store(&analog_modal_patch_storage[ch],
                                            std::memory_order_release);
@@ -815,17 +1050,5 @@ void UiHandler::update_analog_variation() {
 
 uint8_t UiHandler::get_adsr_param(int param) {
     (void)param;
-    //     switch (param) {
-    //     case 0:
-    //         return channel_params[midi_channel].attack;
-    //     case 1:
-    //         return channel_params[midi_channel].decay;
-    //     case 2:
-    //         return channel_params[midi_channel].sustain >> 8;
-    //     case 3:
-    //         return channel_params[midi_channel].release;
-    //     default:
-    //         return 0;
-    //     }
     return 0;
 }

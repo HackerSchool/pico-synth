@@ -49,12 +49,14 @@ void UiHandler::engine_select_handle_encoders(UiHandler &self) {
         if (!enc->button_state && enc->button_edge) {
             switch (i) {
             case 0:
+                self.release_all_tracked_switch_notes();
                 self.ui_state = UI_STATE_CHOOSE;
                 self.chosen_index = UI_STATE_MAIN;
                 self.chosen_dirty = true;
                 self.engine_select_dirty = true;
                 break;
             case 3:
+                self.release_all_tracked_switch_notes();
                 self.synth.set_engine(engine_from_index(self.engine_select_index));
                 self.ui_state = UI_STATE_MAIN;
                 self.main_dirty = true;
@@ -74,6 +76,10 @@ void UiHandler::engine_select_handle_encoders(UiHandler &self) {
 }
 
 void UiHandler::engine_select_update_display(UiHandler &self) {
+    if (self.preset_browse_overlay_active()) {
+        return;
+    }
+
     if (self.engine_select_dirty) {
         self.hw.draw_engine_select_menu(
             self.engine_select_index,

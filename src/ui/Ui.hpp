@@ -3,6 +3,7 @@
 
 #include "HardwareManager.hpp"
 #include "MidiHandler.hpp"
+#include "Preset.hpp"
 #include "Sampler.hpp"
 #include "Sequencer.hpp"
 #include "Synth.hpp"
@@ -26,10 +27,6 @@ typedef enum UiState {
     UI_STATE_MODAL_EDIT,
     UI_STATE_COUNT // helpful for bounds checking
 } UiState;
-
-#define NUM_USABLE_STATES                                                      \
-    (7) // 7 states (MAIN, FM_EDIT, FX_EDIT, ANALOG, MIDI, SEQUENCER, SAMPLER) (states listed in
-        // the menu)
 
 class UiHandler;
 
@@ -81,6 +78,7 @@ class UiHandler {
 
     // sampler state
     static void sampler_handle_encoders(UiHandler &self);
+    static void sampler_handle_switches(UiHandler &self);
     static void sampler_update_display(UiHandler &self);
 
     // FM edit state
@@ -114,16 +112,31 @@ class UiHandler {
                                       int fast_step);
     static int analog_value_step(int current_value_hundredths);
     static int analog_encoder_delta(int32_t delta, int current_value_hundredths);
+    void invalidate_all_displays();
+    void begin_randomizer_hold();
+    void end_randomizer_hold();
+    void preprocess_preset_browse();
+    void update_preset_browse_display();
+    bool preset_browse_overlay_active() const;
+    bool apply_factory_preset(int preset_index);
+    void apply_preset_state(const PresetState &state, int preset_index);
     static void randomize_current_engine_patch(UiHandler &self);
     static void randomize_fm_patch(UiHandler &self);
     static void randomize_karplus_patch(UiHandler &self);
     static void randomize_modal_patch(UiHandler &self);
+    void send_note_message(bool note_on, uint8_t channel, uint8_t note,
+                           uint8_t velocity = 0x7F);
+    void track_switch_note_on(int key_index, uint8_t channel, uint8_t note,
+                              uint8_t velocity = 0x7F);
+    void release_tracked_switch_note(int key_index, uint8_t velocity = 0x7F);
+    void release_all_tracked_switch_notes(uint8_t velocity = 0x7F);
 
     HardwareManager &hw;
     MidiHandler &midi;
     Sequencer &seq;
     Sampler &sampler;
     Synth &synth;
+    PresetManager preset_manager;
 
     UiState ui_state = UI_STATE_MAIN;
     UiDispatchEntry ui_dispatch_table[UI_STATE_COUNT];
@@ -138,6 +151,13 @@ class UiHandler {
                        64}; // Attack, Decay, Sustain, Release (MIDI 7-bit)
     std::bitset<128> last_note_state;
     uint16_t prev_switches = 0;
+    std::array<int16_t, 16> tracked_switch_notes{};
+    std::array<int8_t, 16> tracked_switch_channels{};
+    bool randomizer_hold_active = false;
+    bool preset_browse_engaged = false;
+    int preset_browse_index = 0;
+    int preset_loaded_index = -1;
+    int32_t preset_browse_accumulator = 0;
     WaveType last_wave_type = static_cast<WaveType>(-1);
     bool adsr_dirty = 1;
     bool channel_dirty = 1;
@@ -188,7 +208,7 @@ class UiHandler {
 
     // choose state~
     bool chosen_dirty = true;
-    int chosen_index = 1;
+    int chosen_index = UI_STATE_MAIN;
 
     // engine select state
     bool engine_select_dirty = true;

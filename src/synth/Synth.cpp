@@ -7,31 +7,175 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
 
 #include "Distortion.hpp"
 #include "Reverb.hpp"
 #include "Chorus.hpp"
 #include "ReverbSc.hpp"
 
+namespace {
+constexpr std::array<WaveType, 16> kChannelBaseWaves = {
+    Sine, Square, Triangle, Sawtooth, Sinc, Sine, Square, Triangle,
+    Sawtooth, Sinc, Sine, Square, Triangle, Sawtooth, Sinc, Sine};
 
-const int wave_shift = WAVE_SHIFT;
-const int wave_len = WAVE_LEN;
-const int wave_max = WAVE_MAX;
+void configure_interp_lane(interp_hw_t *interp) {
+    interp_config config = interp_default_config();
+    interp_config_set_shift(&config, 15);
+    interp_config_set_mask(&config, 1, WAVE_SHIFT);
+    interp_config_set_add_raw(&config, true);
+    interp_set_config(interp, 0, &config);
+}
 
-// TODO: make an exponential lookup table for ADSR for increased perception!
+void configure_interpolators() {
+    configure_interp_lane(interp0);
+    configure_interp_lane(interp1);
+}
+
+Patch make_default_patch(WaveType carrier_wave) {
+    Patch patch{};
+    patch.algorithm = 0;
+    patch.volume = 100;
+    patch.pan = 64;
+
+    patch.ops[0].wave_type = carrier_wave;
+    patch.ops[0].attack = 5;
+    patch.ops[0].decay = 20;
+    patch.ops[0].sustain = 100;
+    patch.ops[0].release = 30;
+    patch.ops[0].ratio = 1;
+    patch.ops[0].feedback = 0;
+    patch.ops[0].fm_depth = 0;
+
+    patch.ops[1].wave_type = Sine;
+    patch.ops[1].attack = 5;
+    patch.ops[1].decay = 15;
+    patch.ops[1].sustain = 80;
+    patch.ops[1].release = 25;
+    patch.ops[1].ratio = 2;
+    patch.ops[1].feedback = 0;
+    patch.ops[1].fm_depth = 50;
+
+    return patch;
+}
+
+void cleanup_idle_fm_voices(std::array<Voice, NUM_VOICES> &voices) {
+    for (auto &voice : voices) {
+        if (!voice.playing || !voice.is_idle()) {
+            continue;
+        }
+
+        voice.playing = false;
+        voice.steal = false;
+    }
+}
+
+template <typename VoiceArray, typename PatchType, typename MatchFn>
+void apply_patch_updates(VoiceArray &voices, std::bitset<16> &dirty_flags,
+                         std::array<std::atomic<PatchType *>, 16> &active_patch,
+                         MatchFn matches_channel) {
+    for (uint8_t channel = 0; channel < 16; ++channel) {
+        if (!dirty_flags.test(channel)) {
+            continue;
+        }
+
+        const PatchType *patch =
+            active_patch[channel].load(std::memory_order_acquire);
+        if (patch) {
+            for (auto &voice : voices) {
+                if (matches_channel(voice, channel)) {
+                    voice.apply_patch(*patch);
+                }
+            }
+        }
+
+        dirty_flags.reset(channel);
+    }
+}
+
+template <typename VoiceArray, typename ActiveFn, typename RenderFn>
+void mix_active_voices(VoiceArray &voices,
+                       std::array<int16_t, SAMPLES_PER_BUFFER> &flow_buffer,
+                       std::array<int16_t, SAMPLES_PER_BUFFER> &buffer,
+                       int mix_shift, ActiveFn is_active, RenderFn render) {
+    for (auto &voice : voices) {
+        if (!is_active(voice)) {
+            continue;
+        }
+
+        render(voice, flow_buffer);
+        for (int sample = 0; sample < SAMPLES_PER_BUFFER; ++sample) {
+            buffer[sample] += flow_buffer[sample] >> mix_shift;
+        }
+    }
+}
+
+template <typename VoiceArray, typename PatchType>
+bool restart_or_allocate_voice(VoiceArray &voices, uint8_t channel,
+                               uint8_t note, uint8_t velocity,
+                               const PatchType *patch) {
+    for (auto &voice : voices) {
+        if (voice.matches(channel, note)) {
+            voice.start(note, channel, velocity, *patch);
+            return true;
+        }
+    }
+
+    for (auto &voice : voices) {
+        if (!voice.is_active()) {
+            voice.start(note, channel, velocity, *patch);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+template <typename VoiceArray>
+void note_off_voice(VoiceArray &voices, uint8_t channel, uint8_t note) {
+    for (auto &voice : voices) {
+        if (voice.matches(channel, note)) {
+            voice.note_off();
+        }
+    }
+}
+
+void reset_fx_slot(Synth &synth, int fx_id) {
+    switch (fx_id) {
+    case 0:
+        synth.delay_effect.reset();
+        break;
+    case 1:
+        if (synth.distortion_effect) synth.distortion_effect->reset();
+        break;
+    case 2:
+        if (synth.reverb_effect) synth.reverb_effect->reset();
+        break;
+    case 3:
+        if (synth.chorus_effect) synth.chorus_effect->reset();
+        break;
+    case 4:
+        if (synth.reverb_sc_effect) synth.reverb_sc_effect->reset();
+        break;
+    }
+}
+
+float unit_interval(int value, float scale) {
+    float normalized = static_cast<float>(value) / scale;
+    if (normalized < 0.0f) return 0.0f;
+    if (normalized > 1.0f) return 1.0f;
+    return normalized;
+}
+} // namespace
 
 Synth::Synth() {
-    // init the oscillators and envelopes
     for (int i = 0; i < NUM_VOICES; i++) {
         voice[i] = Voice();
     }
-    // Initialize patches for all 16 channels
+
     initialize_patches();
     initialize_karplus_patches();
     initialize_modal_patches();
-    
-    // Initialize active_patch pointers to point to patch_storage
+
     for (int i = 0; i < 16; i++) {
         active_patch[i].store(&patch_storage[i], std::memory_order_release);
         active_karplus_patch[i].store(&karplus_patch_storage[i],
@@ -40,72 +184,20 @@ Synth::Synth() {
                                     std::memory_order_release);
     }
 
-    // Allocate effect objects
     distortion_effect = new Distortion();
     reverb_effect = new Reverb();
     chorus_effect = new Chorus();
     reverb_sc_effect = new ReverbScFx();
-    // default params
+
     distortion_effect->set_params(320, 18000, 12288);
-    // Use normalized parameters (0.0 - 1.0): room_size, damp, mix
-    reverb_effect->set_params(0.61f, 0.15f, 0.36f); // moderate room, light damp, medium mix
+    reverb_effect->set_params(0.61f, 0.15f, 0.36f);
     chorus_effect->set_params(320, 12000, 8192);
     reverb_sc_effect->set_params(0.78f, 0.75f, 0.34f);
-
 }
 
-// Add this method to your Synth class:
 void Synth::initialize_patches() {
-    // Define base wavetables for each channel (cycling through the 5 wave types)
-    WaveType channel_base_waves[16] = {
-        Sine,     // Channel 0
-        Square,   // Channel 1  
-        Triangle, // Channel 2
-        Sawtooth, // Channel 3
-        Sinc,     // Channel 4
-        Sine,     // Channel 5
-        Square,   // Channel 6
-        Triangle, // Channel 7
-        Sawtooth, // Channel 8
-        Sinc,     // Channel 9
-        Sine,     // Channel 10
-        Square,   // Channel 11
-        Triangle, // Channel 12
-        Sawtooth, // Channel 13
-        Sinc,     // Channel 14
-        Sine      // Channel 15
-    };
-    
     for (int ch = 0; ch < 16; ch++) {
-        Patch& patch = patch_storage[ch];
-        
-        // Initialize global patch settings
-        patch.algorithm = 0;  // Simple FM: op[1] modulates op[0]
-        patch.volume = 100;   // Nice default volume
-        patch.pan = 64;       // Center pan
-        
-        // OP[0] - CARRIER (the one we hear)
-        patch.ops[0].wave_type = channel_base_waves[ch];  // Different wave per channel
-        patch.ops[0].attack = 5;     // Quick attack
-        patch.ops[0].decay = 20;     // Medium decay
-        patch.ops[0].sustain = 100;  // High sustain
-        patch.ops[0].release = 30;   // Medium release
-        patch.ops[0].ratio = 1;      // 1:1 ratio (fundamental frequency)
-        patch.ops[0].feedback = 0;   // No feedback on carrier
-        patch.ops[0].fm_depth = 0;   // Carrier doesn't modulate anything
-        
-        // OP[1] - MODULATOR (modulates the carrier)
-        patch.ops[1].wave_type = Sine;  // Sine wave modulator (classic FM)
-        patch.ops[1].attack = 5;     // Quick attack
-        patch.ops[1].decay = 15;     // Slightly faster decay than carrier
-        patch.ops[1].sustain = 80;   // Medium sustain
-        patch.ops[1].release = 25;   // Slightly faster release
-        patch.ops[1].ratio = 2;      // 2:1 ratio (one octave higher)
-        patch.ops[1].feedback = 0;   // No feedback
-        patch.ops[1].fm_depth = 50;  // Medium FM depth
-        
-        // printf("Initialized patch for channel %d: carrier=%s, modulator=Sine, fm_depth=%d\n", 
-        //        ch, wave_type_names[channel_base_waves[ch]], patch.ops[1].fm_depth);
+        patch_storage[ch] = make_default_patch(kChannelBaseWaves[ch]);
     }
 }
 
@@ -117,110 +209,55 @@ Synth::~Synth() {
 }
 
 void Synth::out(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
-
-    // cleanup voices
-    for (int i = 0; i < NUM_VOICES; i++) {
-        if (voice[i].playing && voice[i].is_idle()) {
-            // Use volatile assignment to prevent compiler optimizations that could race
-            voice[i].playing = false;
-            voice[i].steal = false;
-        }
-    }
-
-    // Apply patches if dirty for any channel
-    for (uint8_t ch = 0; ch < 16; ++ch) {
-        if (patch_dirty_flags.test(ch)) {
-            const Patch *p = active_patch[ch].load(std::memory_order_acquire);
-            if (p) {
-                for (auto &v : voice) {
-                    if (v.playing && v.midi_channel == ch) {
-                        v.apply_patch(*p);
-                    }
-                }
-            }
-            patch_dirty_flags.reset(ch);
-        }
-
-        if (karplus_patch_dirty_flags.test(ch)) {
-            const KarplusPatch *p =
-                active_karplus_patch[ch].load(std::memory_order_acquire);
-            if (p) {
-                for (auto &v : karplus_voice) {
-                    if (v.is_active() && v.midi_channel == ch) {
-                        v.apply_patch(*p);
-                    }
-                }
-            }
-            karplus_patch_dirty_flags.reset(ch);
-        }
-
-        if (modal_patch_dirty_flags.test(ch)) {
-            const ModalPatch *p =
-                active_modal_patch[ch].load(std::memory_order_acquire);
-            if (p) {
-                for (auto &v : modal_voice) {
-                    if (v.is_active() && v.midi_channel == ch) {
-                        v.apply_patch(*p);
-                    }
-                }
-            }
-            modal_patch_dirty_flags.reset(ch);
-        }
-    }
-
-    // set up the interpolator
-    interp_config cfg0 = interp_default_config();
-    interp_config_set_shift(&cfg0, 15);
-    interp_config_set_mask(&cfg0, 1, wave_shift);
-    interp_config_set_add_raw(&cfg0, true);
-    interp_set_config(interp0, 0, &cfg0);
-
-    interp_config cfg1 = interp_default_config();
-    interp_config_set_shift(&cfg1, 15);
-    interp_config_set_mask(&cfg1, 1, wave_shift);
-    interp_config_set_add_raw(&cfg1, true);
-    interp_set_config(interp1, 0, &cfg1);
+    cleanup_idle_fm_voices(voice);
+    apply_patch_updates(
+        voice, patch_dirty_flags, active_patch,
+        [](const Voice &voice, uint8_t channel) {
+            return voice.playing && voice.midi_channel == channel;
+        });
+    apply_patch_updates(
+        karplus_voice, karplus_patch_dirty_flags, active_karplus_patch,
+        [](const KarplusVoice &voice, uint8_t channel) {
+            return voice.is_active() && voice.midi_channel == channel;
+        });
+    apply_patch_updates(
+        modal_voice, modal_patch_dirty_flags, active_modal_patch,
+        [](const ModalVoice &voice, uint8_t channel) {
+            return voice.is_active() && voice.midi_channel == channel;
+        });
+    configure_interpolators();
 
     switch (current_engine) {
     case SynthEngine::FM:
-        for (int i = 0; i < NUM_VOICES; i++) {
-            if (!voice[i].playing) {
-                continue;
-            }
-            voice[i].out(flow_buffer);
-            for (int k = 0; k < SAMPLES_PER_BUFFER; k++) {
-                // divide by 8
-                buffer[k] += flow_buffer[k] >> 4;
-            }
-        }
+        mix_active_voices(
+            voice, flow_buffer, buffer, 4,
+            [](const Voice &voice) { return voice.playing; },
+            [](Voice &voice, std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
+                voice.out(buffer);
+            });
         break;
     case SynthEngine::KarplusStrong:
-        for (int i = 0; i < KARPLUS_VOICE_COUNT; ++i) {
-            if (!karplus_voice[i].is_active()) {
-                continue;
-            }
-            karplus_voice[i].render(flow_buffer);
-            for (int k = 0; k < SAMPLES_PER_BUFFER; ++k) {
-                buffer[k] += flow_buffer[k] >> 3;
-            }
-        }
+        mix_active_voices(
+            karplus_voice, flow_buffer, buffer, 3,
+            [](const KarplusVoice &voice) { return voice.is_active(); },
+            [](KarplusVoice &voice,
+               std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
+                voice.render(buffer);
+            });
         break;
     case SynthEngine::Modal:
-        for (int i = 0; i < MODAL_VOICE_COUNT; ++i) {
-            if (!modal_voice[i].is_active()) {
-                continue;
-            }
-            modal_voice[i].render(flow_buffer);
-            for (int k = 0; k < SAMPLES_PER_BUFFER; ++k) {
-                buffer[k] += flow_buffer[k] >> 3;
-            }
-        }
+        mix_active_voices(
+            modal_voice, flow_buffer, buffer, 3,
+            [](const ModalVoice &voice) { return voice.is_active(); },
+            [](ModalVoice &voice,
+               std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
+                voice.render(buffer);
+            });
         break;
     }
 }
 
 void Synth::process_fx(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
-    // Apply inline FX chain (order: Distortion -> Chorus -> Delay -> Reverb -> RevSC)
     if (fx_enabled[1] && distortion_effect) {
         distortion_effect->process(buffer.data(), SAMPLES_PER_BUFFER);
     }
@@ -228,7 +265,6 @@ void Synth::process_fx(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
         chorus_effect->process(buffer.data(), SAMPLES_PER_BUFFER);
     }
 
-    // The delay effect (FX slot 0)
     if (fx_enabled[0]) {
         delay_effect.process(buffer.data(), SAMPLES_PER_BUFFER);
     }
@@ -239,22 +275,6 @@ void Synth::process_fx(std::array<int16_t, SAMPLES_PER_BUFFER> &buffer) {
     if (fx_enabled[4] && reverb_sc_effect) {
         reverb_sc_effect->process(buffer.data(), SAMPLES_PER_BUFFER);
     }
-
-    // low_pass.out(buffer.data(), buffer.size());
-    // low_pass_cheb.out(buffer.data(), buffer.size());
-
-    // Apply the selected filter
-    // switch (current_filter_type) {
-    // case FILTER_LOW_PASS:
-    //     low_pass.out(buffer.data(), buffer.size());
-    //     break;
-    // case FILTER_CHEBYSHEV:
-    //     low_pass_cheb.out(buffer.data(), buffer.size());
-    //     break;
-    // default:
-    //     // No filtering
-    //     break;
-    // }
 }
 
 void Synth::process_midi_packet(uint8_t packet[4]) {
@@ -264,133 +284,26 @@ void Synth::process_midi_packet(uint8_t packet[4]) {
     uint8_t velocity = packet[3];
 
     switch (msg_type) {
-    case 0x90: // Note On
+    case 0x90:
         if (velocity > 0) {
-            // Note on with velocity
-            // printf("Note On: channel=%d, note=%d, velocity=%d\n", channel,
-            // note,
-            //        velocity);
             note_on(channel, note, velocity);
         } else {
-            // Note on with velocity 0 is equivalent to Note Off
-            // printf("Note Off (via Note On): channel=%d, note=%d\n", channel,
-            // note);
             note_off(channel, note, velocity);
         }
         break;
-
-    case 0x80: // Note Off
-        // printf("Note Off: channel=%d, note=%d, velocity=%d\n",
-        // channel, note,
-        // velocity);
-
+    case 0x80:
         note_off(channel, note, velocity);
         break;
-
-    case 0xB0: { // Control Change
-
-        // switch (note) {
-        //     // case 73: // Attack
-        //     //     channel_params[channel].attack = velocity;
-        //     //     printf("attack changed: %d\n", velocity);
-        //     //     for (int i = 0; i < NUM_VOICES; i++) {
-        //     //         if (midi_channel[i] == channel) {
-        //     //             envelopes[i].set_ADSR(channel_params[channel].attack,
-        //     //                                   channel_params[channel].decay,
-        //     //                                   channel_params[channel].sustain
-        //     //                                   >> 8,
-        //     //                                   channel_params[channel].release);
-        //     //         }
-        //     //     }
-        //     //     break;
-        //     // case 75: // Decay
-        //     //     channel_params[channel].decay = velocity;
-        //     //     printf("decay changed: %d\n", velocity);
-        //     //     for (int i = 0; i < NUM_VOICES; i++) {
-        //     //         if (midi_channel[i] == channel) {
-        //     //             envelopes[i].set_ADSR(channel_params[channel].attack,
-        //     //                                   channel_params[channel].decay,
-        //     //                                   channel_params[channel].sustain
-        //     //                                   >> 8,
-        //     //                                   channel_params[channel].release);
-        //     //         }
-        //     //     }
-        //     //     break;
-        //     // case 70: // Sustain
-        //     //     channel_params[channel].sustain = velocity << 8;
-        //     //     printf("sustain changed: %d\n", velocity);
-        //     //     for (int i = 0; i < NUM_VOICES; i++) {
-        //     //         if (midi_channel[i] == channel) {
-        //     //             envelopes[i].set_ADSR(channel_params[channel].attack,
-        //     //                                   channel_params[channel].decay,
-        //     //                                   channel_params[channel].sustain
-        //     //                                   >> 8,
-        //     //                                   channel_params[channel].release);
-        //     //         }
-        //     //     }
-        //     //     break;
-        //     // case 72: // Release
-        //     //     channel_params[channel].release = velocity;
-        //     //     printf("release changed: %d\n", velocity);
-        //     //     for (int i = 0; i < NUM_VOICES; i++) {
-        //     //         if (midi_channel[i] == channel) {
-        //     //             envelopes[i].set_ADSR(channel_params[channel].attack,
-        //     //                                   channel_params[channel].decay,
-        //     //                                   channel_params[channel].sustain
-        //     //                                   >> 8,
-        //     //                                   channel_params[channel].release);
-        //     //         }
-        //     //     }
-        //     //     break;
-        //
-        // // case 16: // Filter Cutoff MSB (CC 16)
-        // //     channel_params[channel].filter_cutoff_msb = velocity;
-        // //     update_filter_cutoff(channel);
-        // //     break;
-        // // case 48: // Filter Cutoff LSB (CC 48)
-        // //     channel_params[channel].filter_cutoff_lsb = velocity;
-        // //     update_filter_cutoff(channel);
-        // //     break;
-        // // case 17: // Filter Resonance/Q MSB (CC 17)
-        // //     channel_params[channel].filter_q_msb = velocity;
-        // //     update_filter_q(channel);
-        // //     break;
-        // // case 49: // Filter Resonance/Q LSB (CC 49)
-        // //     channel_params[channel].filter_q_lsb = velocity;
-        // //     update_filter_q(channel);
-        // //     break;
-        // // case 18: // Filter Type Selection (CC 18)
-        // //     set_filter_type(velocity);
-        // //     printf("Filter type changed: %d\n", velocity);
-        // //     break;
-        // }
-        // break;
-    } break;
+    case 0xB0:
+        break;
     }
 }
 
 void Synth::update_filter_cutoff(uint8_t channel) {
-    // // Combine MSB and LSB for 14-bit resolution
-    // uint16_t cutoff_14bit = (channel_params[channel].filter_cutoff_msb << 7)
-    // |
-    //                         channel_params[channel].filter_cutoff_lsb;
-    //
-    // // Map 14-bit value (0-16383) to frequency range (500-10000 Hz)
-    // float cutoff_freq =
-    //     1500.0f + (cutoff_14bit * (10000.0f - 500.0f)) / 16383.0f;
-    //
-    // // Get Q value - FIXED RANGE: 0.3 to 1.0
-    // uint16_t q_14bit = (channel_params[channel].filter_q_msb << 7) |
-    //                    channel_params[channel].filter_q_lsb;
-    // float q_value =
-    //     0.3f + (q_14bit * (1.0f - 0.3f)) / 16383.0f; // Q range 0.3-1.0
-    //
-    // set_filter_cutoff(cutoff_freq, q_value);
-    // printf("Filter cutoff: %.2f Hz, Q: %.2f\n", cutoff_freq, q_value);
+    (void)channel;
 }
 
 void Synth::update_filter_q(uint8_t channel) {
-    // Same logic as cutoff - recalculate both when Q changes
     update_filter_cutoff(channel);
 }
 
@@ -418,21 +331,10 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
             return;
         }
 
-        for (int i = 0; i < KARPLUS_VOICE_COUNT; ++i) {
-            if (karplus_voice[i].matches(channel, note)) {
-                karplus_voice[i].start(note, channel, velocity, *patch_ptr);
-                return;
-            }
+        if (!restart_or_allocate_voice(karplus_voice, channel, note, velocity,
+                                       patch_ptr)) {
+            karplus_voice[0].start(note, channel, velocity, *patch_ptr);
         }
-
-        for (int i = 0; i < KARPLUS_VOICE_COUNT; ++i) {
-            if (!karplus_voice[i].is_active()) {
-                karplus_voice[i].start(note, channel, velocity, *patch_ptr);
-                return;
-            }
-        }
-
-        karplus_voice[0].start(note, channel, velocity, *patch_ptr);
         return;
     }
 
@@ -445,57 +347,35 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
             return;
         }
 
-        for (int i = 0; i < MODAL_VOICE_COUNT; ++i) {
-            if (modal_voice[i].matches(channel, note)) {
-                modal_voice[i].start(note, channel, velocity, *patch_ptr);
-                return;
-            }
+        if (!restart_or_allocate_voice(modal_voice, channel, note, velocity,
+                                       patch_ptr)) {
+            modal_voice[0].start(note, channel, velocity, *patch_ptr);
         }
-
-        for (int i = 0; i < MODAL_VOICE_COUNT; ++i) {
-            if (!modal_voice[i].is_active()) {
-                modal_voice[i].start(note, channel, velocity, *patch_ptr);
-                return;
-            }
-        }
-
-        modal_voice[0].start(note, channel, velocity, *patch_ptr);
         return;
     }
 
-    // Check if note is already playing on this channel
     for (int i = 0; i < NUM_VOICES; i++) {
         if (voice[i].midi_note == note && voice[i].playing && !voice[i].steal &&
             voice[i].midi_channel == channel) {
             printf("Note already playing: note=%d, velocity=%d\n", note,
                    velocity);
-            return; // Already playing, no retrigger for now
+            return;
         }
     }
 
-    // Find a free voice
     for (int i = 0; i < NUM_VOICES; i++) {
         if (!voice[i].playing) {
-            // Initialize voice state first
             voice[i].midi_channel = channel;
             voice[i].midi_note = note;
-            // Use volatile write and memory barrier to ensure visibility to core 1
-            __sync_synchronize();  // Memory barrier
+            __sync_synchronize();
             voice[i].playing = true;
             notes_playing_bitset.set(note);
-            
-            // if (channel_changed) {
-                const Patch *patch_ptr =
-                    active_patch[channel].load(std::memory_order_acquire);
-                if (patch_ptr) {
-                    voice[i].apply_patch(*patch_ptr);
-                }
-            // }
-            
 
-            // WaveType wt = channel_wave_map[channel];
-            // voice[i].op[1].osc.set_wavetable(wt);
-
+            const Patch *patch_ptr =
+                active_patch[channel].load(std::memory_order_acquire);
+            if (patch_ptr) {
+                voice[i].apply_patch(*patch_ptr);
+            }
 
             voice[i].gate_on();
             break;
@@ -504,41 +384,26 @@ void Synth::note_on(uint8_t channel, uint8_t note, uint8_t velocity) {
 }
 
 void Synth::note_off(uint8_t channel, uint8_t note, uint8_t velocity) {
+    (void)velocity;
+
     if (current_engine == SynthEngine::KarplusStrong) {
         notes_playing_bitset.reset(note);
-
-        for (int i = 0; i < KARPLUS_VOICE_COUNT; ++i) {
-            if (karplus_voice[i].matches(channel, note)) {
-                karplus_voice[i].note_off();
-            }
-        }
+        note_off_voice(karplus_voice, channel, note);
         return;
     }
 
     if (current_engine == SynthEngine::Modal) {
         notes_playing_bitset.reset(note);
-
-        for (int i = 0; i < MODAL_VOICE_COUNT; ++i) {
-            if (modal_voice[i].matches(channel, note)) {
-                modal_voice[i].note_off();
-            }
-        }
+        note_off_voice(modal_voice, channel, note);
         return;
     }
 
-    // Check if note is playing
-    // printf("I am in note off");
     for (int i = 0; i < NUM_VOICES; i++) {
         if (voice[i].midi_note == note && voice[i].playing && !voice[i].steal &&
             voice[i].midi_channel == channel) {
-            // envelopes[i].set_trigger(0.f);
             voice[i].gate_off();
-            // osc_playing[i] = false;
             voice[i].steal = true;
-            // voice[i].state = false;
             notes_playing_bitset.reset(note);
-            // printf("Note Off on Synth: note=%d, velocity=%d\n", note,
-            // velocity);
             break;
         }
     }
@@ -567,15 +432,23 @@ void Synth::clear_modal_voices() {
     }
 }
 
+void Synth::reset_runtime_state() {
+    clear_fm_voices();
+    clear_karplus_voices();
+    clear_modal_voices();
+    notes_playing_bitset.reset();
+
+    for (int fx_id = 0; fx_id < FX_SLOT_COUNT; ++fx_id) {
+        reset_fx_slot(*this, fx_id);
+    }
+}
+
 void Synth::set_engine(SynthEngine engine) {
     if (current_engine == engine) {
         return;
     }
 
-    clear_fm_voices();
-    clear_karplus_voices();
-    clear_modal_voices();
-    notes_playing_bitset.reset();
+    reset_runtime_state();
     current_engine = engine;
 }
 
@@ -586,25 +459,7 @@ void Synth::enable_fx(int fx_id, bool enabled) {
     fx_enabled[fx_id] = enabled;
     if (enabled) return;
 
-    switch (fx_id) {
-    case 0:
-        delay_effect.reset();
-        break;
-    case 1:
-        if (distortion_effect) distortion_effect->reset();
-        break;
-    case 2:
-        if (reverb_effect) reverb_effect->reset();
-        break;
-    case 3:
-        if (chorus_effect) chorus_effect->reset();
-        break;
-    case 4:
-        if (reverb_sc_effect) reverb_sc_effect->reset();
-        break;
-    default:
-        break;
-    }
+    reset_fx_slot(*this, fx_id);
 }
 
 void Synth::initialize_karplus_patches() {
@@ -633,48 +488,31 @@ void Synth::initialize_modal_patches() {
 
 void Synth::set_fx_params(int fx_id, int p1, int p2, int mix) {
     switch (fx_id) {
-    case 0: // Delay
+    case 0:
         delay_effect.set_delay_ms(p1);
         delay_effect.set_feedback((int16_t)p2);
         delay_effect.set_mix((int16_t)mix);
         break;
-    case 1: // Distortion
+    case 1:
         if (distortion_effect) distortion_effect->set_params(p1, p2, mix);
         break;
-    case 2: { // Reverb
+    case 2:
         if (reverb_effect) {
-            // UI provides: p1 = time/ms (0-1000), p2 = damp (Q15-ish 0-32000), mix = Q15-ish (0-32000)
-            float room_size = (float)p1 / 1000.0f;
-            if (room_size < 0.0f) room_size = 0.0f;
-            if (room_size > 1.0f) room_size = 1.0f;
-            float damp_f = (float)p2 / 32767.0f;
-            if (damp_f < 0.0f) damp_f = 0.0f;
-            if (damp_f > 1.0f) damp_f = 1.0f;
-            float mix_f = (float)mix / 32767.0f;
-            if (mix_f < 0.0f) mix_f = 0.0f;
-            if (mix_f > 1.0f) mix_f = 1.0f;
-            reverb_effect->set_params(room_size, damp_f, mix_f);
+            reverb_effect->set_params(unit_interval(p1, 1000.0f),
+                                      unit_interval(p2, 32767.0f),
+                                      unit_interval(mix, 32767.0f));
         }
         break;
-    }
-    case 3: // Chorus
+    case 3:
         if (chorus_effect) chorus_effect->set_params(p1, p2, mix);
         break;
-    case 4: { // ReverbSc-inspired variant
+    case 4:
         if (reverb_sc_effect) {
-            float time_f = (float)p1 / 1000.0f;
-            if (time_f < 0.0f) time_f = 0.0f;
-            if (time_f > 1.0f) time_f = 1.0f;
-            float tone_f = (float)p2 / 32767.0f;
-            if (tone_f < 0.0f) tone_f = 0.0f;
-            if (tone_f > 1.0f) tone_f = 1.0f;
-            float mix_f = (float)mix / 32767.0f;
-            if (mix_f < 0.0f) mix_f = 0.0f;
-            if (mix_f > 1.0f) mix_f = 1.0f;
-            reverb_sc_effect->set_params(time_f, tone_f, mix_f);
+            reverb_sc_effect->set_params(unit_interval(p1, 1000.0f),
+                                         unit_interval(p2, 32767.0f),
+                                         unit_interval(mix, 32767.0f));
         }
         break;
-    }
     default:
         break;
     }
@@ -706,26 +544,6 @@ const char *Synth::get_notes_playing_names() {
 
     return buffer;
 }
-
-// void Synth::cycle_wave_type(int delta) {
-//     WaveType wave_type = oscillators[0].get_wave_type();
-//     int new_index = static_cast<int>(wave_type) + delta;
-//
-//     // Wrap around the enum range
-//     const int max_wave = static_cast<int>(WaveType::Sinc);
-//     if (new_index > max_wave)
-//         new_index = 0;
-//     if (new_index < 0)
-//         new_index = max_wave;
-//
-//     wave_type = static_cast<WaveType>(new_index);
-//
-//     for (auto &osc : oscillators) {
-//         osc.set_wavetable(wave_type);
-//     }
-//
-//     // printf("Waveform set to: %d\n", wave_type);
-// }
 
 void Synth::cycle_filter_type() {
     current_filter_type =

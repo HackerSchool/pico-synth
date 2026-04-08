@@ -54,6 +54,10 @@ void UiHandler::midi_handle_encoders(UiHandler &self) {
 }
 
 void UiHandler::midi_update_display(UiHandler &self) {
+    if (self.preset_browse_overlay_active()) {
+        return;
+    }
+
     HardwareManager &hw = self.hw;
 
     if (self.midi_settings_dirty) {

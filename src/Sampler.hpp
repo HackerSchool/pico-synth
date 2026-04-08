@@ -68,18 +68,16 @@ public:
 
 class WavFileList {
 private:
-    std::string* filenames;
+    std::array<std::string, MAX_WAV_FILES> filenames{};
     int count;
-    int capacity;
 
 public:
     WavFileList();
-    ~WavFileList();
     
     bool add_file(const std::string& filename);
     const std::string& get_filename(int index) const;
     int get_count() const { return count; }
-    int get_capacity() const { return capacity; }
+    int get_capacity() const { return MAX_WAV_FILES; }
     void clear();
     void print_files() const;
         

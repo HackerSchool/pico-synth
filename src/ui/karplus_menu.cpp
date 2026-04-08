@@ -15,15 +15,17 @@ template <typename T> T constrain(T value, T min_val, T max_val) {
 } // namespace
 
 void UiHandler::karplus_edit_handle_switches(UiHandler &self) {
-    MidiHandler &midi = self.midi;
-    Sampler &sampler = self.sampler;
-
     const uint16_t curr = self.hw.curr_switches;
     KeyChanges changes = compute_key_changes(self.prev_switches, curr);
     update_leds_from_keys(i2c1, self.prev_switches, curr);
 
     for (int i = 0; i < 16; ++i) {
         if ((changes.note_on_mask >> i) & 1) {
+            if (i == 3) {
+                self.begin_randomizer_hold();
+                continue;
+            }
+
             const uint8_t note = key_to_midi[i];
 
             if (note != 255) {
@@ -34,15 +36,8 @@ void UiHandler::karplus_edit_handle_switches(UiHandler &self) {
                     KarplusVoice::tuned_delay_samples_for_note(midi_note);
                 self.karplus_edit_dirty = true;
 
-                if (self.midi_channel == 5) {
-                    sampler.trigger_player(note - 60);
-                } else if (self.switches_in) {
-                    uint8_t packet[4];
-                    packet[0] = 0x09; // CIN = Note On, Cable 0
-                    packet[1] = 0x90 | (self.midi_channel & 0x0F);
-                    packet[2] = midi_note;
-                    packet[3] = 0x7F;
-                    midi.midi_receive_note(packet);
+                if (self.switches_in) {
+                    self.track_switch_note_on(i, self.midi_channel, midi_note);
                 }
             } else {
                 switch (i) {
@@ -51,9 +46,6 @@ void UiHandler::karplus_edit_handle_switches(UiHandler &self) {
                         self.octave--;
                         self.karplus_edit_dirty = true;
                     }
-                    break;
-                case 3:
-                    UiHandler::randomize_current_engine_patch(self);
                     break;
                 case 11:
                     if (self.octave < 4) {
@@ -68,14 +60,14 @@ void UiHandler::karplus_edit_handle_switches(UiHandler &self) {
         }
 
         if ((changes.note_off_mask >> i) & 1) {
+            if (i == 3) {
+                self.end_randomizer_hold();
+                continue;
+            }
+
             const uint8_t note = key_to_midi[i];
-            if (note != 255 && self.switches_in) {
-                uint8_t packet[4];
-                packet[0] = 0x08; // CIN = Note Off, Cable 0
-                packet[1] = 0x80 | (self.midi_channel & 0x0F);
-                packet[2] = static_cast<uint8_t>(note + (12 * self.octave));
-                packet[3] = 0x7F;
-                midi.midi_receive_note(packet);
+            if (note != 255) {
+                self.release_tracked_switch_note(i);
             }
         }
     }
@@ -175,7 +167,11 @@ void UiHandler::karplus_edit_handle_encoders(UiHandler &self) {
         }
 
         if (!enc->button_state && enc->button_edge) {
-            if (i == 3) {
+            if (i == 0) {
+                self.release_all_tracked_switch_notes();
+                self.ui_state = advanced_page ? UI_STATE_MAIN : UI_STATE_KARPLUS_EDIT;
+            } else if (i == 3) {
+                self.release_all_tracked_switch_notes();
                 self.ui_state = UI_STATE_CHOOSE;
                 self.chosen_index = UI_STATE_FM_EDIT;
                 self.chosen_dirty = true;
@@ -186,6 +182,10 @@ void UiHandler::karplus_edit_handle_encoders(UiHandler &self) {
 }
 
 void UiHandler::karplus_edit_update_display(UiHandler &self) {
+    if (self.preset_browse_overlay_active()) {
+        return;
+    }
+
     if (self.ui_state != UI_STATE_KARPLUS_EDIT) {
         const uint32_t now_ms = to_ms_since_boot(get_absolute_time());
         if (now_ms - self.waveform_animation_last_ms >= 120) {

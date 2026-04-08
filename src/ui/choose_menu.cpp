@@ -5,6 +5,27 @@ namespace {
 inline int abs_int(int value) {
     return value < 0 ? -value : value;
 }
+
+constexpr UiState kVisibleChooseStates[] = {
+    UI_STATE_MAIN,
+    UI_STATE_FX_EDIT,
+    UI_STATE_ANALOG,
+    UI_STATE_MIDI_SETTINGS,
+    UI_STATE_SEQUENCER,
+    UI_STATE_SAMPLER,
+};
+
+constexpr int kVisibleChooseStateCount =
+    static_cast<int>(sizeof(kVisibleChooseStates) / sizeof(kVisibleChooseStates[0]));
+
+int find_visible_choose_index(int chosen_index) {
+    for (int i = 0; i < kVisibleChooseStateCount; ++i) {
+        if (static_cast<int>(kVisibleChooseStates[i]) == chosen_index) {
+            return i;
+        }
+    }
+    return 0;
+}
 } // namespace
 
 static int32_t encoder_accumulator = 0;
@@ -37,12 +58,17 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                     int dir = UiHandler::encoder_velocity_delta(encoder_accumulator, 1, 1, 2);
                     encoder_accumulator = 0; // Reset after handling
 
-                    self.chosen_index += dir;
-                    if (self.chosen_index >= NUM_USABLE_STATES - 1) {
-                        self.chosen_index = NUM_USABLE_STATES - 1;
-                    } else if (self.chosen_index <= 0) {
-                        self.chosen_index = 0;
+                    int visible_index =
+                        find_visible_choose_index(self.chosen_index);
+                    visible_index += dir;
+                    if (visible_index >= kVisibleChooseStateCount) {
+                        visible_index = kVisibleChooseStateCount - 1;
+                    } else if (visible_index < 0) {
+                        visible_index = 0;
                     }
+
+                    self.chosen_index =
+                        static_cast<int>(kVisibleChooseStates[visible_index]);
                     self.chosen_dirty = true;
                 }
                 break;
@@ -66,20 +92,22 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                 break;
             case 3:
                 if (self.chosen_index == UI_STATE_MAIN) {
+                    self.release_all_tracked_switch_notes();
                     self.engine_select_index =
                         static_cast<int>(self.synth.get_engine());
                     self.ui_state = UI_STATE_ENGINE_SELECT;
                     self.engine_select_dirty = true;
                 } else {
+                    self.release_all_tracked_switch_notes();
                     UiState target_state =
                         static_cast<UiState>(self.chosen_index);
                     if (self.chosen_index == UI_STATE_FM_EDIT &&
                         self.synth.get_engine() ==
                             SynthEngine::KarplusStrong) {
-                        target_state = UI_STATE_KARPLUS_EDIT;
+                        target_state = UI_STATE_MAIN;
                     } else if (self.chosen_index == UI_STATE_FM_EDIT &&
                                self.synth.get_engine() == SynthEngine::Modal) {
-                        target_state = UI_STATE_MODAL_EDIT;
+                        target_state = UI_STATE_MAIN;
                     }
 
                     self.ui_state = target_state;
@@ -105,6 +133,10 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
 }
 
 void UiHandler::choose_update_display(UiHandler &self) {
+    if (self.preset_browse_overlay_active()) {
+        return;
+    }
+
     HardwareManager &hw = self.hw;
 
     if (self.chosen_dirty) {

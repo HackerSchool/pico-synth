@@ -81,6 +81,10 @@ void UiHandler::sequencer_handle_encoders(UiHandler &self) {
 }
 
 void UiHandler::sequencer_update_display(UiHandler &self) {
+    if (self.preset_browse_overlay_active()) {
+        return;
+    }
+
     Sequencer &sequencer = self.seq;
     HardwareManager &hw = self.hw;
 

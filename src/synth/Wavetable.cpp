@@ -2,12 +2,7 @@
 #include "fixed_point.h"
 #include "math.h"
 
-const int16_t Q15_MAX = 32767;
 const int16_t Q14_MAX = 16384;
-
-const int wave_shift = WAVE_SHIFT;
-const int wave_len = WAVE_LEN;
-const int wave_max = WAVE_MAX;
 
 const char *wave_type_to_string(WaveType type) {
     switch (type) {
@@ -59,7 +54,7 @@ __attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
                 table[i] = static_cast<int16_t>(
                     32767); // sinc(0) = 1, scaled to int16_t range
             } else {
-                float x = static_cast<float>(i) / N;
+                double x = static_cast<double>(i) / N;
                 table[i] =
                     static_cast<int16_t>(32767 * sin(M_PI * x) / (M_PI * x));
             }
@@ -113,7 +108,7 @@ const std::array<q8_24_t, WAVE_TABLE_LEN> sinc_table_fp{[]() {
         if (i == 0) {
             table[i] = Q24_ONE; // sinc(0) = 1, scaled to int16_t range
         } else {
-            float x = static_cast<float>(i) * N / WAVE_TABLE_LEN;
+            double x = (static_cast<double>(i) * N) / WAVE_TABLE_LEN;
             table[i] = q24_from_float(
                 static_cast<float>((sin(M_PI * x) / (M_PI * x))));
         }
@@ -126,8 +121,8 @@ const std::array<q8_24_t, FILTER_ORDER> hanning_window_table_fp{[]() {
     std::array<q8_24_t, FILTER_ORDER> table{};
     for (int i = 0; i < FILTER_ORDER; i++) {
         // Hanning window formula: 0.5 * (1 - cos(2π*n/(N-1)))
-        float value = static_cast<float>(
-            0.5f * (1.0f - cos(2.0f * M_PI * i / (FILTER_ORDER - 1.0f))));
+        double value =
+            0.5 * (1.0 - cos((2.0 * M_PI * i) / (FILTER_ORDER - 1.0)));
         table[i] = q24_from_float(value); // Scale to int16_t range
     }
     return table;

@@ -10,6 +10,7 @@
 #include "quadrature_encoder.pio.h"
 #include "ssd1306.h"
 #include "tusb.h"
+#include <cstddef>
 #include <cstdint>
 
 #define PCF8574_KEYPAD_ADDR 0x20
@@ -147,6 +148,8 @@ class HardwareManager {
                          uint8_t position, uint8_t last_note);
 
     void draw_choose_menu(int chosen_index);
+    void draw_bitmap_select_menu(const uint8_t *bitmap_data,
+                                 std::size_t bitmap_size, const char *title);
     void draw_engine_select_menu(int chosen_index, int active_engine_index);
 
     void draw_sampler_menu(const WavFileList& wav_files, int sample_index, int sample_channel);
