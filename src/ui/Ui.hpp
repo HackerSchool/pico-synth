@@ -112,6 +112,8 @@ class UiHandler {
                                      int fast_step);
     static int encoder_velocity_delta(int32_t delta, int slow_step, int medium_step,
                                       int fast_step);
+    static int analog_value_step(int current_value_hundredths);
+    static int analog_encoder_delta(int32_t delta, int current_value_hundredths);
     static void randomize_current_engine_patch(UiHandler &self);
     static void randomize_fm_patch(UiHandler &self);
     static void randomize_karplus_patch(UiHandler &self);
@@ -226,8 +228,8 @@ class UiHandler {
 
     struct AnalogSettings {
         bool enabled = false;
-        uint8_t frequency_tenths_hz = 4;
-        uint8_t dispersion_percent = 2;
+        uint16_t frequency_hundredths_hz = 10000; // 100.00 Hz default (0.00-400.00 Hz range)
+        uint16_t dispersion_hundredths_percent = 100; // 1.00% default (0.00-100.00% range)
     } analog_settings;
 
     struct AnalogOperatorOffsets {

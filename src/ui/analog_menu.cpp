@@ -19,24 +19,28 @@ void UiHandler::analog_handle_encoders(UiHandler &self) {
         if (UiHandler::encoder_moved(delta)) {
             switch (i) {
             case 1: {
+                const int step_delta = UiHandler::analog_encoder_delta(
+                    delta, self.analog_settings.frequency_hundredths_hz);
                 const int next_value = clamp_int(
-                    static_cast<int>(self.analog_settings.frequency_tenths_hz) +
-                        UiHandler::encoder_velocity_delta(delta, 1, 2, 5),
-                    1, 100);
-                self.analog_settings.frequency_tenths_hz =
-                    static_cast<uint8_t>(next_value);
+                    static_cast<int>(self.analog_settings.frequency_hundredths_hz) +
+                        step_delta,
+                    0, 40000); // 0.00 Hz to 400.00 Hz
+                self.analog_settings.frequency_hundredths_hz =
+                    static_cast<uint16_t>(next_value);
                 self.analog_offsets_initialized = false;
                 self.analog_reapply_pending = true;
                 self.analog_dirty = true;
                 break;
             }
             case 2: {
+                const int step_delta = UiHandler::analog_encoder_delta(
+                    delta, self.analog_settings.dispersion_hundredths_percent);
                 const int next_value = clamp_int(
-                    static_cast<int>(self.analog_settings.dispersion_percent) +
-                        UiHandler::encoder_velocity_delta(delta, 1, 2, 5),
-                    0, 100);
-                self.analog_settings.dispersion_percent =
-                    static_cast<uint8_t>(next_value);
+                    static_cast<int>(self.analog_settings.dispersion_hundredths_percent) +
+                        step_delta,
+                    0, 10000); // 0.00% to 100.00%
+                self.analog_settings.dispersion_hundredths_percent =
+                    static_cast<uint16_t>(next_value);
                 self.analog_offsets_initialized = false;
                 self.analog_reapply_pending = true;
                 self.analog_dirty = true;
@@ -72,8 +76,8 @@ void UiHandler::analog_handle_encoders(UiHandler &self) {
 void UiHandler::analog_update_display(UiHandler &self) {
     if (self.analog_dirty) {
         self.hw.draw_analog_menu(self.analog_settings.enabled,
-                                 self.analog_settings.frequency_tenths_hz,
-                                 self.analog_settings.dispersion_percent);
+                                 self.analog_settings.frequency_hundredths_hz,
+                                 self.analog_settings.dispersion_hundredths_percent);
         self.hw.display_show();
         self.analog_dirty = false;
     }

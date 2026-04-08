@@ -69,11 +69,11 @@ int lerp_int(int start_value, int end_value, float progress) {
                              (end_value - start_value) * progress);
 }
 
-int dispersion_span(int total_range, uint8_t dispersion_percent,
+int dispersion_span(int total_range, uint16_t dispersion_hundredths_percent,
                     bool allow_minimum_step = true) {
-    if (dispersion_percent == 0 || total_range <= 0) return 0;
+    if (dispersion_hundredths_percent == 0 || total_range <= 0) return 0;
 
-    int span = (total_range * dispersion_percent + 99) / 100;
+    int span = (total_range * static_cast<int>(dispersion_hundredths_percent) + 9999) / 10000;
     if (allow_minimum_step && span == 0) span = 1;
     if (span > total_range) span = total_range;
     return span;
@@ -172,6 +172,26 @@ int UiHandler::encoder_velocity_delta(int32_t delta, int slow_step, int medium_s
     if (delta > 0) return encoder_velocity_step(delta, slow_step, medium_step, fast_step);
     if (delta < 0) return -encoder_velocity_step(delta, slow_step, medium_step, fast_step);
     return 0;
+}
+
+int UiHandler::analog_value_step(int current_value_hundredths) {
+    if (current_value_hundredths < 10) return 1;
+    if (current_value_hundredths < 100) return 10;
+    if (current_value_hundredths < 1000) return 100;
+    if (current_value_hundredths < 10000) return 1000;
+    return 10000;
+}
+
+int UiHandler::analog_encoder_delta(int32_t delta, int current_value_hundredths) {
+    if (delta == 0) return 0;
+
+    if (delta > 0) {
+        return analog_value_step(current_value_hundredths);
+    }
+
+    const int previous_value =
+        current_value_hundredths > 0 ? current_value_hundredths - 1 : 0;
+    return -analog_value_step(previous_value);
 }
 
 void UiHandler::randomize_current_engine_patch(UiHandler &self) {
@@ -396,15 +416,15 @@ void UiHandler::mark_all_fx_params_updated() {
 }
 
 uint32_t UiHandler::analog_update_interval_ms() const {
-    const uint32_t tenths_hz =
-        analog_settings.frequency_tenths_hz == 0
-            ? 1u
-            : static_cast<uint32_t>(analog_settings.frequency_tenths_hz);
-    return 10000u / tenths_hz;
+    if (analog_settings.frequency_hundredths_hz == 0) {
+        return 0xFFFFFFFFu;
+    }
+
+    return 100000u /
+           static_cast<uint32_t>(analog_settings.frequency_hundredths_hz);
 }
 
 void UiHandler::randomize_analog_targets() {
-    const uint8_t dispersion = analog_settings.dispersion_percent;
     const int max_wave_type = static_cast<int>(WaveType::Sinc);
     const int max_impulse_type = 6;
 
@@ -413,53 +433,70 @@ void UiHandler::randomize_analog_targets() {
         for (size_t op_index = 0; op_index < fm_offsets.ops.size(); ++op_index) {
             AnalogOperatorOffsets &op_offsets = fm_offsets.ops[op_index];
             op_offsets.wave_type = random_range_inclusive(
-                -dispersion_span(max_wave_type, dispersion, false),
-                dispersion_span(max_wave_type, dispersion, false));
+                -dispersion_span(max_wave_type, analog_settings.dispersion_hundredths_percent, false),
+                dispersion_span(max_wave_type, analog_settings.dispersion_hundredths_percent, false));
             op_offsets.attack = random_range_inclusive(
-                -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
             op_offsets.decay = random_range_inclusive(
-                -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
             op_offsets.sustain = random_range_inclusive(
-                -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
             op_offsets.release = random_range_inclusive(
-                -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
             op_offsets.ratio = random_range_inclusive(
-                -dispersion_span(15, dispersion), dispersion_span(15, dispersion));
+                -dispersion_span(15, analog_settings.dispersion_hundredths_percent),
+                dispersion_span(15, analog_settings.dispersion_hundredths_percent));
             op_offsets.feedback = random_range_inclusive(
-                -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
             op_offsets.fm_depth = random_range_inclusive(
-                -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+                -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+                dispersion_span(127, analog_settings.dispersion_hundredths_percent));
         }
 
         AnalogKarplusOffsets &karplus_offsets = analog_karplus_target_offsets[ch];
         karplus_offsets.impulse_type = random_range_inclusive(
-            -dispersion_span(max_impulse_type, dispersion, false),
-            dispersion_span(max_impulse_type, dispersion, false));
+            -dispersion_span(max_impulse_type, analog_settings.dispersion_hundredths_percent, false),
+            dispersion_span(max_impulse_type, analog_settings.dispersion_hundredths_percent, false));
         karplus_offsets.filter_gain = random_range_inclusive(
-            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
         karplus_offsets.decay = random_range_inclusive(
-            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
         karplus_offsets.impulse_length = random_range_inclusive(
-            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
         karplus_offsets.pick_position = random_range_inclusive(
-            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
         karplus_offsets.dispersion = random_range_inclusive(
-            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
         karplus_offsets.body_resonance = random_range_inclusive(
-            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
 
         AnalogModalOffsets &modal_offsets = analog_modal_target_offsets[ch];
         modal_offsets.structure = random_range_inclusive(
-            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
         modal_offsets.brightness = random_range_inclusive(
-            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
         modal_offsets.damping = random_range_inclusive(
-            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
         modal_offsets.position = random_range_inclusive(
-            -dispersion_span(127, dispersion), dispersion_span(127, dispersion));
+            -dispersion_span(127, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(127, analog_settings.dispersion_hundredths_percent));
         modal_offsets.exciter_type = random_range_inclusive(
-            -dispersion_span(3, dispersion, false),
-            dispersion_span(3, dispersion, false));
+            -dispersion_span(3, analog_settings.dispersion_hundredths_percent, false),
+            dispersion_span(3, analog_settings.dispersion_hundredths_percent, false));
     }
 
     for (size_t fx_id = 0; fx_id < analog_fx_target_offsets.size(); ++fx_id) {
@@ -468,11 +505,14 @@ void UiHandler::randomize_analog_targets() {
         const int p2_range = 32000;
         const int mix_range = 32000;
         fx_offsets.p1 = random_range_inclusive(
-            -dispersion_span(p1_range, dispersion), dispersion_span(p1_range, dispersion));
+            -dispersion_span(p1_range, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(p1_range, analog_settings.dispersion_hundredths_percent));
         fx_offsets.p2 = random_range_inclusive(
-            -dispersion_span(p2_range, dispersion), dispersion_span(p2_range, dispersion));
+            -dispersion_span(p2_range, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(p2_range, analog_settings.dispersion_hundredths_percent));
         fx_offsets.mix = random_range_inclusive(
-            -dispersion_span(mix_range, dispersion), dispersion_span(mix_range, dispersion));
+            -dispersion_span(mix_range, analog_settings.dispersion_hundredths_percent),
+            dispersion_span(mix_range, analog_settings.dispersion_hundredths_percent));
     }
 }
 

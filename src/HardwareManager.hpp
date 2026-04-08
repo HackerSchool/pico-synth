@@ -152,8 +152,8 @@ class HardwareManager {
     void draw_sampler_menu(const WavFileList& wav_files, int sample_index, int sample_channel);
 
     void draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int mix);
-    void draw_analog_menu(bool enabled, uint8_t frequency_tenths_hz,
-                          uint8_t dispersion_percent);
+    void draw_analog_menu(bool enabled, uint16_t frequency_hundredths_hz,
+                          uint16_t dispersion_hundredths_percent);
 
     void display_show();
     void display_clear();

@@ -614,21 +614,23 @@ void HardwareManager::draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int 
 
 }
 
-void HardwareManager::draw_analog_menu(bool enabled, uint8_t frequency_tenths_hz,
-                                       uint8_t dispersion_percent) {
+void HardwareManager::draw_analog_menu(bool enabled, uint16_t frequency_hundredths_hz,
+                                       uint16_t dispersion_hundredths_percent) {
     ssd1306_clear_square(&disp, 0, 0, 128, 64);
 
     ssd1306_draw_string_inverted(&disp, 8, 0, 1, "Analog Settings");
 
     char line1[24];
-    char line2[24];
+    char line2[28];
     char line3[24];
     char line4[24];
 
     snprintf(line1, sizeof(line1), "State: %s", enabled ? "ON" : "OFF");
-    snprintf(line2, sizeof(line2), "Freq: %u.%u Hz", frequency_tenths_hz / 10,
-             frequency_tenths_hz % 10);
-    snprintf(line3, sizeof(line3), "Disp: %u%%", dispersion_percent);
+    snprintf(line2, sizeof(line2), "Freq: %u.%02u Hz",
+             frequency_hundredths_hz / 100, frequency_hundredths_hz % 100);
+    snprintf(line3, sizeof(line3), "Disp: %u.%02u%%",
+             dispersion_hundredths_percent / 100,
+             dispersion_hundredths_percent % 100);
     snprintf(line4, sizeof(line4), "Btn1 Toggle Btn4 Back");
 
     ssd1306_draw_string(&disp, 8, 16, 1, line1);
