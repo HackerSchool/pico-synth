@@ -25,8 +25,49 @@ typedef enum UiState {
     UI_STATE_ENGINE_SELECT,
     UI_STATE_KARPLUS_EDIT,
     UI_STATE_MODAL_EDIT,
+    UI_STATE_LFO,
     UI_STATE_COUNT // helpful for bounds checking
 } UiState;
+
+enum class LfoTarget : uint8_t {
+    Off = 0,
+    FmOp1Wave,
+    FmOp1Attack,
+    FmOp1Decay,
+    FmOp1Sustain,
+    FmOp1Release,
+    FmOp1Ratio,
+    FmOp1Feedback,
+    FmOp1FmDepth,
+    FmOp2Wave,
+    FmOp2Attack,
+    FmOp2Decay,
+    FmOp2Sustain,
+    FmOp2Release,
+    FmOp2Ratio,
+    FmOp2Feedback,
+    FmOp2FmDepth,
+    KarplusImpulseType,
+    KarplusFilterGain,
+    KarplusDecay,
+    KarplusImpulseLength,
+    KarplusPickPosition,
+    KarplusDispersion,
+    KarplusBodyResonance,
+    ModalStructure,
+    ModalBrightness,
+    ModalDamping,
+    ModalPosition,
+    ModalExciterType,
+};
+
+struct LfoSettings {
+    LfoTarget target = LfoTarget::Off;
+    WaveType wave_type = WaveType::Sine;
+    uint16_t frequency_hundredths_hz = 100;
+    uint16_t depth_hundredths_percent = 0;
+    uint32_t phase_q32 = 0;
+};
 
 class UiHandler;
 
@@ -96,6 +137,9 @@ class UiHandler {
     static void fx_update_display(UiHandler &self);
     static void analog_handle_encoders(UiHandler &self);
     static void analog_update_display(UiHandler &self);
+    static void lfo_handle_encoders(UiHandler &self);
+    static void lfo_handle_switches(UiHandler &self);
+    static void lfo_update_display(UiHandler &self);
 
     // helpers:
 
@@ -205,6 +249,12 @@ class UiHandler {
     uint16_t karplus_last_delay_samples = 0;
     bool modal_edit_dirty = true;
     uint8_t modal_last_note = 60;
+    bool lfo_dirty = true;
+    uint8_t selected_lfo_index = 0;
+    static constexpr std::size_t LFO_COUNT = 3;
+    std::array<LfoSettings, LFO_COUNT> lfo_settings{};
+    uint32_t lfo_last_update_ms = 0;
+    bool lfo_was_active = false;
 
     // choose state~
     bool chosen_dirty = true;
@@ -233,18 +283,20 @@ class UiHandler {
         FX_REVERB = 2,
         FX_CHORUS = 3,
         FX_REVERB_SC = 4,
+        FX_COMPRESSOR = 5,
         FX_COUNT = Synth::FX_SLOT_COUNT
     };
     std::array<FxParams, FX_COUNT> fx_params = {{
         {250, 10000, 10000},  // Delay: time, feedback, mix
-        {500, 200, 30000},  // Distortion: drive, threshold, mix
+        {500, 200, 30000},    // Distortion: drive, threshold, mix
         {300, 500, 30000},   // Reverb: size, damp, mix
         {450, 32000, 32000},   // Chorus: rate, depth, mix
         {1000, 32000, 32000},  // RevSC: time, tone, mix
+        {420, 6000, 32000},    // Compressor: threshold, makeup, mix
     }};
     bool fx_dirty = true;
-    int current_fx = FX_DELAY;
-    bool fx_enabled[FX_COUNT] = { true, false, false, false, false };
+    int current_fx = FX_COMPRESSOR;
+    bool fx_enabled[FX_COUNT] = { false, false, false, false, false, true };
 
     struct AnalogSettings {
         bool enabled = false;
@@ -299,6 +351,9 @@ class UiHandler {
     std::array<Patch, 16> analog_patch_storage;
     std::array<KarplusPatch, 16> analog_karplus_patch_storage;
     std::array<ModalPatch, 16> analog_modal_patch_storage;
+    std::array<Patch, 16> lfo_patch_storage;
+    std::array<KarplusPatch, 16> lfo_karplus_patch_storage;
+    std::array<ModalPatch, 16> lfo_modal_patch_storage;
     std::array<FxParams, FX_COUNT> analog_fx_params{};
     std::array<AnalogFmOffsets, 16> analog_fm_source_offsets{};
     std::array<AnalogFmOffsets, 16> analog_fm_target_offsets{};
@@ -326,6 +381,13 @@ class UiHandler {
     void apply_analog_variation(float progress);
     void restore_base_parameters();
     void update_analog_variation();
+    static bool lfo_target_matches_engine(LfoTarget target, SynthEngine engine);
+    static const char *lfo_target_to_string(LfoTarget target);
+    static int lfo_route_count(SynthEngine engine);
+    static LfoTarget lfo_target_from_engine_index(SynthEngine engine, int index);
+    static int lfo_target_index_for_engine(SynthEngine engine, LfoTarget target);
+    void update_lfo_modulation();
+    bool lfo_engine_active(SynthEngine engine) const;
 };
 
 #endif // !UI_STATE_HPP

@@ -23,6 +23,7 @@ constexpr int kAdsrArrowY[4] = {36, 36, 44, 44};
 constexpr int kChooseStateMain = 0;
 constexpr int kChooseStateFxEdit = 2;
 constexpr int kChooseStateAnalog = 3;
+constexpr int kChooseStateLfo = 12;
 constexpr int kChooseStateMidi = 4;
 constexpr int kChooseStateSequencer = 5;
 constexpr int kChooseStateSampler = 6;
@@ -433,12 +434,13 @@ void HardwareManager::draw_choose_menu(int chosen_index) {
         kChooseStateMain,
         kChooseStateFxEdit,
         kChooseStateAnalog,
+        kChooseStateLfo,
         kChooseStateMidi,
         kChooseStateSequencer,
         kChooseStateSampler
     };
     const char* items[] = {
-        "Engine", "FX Edit", "Analog", "MIDI", "Sequencer", "Sampler"
+        "Engine", "FX Edit", "Analog", "LFO", "MIDI", "Sequencer", "Sampler"
     };
     const int item_count = sizeof(items) / sizeof(items[0]);
     int visible_index = 0;
@@ -542,9 +544,11 @@ void HardwareManager::draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int 
 
     char line1[28], line2[28], line3[28], line4[28];
 
-    const char* fx_names[] = {"Delay", "Distort", "FDN Reverb", "Chorus", "S/C Reverb"};
+    const char* fx_names[] = {
+        "Delay", "Distort", "FDN Reverb", "Chorus", "S/C Reverb", "Compress"
+    };
     const char* name = "Unknown";
-    if (fx_id >= 0 && fx_id < 5) name = fx_names[fx_id];
+    if (fx_id >= 0 && fx_id < 6) name = fx_names[fx_id];
 
     snprintf(line1, sizeof(line1), "%s - %s", name, enabled ? "ON" : "OFF");
 
@@ -572,6 +576,11 @@ void HardwareManager::draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int 
     case 4: // RevSC
         snprintf(line2, sizeof(line2), "Time: %d", p1);
         snprintf(line3, sizeof(line3), "Tone: %d", p2);
+        snprintf(line4, sizeof(line4), "Mix: %d", mix);
+        break;
+    case 5: // Compressor
+        snprintf(line2, sizeof(line2), "Thresh: %d", p1);
+        snprintf(line3, sizeof(line3), "Makeup: %d", p2);
         snprintf(line4, sizeof(line4), "Mix: %d", mix);
         break;
     default:
@@ -605,6 +614,40 @@ void HardwareManager::draw_analog_menu(bool enabled, uint16_t frequency_hundredt
              dispersion_hundredths_percent / 100,
              dispersion_hundredths_percent % 100);
     snprintf(line4, sizeof(line4), "Btn1 Toggle Btn4 Back");
+
+    ssd1306_draw_string(&disp, 8, 16, 1, line1);
+    ssd1306_draw_string(&disp, 8, 28, 1, line2);
+    ssd1306_draw_string(&disp, 8, 40, 1, line3);
+    ssd1306_draw_string(&disp, 8, 56, 1, line4);
+}
+
+void HardwareManager::draw_lfo_menu(uint8_t selected_lfo, uint8_t total_lfos,
+                                    const char *engine_name,
+                                    const char *route_name, WaveType wave_type,
+                                    uint16_t frequency_hundredths_hz,
+                                    uint16_t depth_hundredths_percent) {
+    clear_display(&disp);
+
+    char title[20];
+    snprintf(title, sizeof(title), "LFO %u/%u", selected_lfo + 1, total_lfos);
+    draw_title(&disp, title);
+
+    char line1[24];
+    snprintf(line1, sizeof(line1), "Eng: %s", engine_name != nullptr ? engine_name : "");
+
+    char line2[24];
+    snprintf(line2, sizeof(line2), "Route: %.14s",
+             route_name != nullptr ? route_name : "OFF");
+
+    char line3[24];
+    snprintf(line3, sizeof(line3), "Wave:%s F:%u.%02u",
+             wave_type_to_string(wave_type),
+             frequency_hundredths_hz / 100, frequency_hundredths_hz % 100);
+
+    char line4[24];
+    snprintf(line4, sizeof(line4), "Depth:%u.%02u%%",
+             depth_hundredths_percent / 100,
+             depth_hundredths_percent % 100);
 
     ssd1306_draw_string(&disp, 8, 16, 1, line1);
     ssd1306_draw_string(&disp, 8, 28, 1, line2);

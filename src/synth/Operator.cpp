@@ -45,16 +45,9 @@ void Voice::gate_off() {
 
 bool Voice::is_idle() { return (op[0].env.state == ADSREnvelope::ENV_IDLE); }
 
-// Enhanced apply_patch with more debugging:
 void Voice::apply_patch(const Patch &patch) {
-    printf("=== Applying patch to voice - channel: %d, note: %d ===\n",
-           midi_channel, midi_note);
-
     for (int i = 0; i < OP_PER_VOICE; ++i) {
         const OperatorParams &p = patch.ops[i];
-
-        printf("  Op %d BEFORE: fm_depth=%d, ratio=%d\n", i, op[i].fm_depth,
-               op[i].ratio);
 
         // Apply patch parameters
         op[i].osc.set_wavetable(p.wave_type);
@@ -66,9 +59,5 @@ void Voice::apply_patch(const Patch &patch) {
         //make it update in real time baby
         op[i].osc.set_dco_step(midi_note, op[i].ratio);
         // voice[i].op[1].osc.set_dco_step(note, voice[i].op[1].ratio);
-
-        printf("  Op %d AFTER: fm_depth=%d, ratio=%d\n", i, op[i].fm_depth,
-               op[i].ratio);
     }
-    printf("=== Patch applied ===\n");
 }

@@ -12,6 +12,27 @@ constexpr int kPresetDetentThreshold = 4;
 constexpr uint32_t kUiRandomSeed = 0xC0DE5EEDu;
 constexpr int16_t kInvalidTrackedNote = -1;
 constexpr int8_t kInvalidTrackedChannel = -1;
+constexpr uint64_t kLfoPhaseScale = (1ull << 32);
+
+constexpr std::array<LfoTarget, 17> kFmLfoTargets = {
+    LfoTarget::Off,          LfoTarget::FmOp1Wave,
+    LfoTarget::FmOp1Attack,  LfoTarget::FmOp1Decay,
+    LfoTarget::FmOp1Sustain, LfoTarget::FmOp1Release,
+    LfoTarget::FmOp1Ratio,   LfoTarget::FmOp1Feedback,
+    LfoTarget::FmOp1FmDepth, LfoTarget::FmOp2Wave,
+    LfoTarget::FmOp2Attack,  LfoTarget::FmOp2Decay,
+    LfoTarget::FmOp2Sustain, LfoTarget::FmOp2Release,
+    LfoTarget::FmOp2Ratio,   LfoTarget::FmOp2Feedback,
+    LfoTarget::FmOp2FmDepth};
+constexpr std::array<LfoTarget, 8> kKarplusLfoTargets = {
+    LfoTarget::Off,                LfoTarget::KarplusImpulseType,
+    LfoTarget::KarplusFilterGain,  LfoTarget::KarplusDecay,
+    LfoTarget::KarplusImpulseLength, LfoTarget::KarplusPickPosition,
+    LfoTarget::KarplusDispersion,  LfoTarget::KarplusBodyResonance};
+constexpr std::array<LfoTarget, 6> kModalLfoTargets = {
+    LfoTarget::Off,           LfoTarget::ModalStructure,
+    LfoTarget::ModalBrightness, LfoTarget::ModalDamping,
+    LfoTarget::ModalPosition, LfoTarget::ModalExciterType};
 
 uint32_t ui_random_state = kUiRandomSeed;
 
@@ -95,12 +116,193 @@ int lerp_int(int start_value, int end_value, float progress) {
                              (end_value - start_value) * progress);
 }
 
+int round_to_int(float value) {
+    return static_cast<int>(value + (value >= 0.0f ? 0.5f : -0.5f));
+}
+
+const std::array<int16_t, WAVE_TABLE_LEN> &lfo_wave_table(WaveType type) {
+    switch (type) {
+    case Square:
+        return square_wave_table;
+    case Triangle:
+        return triangle_wave_table;
+    case Sawtooth:
+        return sawtooth_wave_table;
+    case Sinc:
+        return sinc_table;
+    case Sine:
+    default:
+        return sine_wave_table;
+    }
+}
+
+float lfo_wave_sample(WaveType type, uint32_t phase_q32) {
+    const auto &table = lfo_wave_table(type);
+    const uint32_t index =
+        (phase_q32 >> (32 - WAVE_SHIFT)) & (WAVE_TABLE_LEN - 1);
+    return static_cast<float>(table[index]) / 32767.0f;
+}
+
+int lfo_target_range(LfoTarget target) {
+    switch (target) {
+    case LfoTarget::FmOp1Wave:
+    case LfoTarget::FmOp2Wave:
+        return static_cast<int>(WaveType::Sinc);
+    case LfoTarget::FmOp1Ratio:
+    case LfoTarget::FmOp2Ratio:
+        return 15;
+    case LfoTarget::KarplusImpulseType:
+        return 6;
+    case LfoTarget::ModalExciterType:
+        return 3;
+    case LfoTarget::Off:
+        return 0;
+    default:
+        return 127;
+    }
+}
+
+void apply_fm_lfo_target(Patch &patch, LfoTarget target, int amount) {
+    switch (target) {
+    case LfoTarget::FmOp1Wave:
+        patch.ops[0].wave_type = static_cast<WaveType>(clamp_int(
+            static_cast<int>(patch.ops[0].wave_type) + amount, 0,
+            static_cast<int>(WaveType::Sinc)));
+        break;
+    case LfoTarget::FmOp1Attack:
+        patch.ops[0].attack =
+            clamp_u8(static_cast<int>(patch.ops[0].attack) + amount, 0, 127);
+        break;
+    case LfoTarget::FmOp1Decay:
+        patch.ops[0].decay =
+            clamp_u8(static_cast<int>(patch.ops[0].decay) + amount, 0, 127);
+        break;
+    case LfoTarget::FmOp1Sustain:
+        patch.ops[0].sustain =
+            clamp_u8(static_cast<int>(patch.ops[0].sustain) + amount, 0, 127);
+        break;
+    case LfoTarget::FmOp1Release:
+        patch.ops[0].release =
+            clamp_u8(static_cast<int>(patch.ops[0].release) + amount, 0, 127);
+        break;
+    case LfoTarget::FmOp1Ratio:
+        patch.ops[0].ratio =
+            clamp_u16(static_cast<int>(patch.ops[0].ratio) + amount, 1, 16);
+        break;
+    case LfoTarget::FmOp1Feedback:
+        patch.ops[0].feedback =
+            clamp_u16(static_cast<int>(patch.ops[0].feedback) + amount, 0, 127);
+        break;
+    case LfoTarget::FmOp1FmDepth:
+        patch.ops[0].fm_depth =
+            clamp_u16(static_cast<int>(patch.ops[0].fm_depth) + amount, 0, 127);
+        break;
+    case LfoTarget::FmOp2Wave:
+        patch.ops[1].wave_type = static_cast<WaveType>(clamp_int(
+            static_cast<int>(patch.ops[1].wave_type) + amount, 0,
+            static_cast<int>(WaveType::Sinc)));
+        break;
+    case LfoTarget::FmOp2Attack:
+        patch.ops[1].attack =
+            clamp_u8(static_cast<int>(patch.ops[1].attack) + amount, 0, 127);
+        break;
+    case LfoTarget::FmOp2Decay:
+        patch.ops[1].decay =
+            clamp_u8(static_cast<int>(patch.ops[1].decay) + amount, 0, 127);
+        break;
+    case LfoTarget::FmOp2Sustain:
+        patch.ops[1].sustain =
+            clamp_u8(static_cast<int>(patch.ops[1].sustain) + amount, 0, 127);
+        break;
+    case LfoTarget::FmOp2Release:
+        patch.ops[1].release =
+            clamp_u8(static_cast<int>(patch.ops[1].release) + amount, 0, 127);
+        break;
+    case LfoTarget::FmOp2Ratio:
+        patch.ops[1].ratio =
+            clamp_u16(static_cast<int>(patch.ops[1].ratio) + amount, 1, 16);
+        break;
+    case LfoTarget::FmOp2Feedback:
+        patch.ops[1].feedback =
+            clamp_u16(static_cast<int>(patch.ops[1].feedback) + amount, 0, 127);
+        break;
+    case LfoTarget::FmOp2FmDepth:
+        patch.ops[1].fm_depth =
+            clamp_u16(static_cast<int>(patch.ops[1].fm_depth) + amount, 0, 127);
+        break;
+    default:
+        break;
+    }
+}
+
+void apply_karplus_lfo_target(KarplusPatch &patch, LfoTarget target,
+                              int amount) {
+    switch (target) {
+    case LfoTarget::KarplusImpulseType:
+        patch.impulse_type = static_cast<KarplusImpulseType>(clamp_int(
+            static_cast<int>(patch.impulse_type) + amount, 0, 6));
+        break;
+    case LfoTarget::KarplusFilterGain:
+        patch.filter_gain =
+            clamp_u8(static_cast<int>(patch.filter_gain) + amount, 0, 127);
+        break;
+    case LfoTarget::KarplusDecay:
+        patch.decay = clamp_u8(static_cast<int>(patch.decay) + amount, 0, 127);
+        break;
+    case LfoTarget::KarplusImpulseLength:
+        patch.impulse_length =
+            clamp_u8(static_cast<int>(patch.impulse_length) + amount, 0, 127);
+        break;
+    case LfoTarget::KarplusPickPosition:
+        patch.pick_position =
+            clamp_u8(static_cast<int>(patch.pick_position) + amount, 0, 127);
+        break;
+    case LfoTarget::KarplusDispersion:
+        patch.dispersion =
+            clamp_u8(static_cast<int>(patch.dispersion) + amount, 0, 127);
+        break;
+    case LfoTarget::KarplusBodyResonance:
+        patch.body_resonance =
+            clamp_u8(static_cast<int>(patch.body_resonance) + amount, 0, 127);
+        break;
+    default:
+        break;
+    }
+}
+
+void apply_modal_lfo_target(ModalPatch &patch, LfoTarget target, int amount) {
+    switch (target) {
+    case LfoTarget::ModalStructure:
+        patch.structure =
+            clamp_u8(static_cast<int>(patch.structure) + amount, 0, 127);
+        break;
+    case LfoTarget::ModalBrightness:
+        patch.brightness =
+            clamp_u8(static_cast<int>(patch.brightness) + amount, 0, 127);
+        break;
+    case LfoTarget::ModalDamping:
+        patch.damping =
+            clamp_u8(static_cast<int>(patch.damping) + amount, 0, 127);
+        break;
+    case LfoTarget::ModalPosition:
+        patch.position =
+            clamp_u8(static_cast<int>(patch.position) + amount, 0, 127);
+        break;
+    case LfoTarget::ModalExciterType:
+        patch.exciter_type = static_cast<ModalExciterType>(clamp_int(
+            static_cast<int>(patch.exciter_type) + amount, 0, 3));
+        break;
+    default:
+        break;
+    }
+}
+
 int dispersion_span(int total_range, uint16_t dispersion_hundredths_percent,
                     bool allow_minimum_step = true) {
+    (void)allow_minimum_step;
     if (dispersion_hundredths_percent == 0 || total_range <= 0) return 0;
 
-    int span = (total_range * static_cast<int>(dispersion_hundredths_percent) + 9999) / 10000;
-    if (allow_minimum_step && span == 0) span = 1;
+    int span = (total_range * static_cast<int>(dispersion_hundredths_percent)) / 10000;
     if (span > total_range) span = total_range;
     return span;
 }
@@ -141,6 +343,8 @@ UiHandler::UiHandler(HardwareManager &hw, MidiHandler &midi_handler,
                    fx_update_display);
     register_state(UI_STATE_ANALOG, analog_handle_encoders,
                    main_handle_switches, analog_update_display);
+    register_state(UI_STATE_LFO, lfo_handle_encoders, lfo_handle_switches,
+                   lfo_update_display);
     register_state(UI_STATE_MIDI_SETTINGS, midi_handle_encoders,
                    main_handle_switches, midi_update_display);
     register_state(UI_STATE_SEQUENCER, sequencer_handle_encoders,
@@ -176,6 +380,7 @@ void UiHandler::update() {
     ui_dispatch_entry.handle_switches(*this);
     tud_task(); // Service USB
     update_analog_variation();
+    update_lfo_modulation();
     tud_task(); // Service USB
     ui_dispatch_entry.handle_display(*this);
     update_preset_browse_display();
@@ -285,6 +490,7 @@ void UiHandler::invalidate_all_displays() {
     fm_edit_dirty = true;
     karplus_edit_dirty = true;
     modal_edit_dirty = true;
+    lfo_dirty = true;
     fx_dirty = true;
     analog_dirty = true;
 }
@@ -390,7 +596,6 @@ void UiHandler::apply_preset_state(const PresetState &state, int preset_index) {
     }
 
     invalidate_all_displays();
-    printf("Preset applied: %s\n", state.title);
 }
 
 void UiHandler::end_randomizer_hold() {
@@ -532,7 +737,6 @@ void UiHandler::randomize_fm_patch(UiHandler &self) {
     self.filter_dirty = true;
     self.fm_edit_dirty = true;
 
-    printf("Randomized FM patch on channel %d\n", self.midi_channel + 1);
 }
 
 void UiHandler::randomize_karplus_patch(UiHandler &self) {
@@ -556,8 +760,6 @@ void UiHandler::randomize_karplus_patch(UiHandler &self) {
     self.channel_dirty = true;
     self.karplus_edit_dirty = true;
 
-    printf("Randomized Karplus patch on channel %d\n",
-           self.midi_channel + 1);
 }
 
 void UiHandler::randomize_modal_patch(UiHandler &self) {
@@ -576,14 +778,10 @@ void UiHandler::randomize_modal_patch(UiHandler &self) {
     self.channel_dirty = true;
     self.modal_edit_dirty = true;
 
-    printf("Randomized Modal patch on channel %d\n",
-           self.midi_channel + 1);
 }
 
 void UiHandler::set_delay_param(int delay_ms, int feedback, int mix){
-    synth.delay_effect.set_delay_ms(delay_ms);
-    synth.delay_effect.set_feedback(feedback);
-    synth.delay_effect.set_mix(mix);
+    synth.set_fx_params(FX_DELAY, delay_ms, feedback, mix);
 }
 
 void UiHandler::set_fx_param(int p1, int p2, int mix){
@@ -682,8 +880,6 @@ uint32_t UiHandler::analog_update_interval_ms() const {
 }
 
 void UiHandler::randomize_analog_targets() {
-    const int max_wave_type = static_cast<int>(WaveType::Sinc);
-    const int max_impulse_type = 6;
     const auto random_offset = [&](int range, bool allow_minimum_step = true) {
         const int span = dispersion_span(
             range, analog_settings.dispersion_hundredths_percent,
@@ -695,18 +891,18 @@ void UiHandler::randomize_analog_targets() {
         AnalogFmOffsets &fm_offsets = analog_fm_target_offsets[ch];
         for (size_t op_index = 0; op_index < fm_offsets.ops.size(); ++op_index) {
             AnalogOperatorOffsets &op_offsets = fm_offsets.ops[op_index];
-            op_offsets.wave_type = random_offset(max_wave_type, false);
+            op_offsets.wave_type = 0;
             op_offsets.attack = random_offset(127);
             op_offsets.decay = random_offset(127);
             op_offsets.sustain = random_offset(127);
             op_offsets.release = random_offset(127);
-            op_offsets.ratio = random_offset(15);
+            op_offsets.ratio = 0;
             op_offsets.feedback = random_offset(127);
             op_offsets.fm_depth = random_offset(127);
         }
 
         AnalogKarplusOffsets &karplus_offsets = analog_karplus_target_offsets[ch];
-        karplus_offsets.impulse_type = random_offset(max_impulse_type, false);
+        karplus_offsets.impulse_type = 0;
         karplus_offsets.filter_gain = random_offset(127);
         karplus_offsets.decay = random_offset(127);
         karplus_offsets.impulse_length = random_offset(127);
@@ -719,14 +915,14 @@ void UiHandler::randomize_analog_targets() {
         modal_offsets.brightness = random_offset(127);
         modal_offsets.damping = random_offset(127);
         modal_offsets.position = random_offset(127);
-        modal_offsets.exciter_type = random_offset(3, false);
+        modal_offsets.exciter_type = 0;
     }
 
     for (size_t fx_id = 0; fx_id < analog_fx_target_offsets.size(); ++fx_id) {
         AnalogFxOffsets &fx_offsets = analog_fx_target_offsets[fx_id];
-        fx_offsets.p1 = random_offset(1000);
-        fx_offsets.p2 = random_offset(32000);
-        fx_offsets.mix = random_offset(32000);
+        fx_offsets.p1 = 0;
+        fx_offsets.p2 = 0;
+        fx_offsets.mix = 0;
     }
 }
 
@@ -1046,6 +1242,308 @@ void UiHandler::update_analog_variation() {
     apply_analog_variation(progress);
     analog_reapply_pending = false;
     analog_was_active = true;
+}
+
+bool UiHandler::lfo_target_matches_engine(LfoTarget target,
+                                          SynthEngine engine) {
+    switch (engine) {
+    case SynthEngine::KarplusStrong:
+        return target == LfoTarget::KarplusImpulseType ||
+               target == LfoTarget::KarplusFilterGain ||
+               target == LfoTarget::KarplusDecay ||
+               target == LfoTarget::KarplusImpulseLength ||
+               target == LfoTarget::KarplusPickPosition ||
+               target == LfoTarget::KarplusDispersion ||
+               target == LfoTarget::KarplusBodyResonance;
+    case SynthEngine::Modal:
+        return target == LfoTarget::ModalStructure ||
+               target == LfoTarget::ModalBrightness ||
+               target == LfoTarget::ModalDamping ||
+               target == LfoTarget::ModalPosition ||
+               target == LfoTarget::ModalExciterType;
+    case SynthEngine::FM:
+    default:
+        return target == LfoTarget::FmOp1Wave ||
+               target == LfoTarget::FmOp1Attack ||
+               target == LfoTarget::FmOp1Decay ||
+               target == LfoTarget::FmOp1Sustain ||
+               target == LfoTarget::FmOp1Release ||
+               target == LfoTarget::FmOp1Ratio ||
+               target == LfoTarget::FmOp1Feedback ||
+               target == LfoTarget::FmOp1FmDepth ||
+               target == LfoTarget::FmOp2Wave ||
+               target == LfoTarget::FmOp2Attack ||
+               target == LfoTarget::FmOp2Decay ||
+               target == LfoTarget::FmOp2Sustain ||
+               target == LfoTarget::FmOp2Release ||
+               target == LfoTarget::FmOp2Ratio ||
+               target == LfoTarget::FmOp2Feedback ||
+               target == LfoTarget::FmOp2FmDepth;
+    }
+}
+
+const char *UiHandler::lfo_target_to_string(LfoTarget target) {
+    switch (target) {
+    case LfoTarget::Off:
+        return "OFF";
+    case LfoTarget::FmOp1Wave:
+        return "Op1 Wave";
+    case LfoTarget::FmOp1Attack:
+        return "Op1 Attack";
+    case LfoTarget::FmOp1Decay:
+        return "Op1 Decay";
+    case LfoTarget::FmOp1Sustain:
+        return "Op1 Sustain";
+    case LfoTarget::FmOp1Release:
+        return "Op1 Release";
+    case LfoTarget::FmOp1Ratio:
+        return "Op1 Ratio";
+    case LfoTarget::FmOp1Feedback:
+        return "Op1 Feedback";
+    case LfoTarget::FmOp1FmDepth:
+        return "Op1 Depth";
+    case LfoTarget::FmOp2Wave:
+        return "Op2 Wave";
+    case LfoTarget::FmOp2Attack:
+        return "Op2 Attack";
+    case LfoTarget::FmOp2Decay:
+        return "Op2 Decay";
+    case LfoTarget::FmOp2Sustain:
+        return "Op2 Sustain";
+    case LfoTarget::FmOp2Release:
+        return "Op2 Release";
+    case LfoTarget::FmOp2Ratio:
+        return "Op2 Ratio";
+    case LfoTarget::FmOp2Feedback:
+        return "Op2 Feedback";
+    case LfoTarget::FmOp2FmDepth:
+        return "Op2 Depth";
+    case LfoTarget::KarplusImpulseType:
+        return "Impulse";
+    case LfoTarget::KarplusFilterGain:
+        return "Filter Gain";
+    case LfoTarget::KarplusDecay:
+        return "Decay";
+    case LfoTarget::KarplusImpulseLength:
+        return "Imp Length";
+    case LfoTarget::KarplusPickPosition:
+        return "Pick Pos";
+    case LfoTarget::KarplusDispersion:
+        return "Dispersion";
+    case LfoTarget::KarplusBodyResonance:
+        return "Body Res";
+    case LfoTarget::ModalStructure:
+        return "Structure";
+    case LfoTarget::ModalBrightness:
+        return "Brightness";
+    case LfoTarget::ModalDamping:
+        return "Damping";
+    case LfoTarget::ModalPosition:
+        return "Position";
+    case LfoTarget::ModalExciterType:
+        return "Exciter";
+    default:
+        return "OFF";
+    }
+}
+
+int UiHandler::lfo_route_count(SynthEngine engine) {
+    switch (engine) {
+    case SynthEngine::KarplusStrong:
+        return static_cast<int>(kKarplusLfoTargets.size());
+    case SynthEngine::Modal:
+        return static_cast<int>(kModalLfoTargets.size());
+    case SynthEngine::FM:
+    default:
+        return static_cast<int>(kFmLfoTargets.size());
+    }
+}
+
+LfoTarget UiHandler::lfo_target_from_engine_index(SynthEngine engine,
+                                                  int index) {
+    if (index < 0) {
+        index = 0;
+    }
+
+    switch (engine) {
+    case SynthEngine::KarplusStrong:
+        if (index >= static_cast<int>(kKarplusLfoTargets.size())) {
+            index = static_cast<int>(kKarplusLfoTargets.size()) - 1;
+        }
+        return kKarplusLfoTargets[static_cast<std::size_t>(index)];
+    case SynthEngine::Modal:
+        if (index >= static_cast<int>(kModalLfoTargets.size())) {
+            index = static_cast<int>(kModalLfoTargets.size()) - 1;
+        }
+        return kModalLfoTargets[static_cast<std::size_t>(index)];
+    case SynthEngine::FM:
+    default:
+        if (index >= static_cast<int>(kFmLfoTargets.size())) {
+            index = static_cast<int>(kFmLfoTargets.size()) - 1;
+        }
+        return kFmLfoTargets[static_cast<std::size_t>(index)];
+    }
+}
+
+int UiHandler::lfo_target_index_for_engine(SynthEngine engine,
+                                           LfoTarget target) {
+    switch (engine) {
+    case SynthEngine::KarplusStrong:
+        for (std::size_t i = 0; i < kKarplusLfoTargets.size(); ++i) {
+            if (kKarplusLfoTargets[i] == target) return static_cast<int>(i);
+        }
+        return 0;
+    case SynthEngine::Modal:
+        for (std::size_t i = 0; i < kModalLfoTargets.size(); ++i) {
+            if (kModalLfoTargets[i] == target) return static_cast<int>(i);
+        }
+        return 0;
+    case SynthEngine::FM:
+    default:
+        for (std::size_t i = 0; i < kFmLfoTargets.size(); ++i) {
+            if (kFmLfoTargets[i] == target) return static_cast<int>(i);
+        }
+        return 0;
+    }
+}
+
+bool UiHandler::lfo_engine_active(SynthEngine engine) const {
+    for (const LfoSettings &lfo : lfo_settings) {
+        if (lfo.target != LfoTarget::Off && lfo.depth_hundredths_percent > 0 &&
+            lfo_target_matches_engine(lfo.target, engine)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void UiHandler::update_lfo_modulation() {
+    const uint32_t now = to_ms_since_boot(get_absolute_time());
+    if (lfo_last_update_ms == 0) {
+        lfo_last_update_ms = now;
+    }
+
+    const uint32_t elapsed_ms = now - lfo_last_update_ms;
+    lfo_last_update_ms = now;
+
+    const SynthEngine engine = synth.get_engine();
+
+    for (LfoSettings &lfo : lfo_settings) {
+        if (lfo.target == LfoTarget::Off ||
+            !lfo_target_matches_engine(lfo.target, engine) ||
+            lfo.frequency_hundredths_hz == 0 || elapsed_ms == 0) {
+            continue;
+        }
+
+        const uint64_t phase_advance =
+            (static_cast<uint64_t>(lfo.frequency_hundredths_hz) * elapsed_ms *
+             kLfoPhaseScale) /
+            100000ull;
+        lfo.phase_q32 += static_cast<uint32_t>(phase_advance);
+    }
+
+    if (!lfo_engine_active(engine)) {
+        if (!analog_settings.enabled && lfo_was_active) {
+            restore_base_parameters();
+        }
+        lfo_was_active = false;
+        return;
+    }
+
+    switch (engine) {
+    case SynthEngine::KarplusStrong:
+        for (std::size_t ch = 0; ch < lfo_karplus_patch_storage.size(); ++ch) {
+            const KarplusPatch &source =
+                analog_settings.enabled ? analog_karplus_patch_storage[ch]
+                                        : synth.karplus_patch_storage[ch];
+            lfo_karplus_patch_storage[ch] = source;
+
+            for (const LfoSettings &lfo : lfo_settings) {
+                if (lfo.target == LfoTarget::Off ||
+                    lfo.depth_hundredths_percent == 0 ||
+                    !lfo_target_matches_engine(lfo.target, engine)) {
+                    continue;
+                }
+
+                const float sample =
+                    lfo.frequency_hundredths_hz == 0
+                        ? 0.0f
+                        : lfo_wave_sample(lfo.wave_type, lfo.phase_q32);
+                const int amount = round_to_int(
+                    sample * static_cast<float>(lfo_target_range(lfo.target)) *
+                    (static_cast<float>(lfo.depth_hundredths_percent) / 10000.0f));
+                apply_karplus_lfo_target(lfo_karplus_patch_storage[ch],
+                                         lfo.target, amount);
+            }
+
+            synth.active_karplus_patch[ch].store(&lfo_karplus_patch_storage[ch],
+                                                 std::memory_order_release);
+            synth.karplus_patch_dirty_flags.set(ch);
+        }
+        break;
+    case SynthEngine::Modal:
+        for (std::size_t ch = 0; ch < lfo_modal_patch_storage.size(); ++ch) {
+            const ModalPatch &source =
+                analog_settings.enabled ? analog_modal_patch_storage[ch]
+                                        : synth.modal_patch_storage[ch];
+            lfo_modal_patch_storage[ch] = source;
+
+            for (const LfoSettings &lfo : lfo_settings) {
+                if (lfo.target == LfoTarget::Off ||
+                    lfo.depth_hundredths_percent == 0 ||
+                    !lfo_target_matches_engine(lfo.target, engine)) {
+                    continue;
+                }
+
+                const float sample =
+                    lfo.frequency_hundredths_hz == 0
+                        ? 0.0f
+                        : lfo_wave_sample(lfo.wave_type, lfo.phase_q32);
+                const int amount = round_to_int(
+                    sample * static_cast<float>(lfo_target_range(lfo.target)) *
+                    (static_cast<float>(lfo.depth_hundredths_percent) / 10000.0f));
+                apply_modal_lfo_target(lfo_modal_patch_storage[ch], lfo.target,
+                                       amount);
+            }
+
+            synth.active_modal_patch[ch].store(&lfo_modal_patch_storage[ch],
+                                               std::memory_order_release);
+            synth.modal_patch_dirty_flags.set(ch);
+        }
+        break;
+    case SynthEngine::FM:
+    default:
+        for (std::size_t ch = 0; ch < lfo_patch_storage.size(); ++ch) {
+            const Patch &source =
+                analog_settings.enabled ? analog_patch_storage[ch]
+                                        : synth.patch_storage[ch];
+            lfo_patch_storage[ch] = source;
+
+            for (const LfoSettings &lfo : lfo_settings) {
+                if (lfo.target == LfoTarget::Off ||
+                    lfo.depth_hundredths_percent == 0 ||
+                    !lfo_target_matches_engine(lfo.target, engine)) {
+                    continue;
+                }
+
+                const float sample =
+                    lfo.frequency_hundredths_hz == 0
+                        ? 0.0f
+                        : lfo_wave_sample(lfo.wave_type, lfo.phase_q32);
+                const int amount = round_to_int(
+                    sample * static_cast<float>(lfo_target_range(lfo.target)) *
+                    (static_cast<float>(lfo.depth_hundredths_percent) / 10000.0f));
+                apply_fm_lfo_target(lfo_patch_storage[ch], lfo.target, amount);
+            }
+
+            synth.active_patch[ch].store(&lfo_patch_storage[ch],
+                                         std::memory_order_release);
+            synth.patch_dirty_flags.set(ch);
+        }
+        break;
+    }
+
+    lfo_was_active = true;
 }
 
 uint8_t UiHandler::get_adsr_param(int param) {

@@ -28,17 +28,14 @@ void UiHandler::midi_handle_encoders(UiHandler &self) {
             case 0:
                 self.midi_out = !self.midi_out;
                 self.midi_settings_dirty = true;
-                printf("MIDI Out: %s\n", self.midi_out ? "ON" : "OFF");
                 break;
             case 1:
                 self.midi_in = !self.midi_in;
                 self.midi_settings_dirty = true;
-                printf("MIDI In: %s\n", self.midi_in ? "ON" : "OFF");
                 break;
             case 2:
                 self.switches_in = !self.switches_in;
                 self.midi_settings_dirty = true;
-                printf("Switches In: %s\n", self.switches_in ? "ON" : "OFF");
                 break;
             case 3:
                 // Exit back to main menu
@@ -46,7 +43,6 @@ void UiHandler::midi_handle_encoders(UiHandler &self) {
                 self.chosen_index = UI_STATE_MIDI_SETTINGS;
                 self.midi_settings_dirty = true;
                 self.chosen_dirty = true;
-                printf("State: CHOOSE_STATE\n");
                 break;
             }
         }

@@ -23,8 +23,7 @@ const char *wave_type_to_string(WaveType type) {
 
 // This method allows to define the wavetable at compile time!
 // Sine Wavetable
-__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
-    sine_wave_table{[]() {
+const std::array<int16_t, WAVE_TABLE_LEN> sine_wave_table{[]() {
         std::array<int16_t, WAVE_TABLE_LEN> table{};
         for (int i = 0; i < WAVE_TABLE_LEN; i++) {
             table[i] = static_cast<int16_t>(32767 *
@@ -33,8 +32,7 @@ __attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
         return table;
     }()};
 
-__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
-    cos_wave_table{[]() {
+const std::array<int16_t, WAVE_TABLE_LEN> cos_wave_table{[]() {
         std::array<int16_t, WAVE_TABLE_LEN> table{};
         for (int i = 0; i < WAVE_TABLE_LEN; i++) {
             table[i] = static_cast<int16_t>(32767 *
@@ -44,8 +42,7 @@ __attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
     }()};
 
 // Sinc Wavetable N = 32
-__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
-    sinc_table{[]() {
+const std::array<int16_t, WAVE_TABLE_LEN> sinc_table{[]() {
         std::array<int16_t, WAVE_TABLE_LEN> table{};
         int N = 32; // Window size
         for (int i = 0; i < WAVE_TABLE_LEN; i++) {
@@ -63,8 +60,7 @@ __attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
     }()};
 
 // Square Wavetable
-__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
-    square_wave_table{[]() {
+const std::array<int16_t, WAVE_TABLE_LEN> square_wave_table{[]() {
         std::array<int16_t, WAVE_TABLE_LEN> table{};
         for (int i = 0; i < WAVE_TABLE_LEN; i++) {
             table[i] = (i < WAVE_TABLE_LEN / 2) ? 32767 : -32767;
@@ -73,8 +69,7 @@ __attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
     }()};
 
 // Triangle Wavetable
-__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
-    triangle_wave_table{[]() {
+const std::array<int16_t, WAVE_TABLE_LEN> triangle_wave_table{[]() {
         std::array<int16_t, WAVE_TABLE_LEN> table{};
         for (int i = 0; i < WAVE_TABLE_LEN; i++) {
             float phase = static_cast<float>(i) / WAVE_TABLE_LEN;
@@ -89,8 +84,7 @@ __attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
     }()};
 
 // Sawtooth Wavetable
-__attribute__((section(".data"))) const std::array<int16_t, WAVE_TABLE_LEN>
-    sawtooth_wave_table{[]() {
+const std::array<int16_t, WAVE_TABLE_LEN> sawtooth_wave_table{[]() {
         std::array<int16_t, WAVE_TABLE_LEN> table{};
         for (int i = 0; i < WAVE_TABLE_LEN; i++) {
             float phase = static_cast<float>(i) / WAVE_TABLE_LEN;
@@ -168,8 +162,7 @@ const std::array<int16_t, WAVE_TABLE_LEN> u_wave_table{[]() {
     return table;
 }()};
 
-__attribute__((section(".data"))) const std::array<uint32_t, 128>
-    adsr_curve_table{[]() {
+const std::array<uint32_t, 128> adsr_curve_table{[]() {
         std::array<uint32_t, 128> table{};
         
         // Tuning parameters - adjust these easily

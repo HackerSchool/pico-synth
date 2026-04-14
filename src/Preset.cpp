@@ -469,11 +469,12 @@ PresetState PresetManager::default_state() {
     state.modal_patch.position = 34;
     state.modal_patch.exciter_type = ModalExciterType::SoftStrike;
 
-    state.fx[0] = {true, 250, 10000, 10000};
+    state.fx[0] = {false, 250, 10000, 10000};
     state.fx[1] = {false, 500, 200, 30000};
     state.fx[2] = {false, 300, 500, 30000};
     state.fx[3] = {false, 450, 32000, 32000};
     state.fx[4] = {false, 1000, 32000, 32000};
+    state.fx[5] = {true, 420, 6000, 32000};
 
     state.analog_enabled = false;
     state.analog_frequency_hundredths_hz = 10000;

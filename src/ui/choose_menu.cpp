@@ -10,6 +10,7 @@ constexpr UiState kVisibleChooseStates[] = {
     UI_STATE_MAIN,
     UI_STATE_FX_EDIT,
     UI_STATE_ANALOG,
+    UI_STATE_LFO,
     UI_STATE_MIDI_SETTINGS,
     UI_STATE_SEQUENCER,
     UI_STATE_SAMPLER,
@@ -39,7 +40,6 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
 
         // Handle encoder rotations (if needed for future features)
         if (UiHandler::encoder_moved(delta)) {
-            printf("D: %ld", delta);
             switch (i) {
             case 0:
                 // Could cycle through MIDI channels or other settings
@@ -123,6 +123,7 @@ void UiHandler::choose_handle_encoders(UiHandler &self) {
                     self.fm_edit_dirty = true;
                     self.karplus_edit_dirty = true;
                     self.modal_edit_dirty = true;
+                    self.lfo_dirty = true;
                     self.fx_dirty = true;
                     self.analog_dirty = true;
                 }

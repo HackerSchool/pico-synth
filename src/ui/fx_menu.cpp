@@ -85,7 +85,6 @@ void UiHandler::fx_handle_encoders(UiHandler &self) {
                 self.chosen_index = UI_STATE_FX_EDIT;
                 self.fx_dirty = true;
                 self.chosen_dirty = true;
-                printf("State: CHOOSE_STATE\n");
                 break;
             default:
                 break;

@@ -14,7 +14,6 @@ void FilterFIR::set_cutoff_freq(float freq_c) {
     cutoff_freq = q16_from_float(freq_c);
     // fc_norm = q16_to_q24(q16_div(cutoff_freq, fs) << 1);
     fc_norm = q24_from_float(freq_c / (44100.f / 2));
-    printf("%f\n", freq_c);
 
     // Calculate filter coefficients
     recalculate_coefficients();

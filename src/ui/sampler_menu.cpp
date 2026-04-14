@@ -71,7 +71,6 @@ void UiHandler::sampler_handle_encoders(UiHandler &self) {
                 self.chosen_index = UI_STATE_SAMPLER;
                 self.sampler_dirty = true;
                 self.chosen_dirty = true;
-                printf("State: CHOOSE_STATE\n");
                 break;
             }
         }

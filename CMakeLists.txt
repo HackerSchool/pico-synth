@@ -55,6 +55,10 @@ add_executable(${bin_name}
     src/main.cpp
 )
 
+target_link_options(${bin_name} PRIVATE
+    "-Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/${bin_name}.map"
+)
+
 # Some anoying erros I need to not show up
 target_compile_options(pico-synth PRIVATE 
     -Wno-error=redundant-decls
@@ -100,6 +104,7 @@ target_sources(${bin_name} PRIVATE
     src/synth/Modal.cpp
     src/synth/Filter.cpp
     src/synth/Delay.cpp
+    src/synth/Compressor.cpp
     src/synth/Distortion.cpp
     src/synth/Reverb.cpp
     src/synth/ReverbSc.cpp
@@ -119,6 +124,7 @@ target_sources(${bin_name} PRIVATE
     src/ui/modal_menu.cpp
     src/ui/fx_menu.cpp
     src/ui/analog_menu.cpp
+    src/ui/lfo_menu.cpp
 
 
     src/audio.c

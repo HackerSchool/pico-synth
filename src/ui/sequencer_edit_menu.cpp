@@ -58,8 +58,6 @@ void UiHandler::sequencer_note_edit_handle_switches(UiHandler &self) {
                                 MAX_STEPS - 1; // Wrap around
                         }
                         self.sequencer_dirty = true;
-                        printf("Previous step: %d\n",
-                               self.current_sequencer_step);
                     }
 
                     else if (self.octave > -5) {
@@ -72,7 +70,6 @@ void UiHandler::sequencer_note_edit_handle_switches(UiHandler &self) {
                         self.current_sequencer_step =
                             (self.current_sequencer_step + 1) % MAX_STEPS;
                         self.sequencer_dirty = true;
-                        printf("Next step: %d\n", self.current_sequencer_step);
                     } else if (self.octave < 4) {
                         self.octave++;
                         self.channel_dirty = true;
@@ -113,7 +110,6 @@ void UiHandler::sequencer_note_edit_handle_encoders(UiHandler &self) {
                     (self.midi_channel + UiHandler::encoder_velocity_delta(delta, 1, 2, 4) + 16) & 0x0F);
                 self.channel_dirty = true;
                 self.sequencer_dirty = true;
-                printf("MIDI Channel: %d\n", self.midi_channel + 1);
                 break;
 
             case 1: // Reserved for future use
@@ -134,10 +130,8 @@ void UiHandler::sequencer_note_edit_handle_encoders(UiHandler &self) {
                 self.sequencer_playing = !self.sequencer_playing;
                 if (self.sequencer_playing) {
                     sequencer.pause();
-                    printf("Sequencer paused\n");
                 } else {
                     sequencer.play();
-                    printf("Sequencer playing\n");
                 }
                 self.sequencer_dirty = true;
                 break;
@@ -145,22 +139,18 @@ void UiHandler::sequencer_note_edit_handle_encoders(UiHandler &self) {
             case 1: // Toggle Auto-stepping
                 self.auto_stepping_enabled = !self.auto_stepping_enabled;
                 self.sequencer_dirty = true;
-                printf("Auto-stepping: %s\n",
-                       self.auto_stepping_enabled ? "ON" : "OFF");
                 break;
 
             case 2:                                   // Next Sequencer Menu
                 self.release_all_tracked_switch_notes();
                 self.ui_state = UI_STATE_SEQUENCER;   // or whatever the next
                 self.sequencer_settings_dirty = true; // sequencer menu is
-                printf("State: SEQUENCER_TEMPO\n");
                 break;
 
             case 3: // Go to next menu (back to main?)
                 self.release_all_tracked_switch_notes();
                 self.ui_state = UI_STATE_CHOOSE;
                 self.chosen_index = UI_STATE_SEQUENCER;
-                printf("State: MAIN\n");
                 self.chosen_dirty = true;
                 self.channel_dirty = true;
                 self.filter_dirty = true;
@@ -214,5 +204,4 @@ void UiHandler::sequencer_note_edit_enter(UiHandler &self) {
     self.current_sequencer_step = 0;
     self.auto_stepping_enabled = false;
     self.sequencer_dirty = true;
-    printf("Entered sequencer note edit mode\n");
 }

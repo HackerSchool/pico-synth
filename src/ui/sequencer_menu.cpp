@@ -26,7 +26,6 @@ void UiHandler::sequencer_handle_encoders(UiHandler &self) {
                 }
                 sequencer.set_tempo(self.display_tempo);
                 self.sequencer_settings_dirty = true;
-                printf("Tempo: %ld BPM\n", self.display_tempo);
                 break;
             case 1:
                 // Could be used for swing or other parameters in the future
@@ -45,10 +44,8 @@ void UiHandler::sequencer_handle_encoders(UiHandler &self) {
                 self.sequencer_playing = !self.sequencer_playing;
                 if (self.sequencer_playing) {
                     sequencer.play();
-                    printf("Sequencer: PLAY\n");
                 } else {
                     sequencer.pause();
-                    printf("Sequencer: PAUSE\n");
                 }
                 self.sequencer_settings_dirty = true;
                 break;
@@ -57,18 +54,15 @@ void UiHandler::sequencer_handle_encoders(UiHandler &self) {
                 sequencer.play_from_step(0);
                 self.display_current_step = 0;
                 self.sequencer_settings_dirty = true;
-                printf("Sequencer: Reset to step 1\n");
                 break;
             case 2:
                 self.ui_state = UI_STATE_SEQUENCER_EDIT;
                 self.sequencer_dirty = true;
-                printf("State: STATE_SEQUENCER_EDIT\n");
                 break;
             case 3:
                 // Exit back to main menu
                 self.ui_state = UI_STATE_CHOOSE;
                 self.chosen_index = UI_STATE_SEQUENCER;
-                printf("State: CHOOSE_STATE\n");
                 self.chosen_dirty = true;
                 self.channel_dirty = true;
                 self.filter_dirty = true;

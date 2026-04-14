@@ -41,7 +41,6 @@ void UiHandler::main_handle_switches(UiHandler &self) {
                 // if (self.midi_out)
                 //     midi.midi_send_note(note, 12 * self.octave, 127, true);
             } else {
-                printf("Change Octave button: %d", i);
                 switch (i) {
                 case 0:
                     if (self.octave > -5) {
@@ -219,7 +218,6 @@ void UiHandler::main_handle_encoders(UiHandler &self) {
                 self.chosen_index = UI_STATE_MAIN;
                 self.main_dirty = true;
                 self.chosen_dirty = true;
-                printf("State: CHOOSE_STATE");
             }
         }
     }

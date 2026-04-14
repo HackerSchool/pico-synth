@@ -157,6 +157,10 @@ class HardwareManager {
     void draw_fx_menu(int fx_id, bool enabled, int p1, int p2, int mix);
     void draw_analog_menu(bool enabled, uint16_t frequency_hundredths_hz,
                           uint16_t dispersion_hundredths_percent);
+    void draw_lfo_menu(uint8_t selected_lfo, uint8_t total_lfos,
+                       const char *engine_name, const char *route_name,
+                       WaveType wave_type, uint16_t frequency_hundredths_hz,
+                       uint16_t depth_hundredths_percent);
 
     void display_show();
     void display_clear();

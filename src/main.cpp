@@ -215,6 +215,7 @@ int main() {
     sampler.load_sample(1, "snare.wav");
     sampler.load_sample(2, "closehat.wav");
     sampler.load_sample(3, "crash.wav");
+    sampler.load_sample(4, "kick.wav");
 
     static MidiHandler midi_handler(midi_queue);
 
@@ -266,7 +267,8 @@ int main() {
                 sampler.trigger_player(2); // Trigger hihat
             if (c == '4')
                 sampler.trigger_player(3); // Trigger crash
-            printf("Yo\n\r");
+            if (c == '5')
+                sampler.trigger_player(4); // Trigger kick
         }
     }
 
